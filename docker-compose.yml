@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: agroconecta_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agroconecta
+      POSTGRES_USER: agroconecta_user
+      POSTGRES_PASSWORD: agroconecta_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agroconecta_user -d agroconecta"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agroconecta_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: agroconecta_backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: agroconecta
+      DB_USER: agroconecta_user
+      DB_PASSWORD: agroconecta_pass
+      PORT: 8080
+      NODE_ENV: development
+      JWT_SECRET: agroconecta_jwt_secret_dev_2026
+      JWT_EXPIRES_IN: 30m
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - agroconecta_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agroconecta_frontend
+    restart: unless-stopped
+    environment:
+      REACT_APP_API_URL: http://localhost:8080/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - agroconecta_net
+
+  adminer:
+    image: adminer:latest
+    container_name: agroconecta_adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+    networks:
+      - agroconecta_net
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  agroconecta_net:
+    driver: bridge
