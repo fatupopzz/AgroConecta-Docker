@@ -70,6 +70,10 @@ AgroConecta-Docker/
     └── package.json
 ```
 
+## Video de demostración
+
+https://youtu.be/FYurMSCdaw0
+
 ## Repositorio principal del proyecto
 
 https://github.com/Juanjoo-Alvarez/Software1_AgroConecta
