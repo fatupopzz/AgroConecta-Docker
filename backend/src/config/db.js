@@ -34,28 +34,17 @@ const pool = new Pool({
   password: dbPassword,
 });
 
-let isShuttingDown = false;
-
-const shutdownPoolAndExit = (err) => {
-  console.error("Error en el pool de PostgreSQL:", err);
-  if (isShuttingDown) return;
-  isShuttingDown = true;
-  pool
-    .end()
-    .catch((shutdownErr) => {
-      console.error("Error al cerrar el pool durante el apagado:", shutdownErr);
-    })
-    .finally(() => {
-      process.exit(1);
-    });
-};
-
 pool.once("connect", () => {
   console.log("Conectado a PostgreSQL");
 });
 
 pool.on("error", (err) => {
-  shutdownPoolAndExit(err);
+  console.error("Error en el pool de PostgreSQL:", err);
 });
 
-module.exports = pool;
+const shutdownPool = async () => {
+  await pool.end();
+  console.log("Pool de PostgreSQL cerrado.");
+};
+
+module.exports = { pool, shutdownPool };
