@@ -6,13 +6,8 @@ const {
   getCategories,
 } = require("../controllers/product.controller");
 
-// GET /api/products — lista paginada con filtros
-router.get("/", getProducts);
-
-// GET /api/products/:id — detalle completo
-router.get("/:id", getProductById);
-
-// GET /api/categories — lista de categorías
 router.get("/categories", getCategories);
+router.get("/", getProducts);
+router.get("/:id", getProductById);
 
 module.exports = router;
