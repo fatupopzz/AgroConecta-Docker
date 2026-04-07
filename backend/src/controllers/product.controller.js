@@ -1,47 +1,67 @@
 const { pool } = require("../config/db");
 
-// GET /api/products
 const getProducts = async (req, res) => {
   try {
     const { nombre, id_categoria, page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * limit;
 
-    let query = `
-      SELECT p.id_producto, p.nombre, p.marca, p.descripcion,
-             p.calificacion_promedio, c.nombre AS categoria,
-             i.precio, i.stock_disponible, i.unidad_medida,
-             d.nombre_negocio AS distribuidor
-      FROM producto p
-      JOIN categoria c ON p.id_categoria = c.id_categoria
-      JOIN inventario_distribuidor i ON p.id_producto = i.id_producto
-      JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
-      WHERE p.activo = true
-    `;
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
 
+    if (
+      isNaN(pageNumber) ||
+      pageNumber < 1 ||
+      isNaN(limitNumber) ||
+      limitNumber < 1 ||
+      limitNumber > 100
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Parámetros de paginación inválidos" });
+    }
+
+    const offset = (pageNumber - 1) * limitNumber;
     const params = [];
+    let whereClause = " WHERE p.activo = true";
 
     if (nombre) {
       params.push(`%${nombre}%`);
-      query += ` AND p.nombre ILIKE $${params.length}`;
+      whereClause += ` AND p.nombre ILIKE $${params.length}`;
     }
 
     if (id_categoria) {
-      params.push(id_categoria);
-      query += ` AND p.id_categoria = $${params.length}`;
+      const catId = parseInt(id_categoria);
+      if (isNaN(catId))
+        return res.status(400).json({ error: "id_categoria inválido" });
+      params.push(catId);
+      whereClause += ` AND p.id_categoria = $${params.length}`;
     }
 
-    params.push(limit);
-    query += ` LIMIT $${params.length}`;
+    const countResult = await pool.query(
+      `SELECT COUNT(*) AS total FROM producto p ${whereClause}`,
+      params,
+    );
 
-    params.push(offset);
-    query += ` OFFSET $${params.length}`;
-
-    const result = await pool.query(query, params);
+    const queryParams = [...params, limitNumber, offset];
+    const result = await pool.query(
+      `SELECT p.id_producto, p.nombre, p.marca, p.descripcion,
+              p.calificacion_promedio, c.nombre AS categoria,
+              MIN(i.precio) AS precio_desde,
+              COUNT(DISTINCT i.id_distribuidor) AS num_distribuidores
+       FROM producto p
+       JOIN categoria c ON p.id_categoria = c.id_categoria
+       LEFT JOIN inventario_distribuidor i ON p.id_producto = i.id_producto
+       ${whereClause}
+       GROUP BY p.id_producto, p.nombre, p.marca, p.descripcion,
+                p.calificacion_promedio, c.nombre
+       ORDER BY p.id_producto ASC
+       LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
+      queryParams,
+    );
 
     res.json({
-      page: Number(page),
-      limit: Number(limit),
-      total: result.rowCount,
+      page: pageNumber,
+      limit: limitNumber,
+      total: Number(countResult.rows[0].total),
       products: result.rows,
     });
   } catch (error) {
@@ -50,36 +70,46 @@ const getProducts = async (req, res) => {
   }
 };
 
-// GET /api/products/:id
 const getProductById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id < 1) {
+      return res.status(400).json({ error: "ID de producto inválido" });
+    }
 
-    const result = await pool.query(
-      `SELECT p.*, c.nombre AS categoria,
-              i.precio, i.stock_disponible, i.unidad_medida,
-              d.nombre_negocio AS distribuidor,
-              d.calificacion_promedio AS calificacion_distribuidor
+    const producto = await pool.query(
+      `SELECT p.*, c.nombre AS categoria
        FROM producto p
        JOIN categoria c ON p.id_categoria = c.id_categoria
-       JOIN inventario_distribuidor i ON p.id_producto = i.id_producto
-       JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
        WHERE p.id_producto = $1 AND p.activo = true`,
       [id],
     );
 
-    if (result.rows.length === 0) {
+    if (producto.rows.length === 0) {
       return res.status(404).json({ error: "Producto no encontrado" });
     }
 
-    res.json(result.rows[0]);
+    const ofertas = await pool.query(
+      `SELECT i.precio, i.stock_disponible, i.unidad_medida,
+              d.nombre_negocio AS distribuidor,
+              d.calificacion_promedio AS calificacion_distribuidor
+       FROM inventario_distribuidor i
+       JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
+       WHERE i.id_producto = $1
+       ORDER BY i.precio ASC`,
+      [id],
+    );
+
+    res.json({
+      ...producto.rows[0],
+      ofertas: ofertas.rows,
+    });
   } catch (error) {
     console.error("Error en getProductById:", error);
     res.status(500).json({ error: "Error al obtener el producto" });
   }
 };
 
-// GET /api/categories
 const getCategories = async (req, res) => {
   try {
     const result = await pool.query(
