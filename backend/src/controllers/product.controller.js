@@ -37,7 +37,10 @@ const getProducts = async (req, res) => {
     }
 
     const countResult = await pool.query(
-      `SELECT COUNT(*) AS total FROM producto p ${whereClause}`,
+      `SELECT COUNT(*) AS total 
+   FROM producto p
+   JOIN categoria c ON p.id_categoria = c.id_categoria
+   ${whereClause}`,
       params,
     );
 
