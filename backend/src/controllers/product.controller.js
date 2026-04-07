@@ -29,18 +29,19 @@ const getProducts = async (req, res) => {
     }
 
     if (id_categoria) {
-      const catId = parseInt(id_categoria);
-      if (isNaN(catId))
+      if (!/^[1-9]\d*$/.test(id_categoria)) {
         return res.status(400).json({ error: "id_categoria inválido" });
+      }
+      const catId = Number(id_categoria);
       params.push(catId);
       whereClause += ` AND p.id_categoria = $${params.length}`;
     }
 
     const countResult = await pool.query(
-      `SELECT COUNT(*) AS total 
-   FROM producto p
-   JOIN categoria c ON p.id_categoria = c.id_categoria
-   ${whereClause}`,
+      `SELECT COUNT(*) AS total
+       FROM producto p
+       JOIN categoria c ON p.id_categoria = c.id_categoria
+       ${whereClause}`,
       params,
     );
 
@@ -75,10 +76,10 @@ const getProducts = async (req, res) => {
 
 const getProductById = async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id) || id < 1) {
+    if (!/^[1-9]\d*$/.test(req.params.id)) {
       return res.status(400).json({ error: "ID de producto inválido" });
     }
+    const id = Number(req.params.id);
 
     const producto = await pool.query(
       `SELECT p.*, c.nombre AS categoria
