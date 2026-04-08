@@ -8,6 +8,7 @@
 
 const router = require("express").Router();
 const { pool } = require("../config/db");
+const { getVerifiedDistributors } = require("../controllers/distributor.controller");
 
 /**
  * POST /api/distributors/register
@@ -94,6 +95,20 @@ router.post("/register", async (req, res) => {
     client.release();
   }
 });
+
+/**
+ * GET /api/distributors
+ *
+ * Retorna la lista de distribuidores verificados únicamente.
+ * Distribuidores con estado "pendiente" o "suspendido" no aparecen.
+ *
+ * @route   GET /api/distributors
+ * @access  Público
+ *
+ * @returns {200} Lista de distribuidores verificados
+ * @returns {500} Error interno del servidor
+ */
+router.get("/", getVerifiedDistributors);
 
 module.exports = router;
 
