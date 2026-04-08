@@ -170,7 +170,8 @@ const createProduct = async (req, res) => {
     return res.status(400).json({ error: "Nombre de producto inválido" });
   }
 
-  if (Number.isNaN(Number(precio)) || Number(precio) <= 0) {
+  const precioNumber = Number(precio);
+  if (!Number.isFinite(precioNumber) || precioNumber <= 0) {
     return res.status(400).json({ error: "Precio inválido" });
   }
 
@@ -182,9 +183,10 @@ const createProduct = async (req, res) => {
     return res.status(400).json({ error: "Unidad de medida inválida" });
   }
 
-  const client = await pool.connect();
+  let client;
 
   try {
+    client = await pool.connect();
     await client.query("BEGIN");
 
     const distributorResult = await client.query(
@@ -246,7 +248,7 @@ const createProduct = async (req, res) => {
       [
         Number(id_distribuidor),
         producto.id_producto,
-        Number(precio),
+        precioNumber,
         Number(stock_disponible),
         unidad_medida.trim(),
       ],
@@ -260,11 +262,20 @@ const createProduct = async (req, res) => {
       inventario: inventoryResult.rows[0],
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Error en ROLLBACK createProduct:", rollbackError);
+      }
+    }
+
     console.error("Error en createProduct:", error);
     return res.status(500).json({ error: "Error al publicar producto" });
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 };
 
@@ -282,8 +293,10 @@ const updateInventory = async (req, res) => {
     });
   }
 
+  const precioNumber = precio !== undefined ? Number(precio) : undefined;
+
   if (precio !== undefined) {
-    if (Number.isNaN(Number(precio)) || Number(precio) <= 0) {
+    if (!Number.isFinite(precioNumber) || precioNumber <= 0) {
       return res.status(400).json({ error: "Precio inválido" });
     }
   }
@@ -305,7 +318,7 @@ const updateInventory = async (req, res) => {
                  stock_disponible, unidad_medida, ultima_actualizacion`,
       [
         Number(id),
-        precio !== undefined ? Number(precio) : null,
+        precio !== undefined ? precioNumber : null,
         stock_disponible !== undefined ? Number(stock_disponible) : null,
       ],
     );
@@ -333,14 +346,17 @@ const getDistributorProducts = async (req, res) => {
 
   try {
     const distributorResult = await pool.query(
-      `SELECT id_distribuidor, nombre_negocio, estado_verificacion, departamento
+      `SELECT id_distribuidor, nombre_negocio, departamento
        FROM distribuidor
-       WHERE id_distribuidor = $1`,
+       WHERE id_distribuidor = $1
+         AND estado_verificacion = 'verificado'`,
       [Number(id)],
     );
 
     if (distributorResult.rows.length === 0) {
-      return res.status(404).json({ error: "Distribuidor no encontrado" });
+      return res.status(404).json({
+        error: "Distribuidor no encontrado o no verificado",
+      });
     }
 
     const productsResult = await pool.query(
