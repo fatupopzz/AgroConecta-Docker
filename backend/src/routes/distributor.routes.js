@@ -9,6 +9,7 @@
 const router = require("express").Router();
 const { pool } = require("../config/db");
 const { getVerifiedDistributors } = require("../controllers/distributor.controller");
+const { getDistributorProducts } = require("../controllers/product.controller");
 
 /**
  * POST /api/distributors/register
@@ -110,5 +111,18 @@ router.post("/register", async (req, res) => {
  */
 router.get("/", getVerifiedDistributors);
 
-module.exports = router;
+/**
+ * GET /api/distributors/:id/products
+ *
+ * Retorna los productos publicados por un distribuidor específico.
+ *
+ * @route   GET /api/distributors/:id/products
+ * @access  Público
+ *
+ * @returns {200} Lista de productos del distribuidor
+ * @returns {404} Distribuidor no encontrado
+ * @returns {500} Error interno del servidor
+ */
+router.get("/:id/products", getDistributorProducts);
 
+module.exports = router;
