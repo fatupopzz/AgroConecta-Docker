@@ -2,12 +2,20 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+const verifyToken = require("./src/middleware/authMiddleware");
 
 app.use(express.json());
-
+ 
 // Rutas
 const authRoutes = require("./src/routes/authRoutes");
 app.use("/api/auth", authRoutes);
+
+app.get("/api/protected", verifyToken, (req, res) => {
+  res.json({
+    message: "Ruta protegida",
+    user: req.user,
+  });
+});
 
 
 // app.get("/health", (req, res) => {
