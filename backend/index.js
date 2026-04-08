@@ -1,13 +1,19 @@
-const express = require('express');
+const express = require("express");
+const { shutdownPool } = require("./src/config/db");
+
+const productRoutes = require("./src/routes/product.routes");
+const categoryRoutes = require("./src/routes/category.routes");
+const distributorRoutes = require("./src/routes/distributor.routes");
+const adminRoutes = require("./src/routes/admin.routes");
+
+const authRoutes = require("./src/routes/authRoutes");
+const verifyToken = require("./src/middleware/authMiddleware");
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-const verifyToken = require("./src/middleware/authMiddleware");
-
 app.use(express.json());
- 
-// Rutas
-const authRoutes = require("./src/routes/authRoutes");
+
 app.use("/api/auth", authRoutes);
 
 app.get("/api/protected", verifyToken, (req, res) => {
@@ -18,21 +24,23 @@ app.get("/api/protected", verifyToken, (req, res) => {
 });
 
 
-// app.get("/health", (req, res) => {
-//   res.send("OK");
-// });
+app.use("/api/admin", adminRoutes);
 
-// app.get("/test-db", async (req, res) => {
-//   try {
-//     const result = await pool.query("SELECT NOW()");
-//     res.json(result.rows);
-//   } catch (err) {
-//     console.error("ERROR DB:", err.message);
-//     res.status(500).send(err.message);
-//   }
-// });
 
+app.use("/api/products", productRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/distributors", distributorRoutes);
+
+
+app.get("/", (req, res) => {
+  res.json({ status: "AgroConecta Backend corriendo", version: "1.0.0" });
+});
 
 app.listen(PORT, () => {
   console.log(`Backend AgroConecta escuchando en puerto ${PORT}`);
+});
+
+process.on("SIGTERM", async () => {
+  await shutdownPool();
+  process.exit(0);
 });
