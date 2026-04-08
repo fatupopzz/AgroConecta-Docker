@@ -23,6 +23,8 @@ services:
       - agroconecta_net
 
   backend:
+    env_file:
+    - ./backend/.env
     build:
       context: ./backend
       dockerfile: Dockerfile
