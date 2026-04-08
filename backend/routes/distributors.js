@@ -72,7 +72,11 @@ router.post('/register', async (req, res) => {
       distribuidor: distResult.rows[0],
     });
   } catch (err) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('Error al ejecutar ROLLBACK:', rollbackErr);
+    }
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Teléfono, email o NIT ya registrado' });
     }
