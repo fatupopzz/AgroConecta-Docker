@@ -111,7 +111,7 @@ const addItem = async (req, res) => {
 
 // PATCH /api/cart/:id_agricultor/items/:id_item
 const updateItem = async (req, res) => {
-  const { id_item } = req.params;
+  const { id_item, id_agricultor } = req.params;
   const { cantidad } = req.body;
 
   if (!isPositiveInteger(id_item)) {
@@ -121,28 +121,44 @@ const updateItem = async (req, res) => {
     return res.status(400).json({ error: "cantidad inválida" });
   }
 
+  let client;
   try {
-    const invCheck = await pool.query(
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const invCheck = await client.query(
       `SELECT i.stock_disponible FROM item_carrito ic
        JOIN inventario_distribuidor i ON ic.id_inventario = i.id_inventario
        WHERE ic.id_item = $1`,
       [Number(id_item)],
     );
     if (invCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Item no encontrado" });
     }
     if (invCheck.rows[0].stock_disponible < Number(cantidad)) {
+      await client.query("ROLLBACK");
       return res.status(400).json({ error: "Stock insuficiente" });
     }
 
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE item_carrito SET cantidad = $2 WHERE id_item = $1 RETURNING *`,
       [Number(id_item), Number(cantidad)],
     );
+
+    await client.query(
+      `UPDATE carrito SET fecha_actualizacion = NOW() WHERE id_carrito = $1`,
+      [result.rows[0].id_carrito],
+    );
+
+    await client.query("COMMIT");
     return res.json({ message: "Item actualizado", item: result.rows[0] });
   } catch (error) {
+    if (client) await client.query("ROLLBACK");
     console.error("Error en updateItem:", error);
     return res.status(500).json({ error: "Error al actualizar item" });
+  } finally {
+    if (client) client.release();
   }
 };
 
@@ -152,22 +168,38 @@ const removeItem = async (req, res) => {
   if (!isPositiveInteger(id_item)) {
     return res.status(400).json({ error: "id_item inválido" });
   }
+  let client;
   try {
-    const result = await pool.query(
-      `DELETE FROM item_carrito WHERE id_item = $1 RETURNING *`,
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const item = await client.query(
+      `SELECT id_carrito FROM item_carrito WHERE id_item = $1`,
       [Number(id_item)],
     );
-    if (result.rows.length === 0) {
+    if (item.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Item no encontrado" });
     }
+
+    await client.query(`DELETE FROM item_carrito WHERE id_item = $1`, [
+      Number(id_item),
+    ]);
+    await client.query(
+      `UPDATE carrito SET fecha_actualizacion = NOW() WHERE id_carrito = $1`,
+      [item.rows[0].id_carrito],
+    );
+
+    await client.query("COMMIT");
     return res.json({ message: "Item eliminado" });
   } catch (error) {
+    if (client) await client.query("ROLLBACK");
     console.error("Error en removeItem:", error);
     return res.status(500).json({ error: "Error al eliminar item" });
+  } finally {
+    if (client) client.release();
   }
-};
-
-// DELETE /api/cart/:id_agricultor
+}; // DELETE /api/cart/:id_agricultor
 const clearCart = async (req, res) => {
   const { id_agricultor } = req.params;
   if (!isPositiveInteger(id_agricultor)) {
