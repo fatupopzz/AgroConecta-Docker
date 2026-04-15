@@ -120,6 +120,9 @@ const updateItem = async (req, res) => {
   if (!isPositiveInteger(id_item)) {
     return res.status(400).json({ error: "id_item inválido" });
   }
+  if (!isPositiveInteger(id_agricultor)) {
+    return res.status(400).json({ error: "id_agricultor inválido" });
+  }
   if (!isPositiveInteger(cantidad)) {
     return res.status(400).json({ error: "cantidad inválida" });
   }
@@ -132,8 +135,9 @@ const updateItem = async (req, res) => {
     const invCheck = await client.query(
       `SELECT i.stock_disponible FROM item_carrito ic
        JOIN inventario_distribuidor i ON ic.id_inventario = i.id_inventario
-       WHERE ic.id_item = $1`,
-      [Number(id_item)],
+       JOIN carrito c ON ic.id_carrito = c.id_carrito
+       WHERE ic.id_item = $1 AND c.id_agricultor = $2`,
+      [Number(id_item), Number(id_agricultor)],
     );
     if (invCheck.rows.length === 0) {
       await client.query("ROLLBACK");
@@ -148,7 +152,6 @@ const updateItem = async (req, res) => {
       `UPDATE item_carrito SET cantidad = $2 WHERE id_item = $1 RETURNING *`,
       [Number(id_item), Number(cantidad)],
     );
-
     await client.query(
       `UPDATE carrito SET fecha_actualizacion = NOW() WHERE id_carrito = $1`,
       [result.rows[0].id_carrito],
@@ -167,18 +170,25 @@ const updateItem = async (req, res) => {
 
 // DELETE /api/cart/:id_agricultor/items/:id_item
 const removeItem = async (req, res) => {
-  const { id_item } = req.params;
+  const { id_item, id_agricultor } = req.params;
+
   if (!isPositiveInteger(id_item)) {
     return res.status(400).json({ error: "id_item inválido" });
   }
+  if (!isPositiveInteger(id_agricultor)) {
+    return res.status(400).json({ error: "id_agricultor inválido" });
+  }
+
   let client;
   try {
     client = await pool.connect();
     await client.query("BEGIN");
 
     const item = await client.query(
-      `SELECT id_carrito FROM item_carrito WHERE id_item = $1`,
-      [Number(id_item)],
+      `SELECT ic.id_carrito FROM item_carrito ic
+       JOIN carrito c ON ic.id_carrito = c.id_carrito
+       WHERE ic.id_item = $1 AND c.id_agricultor = $2`,
+      [Number(id_item), Number(id_agricultor)],
     );
     if (item.rows.length === 0) {
       await client.query("ROLLBACK");
