@@ -202,7 +202,9 @@ const removeItem = async (req, res) => {
   } finally {
     if (client) client.release();
   }
-}; // DELETE /api/cart/:id_agricultor
+};
+
+// DELETE /api/cart/:id_agricultor
 const clearCart = async (req, res) => {
   const { id_agricultor } = req.params;
   if (!isPositiveInteger(id_agricultor)) {
