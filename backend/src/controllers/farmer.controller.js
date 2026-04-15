@@ -65,10 +65,10 @@ const upsertFarmerProfile = async (req, res) => {
       `INSERT INTO agricultor (id_usuario, departamento, municipio, tipo_agricultor, tamano_terreno_ha, cultivos_principales)
        VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (id_usuario) DO UPDATE
-         SET departamento        = COALESCE(EXCLUDED.departamento, agricultor.departamento),
-             municipio           = COALESCE(EXCLUDED.municipio, agricultor.municipio),
-             tipo_agricultor     = COALESCE(EXCLUDED.tipo_agricultor, agricultor.tipo_agricultor),
-             tamano_terreno_ha   = COALESCE(EXCLUDED.tamano_terreno_ha, agricultor.tamano_terreno_ha),
+         SET departamento         = COALESCE(EXCLUDED.departamento, agricultor.departamento),
+             municipio            = COALESCE(EXCLUDED.municipio, agricultor.municipio),
+             tipo_agricultor      = COALESCE(EXCLUDED.tipo_agricultor, agricultor.tipo_agricultor),
+             tamano_terreno_ha    = COALESCE(EXCLUDED.tamano_terreno_ha, agricultor.tamano_terreno_ha),
              cultivos_principales = COALESCE(EXCLUDED.cultivos_principales, agricultor.cultivos_principales)
        RETURNING id_agricultor, id_usuario, departamento, municipio,
                  tipo_agricultor, tamano_terreno_ha, cultivos_principales, tiene_membresia`,
@@ -83,9 +83,8 @@ const upsertFarmerProfile = async (req, res) => {
     );
 
     const perfil = result.rows[0];
-    const isNew = perfil.id_agricultor !== undefined;
 
-    return res.status(isNew ? 201 : 200).json({
+    return res.status(201).json({
       message: "Perfil guardado exitosamente.",
       perfil,
     });
@@ -95,4 +94,79 @@ const upsertFarmerProfile = async (req, res) => {
   }
 };
 
-module.exports = { upsertFarmerProfile };
+/**
+ * GET /api/farmers/profile/:id
+ *
+ * Retorna el perfil de un agricultor por su id_agricultor.
+ * Solo el agricultor autenticado puede ver su propio perfil.
+ * El id del token se compara contra el id_usuario del perfil encontrado.
+ *
+ * @route   GET /api/farmers/profile/:id
+ * @access  Privado (agricultor autenticado)
+ *
+ * @param  {number} id - ID del agricultor (id_agricultor)
+ *
+ * @returns {200} Perfil del agricultor
+ * @returns {400} ID inválido
+ * @returns {403} No autorizado para ver este perfil
+ * @returns {404} Perfil no encontrado
+ * @returns {500} Error interno del servidor
+ */
+const getFarmerProfile = async (req, res) => {
+  const { id: userId, tipo } = req.user;
+
+  if (tipo !== "agricultor") {
+    return res.status(403).json({
+      error: "Solo los agricultores pueden acceder a este perfil",
+    });
+  }
+
+  if (!/^[1-9]\d*$/.test(req.params.id)) {
+    return res.status(400).json({ error: "ID de agricultor inválido" });
+  }
+
+  const id = Number(req.params.id);
+
+  try {
+    const result = await pool.query(
+      `SELECT
+         a.id_agricultor,
+         a.departamento,
+         a.municipio,
+         a.tipo_agricultor,
+         a.tamano_terreno_ha,
+         a.cultivos_principales,
+         a.tiene_membresia,
+         u.nombre,
+         u.telefono,
+         u.email,
+         u.fecha_registro
+       FROM agricultor a
+       JOIN usuario u ON u.id_usuario = a.id_usuario
+       WHERE a.id_agricultor = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Perfil no encontrado" });
+    }
+
+    const ownerCheck = await pool.query(
+      `SELECT id_usuario FROM agricultor WHERE id_agricultor = $1`,
+      [id]
+    );
+
+    if (ownerCheck.rows[0].id_usuario !== userId) {
+      return res.status(403).json({
+        error: "No autorizado para ver este perfil",
+      });
+    }
+
+    return res.status(200).json({ perfil: result.rows[0] });
+  } catch (error) {
+    console.error("Error en getFarmerProfile:", error);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+module.exports = { upsertFarmerProfile, getFarmerProfile };
