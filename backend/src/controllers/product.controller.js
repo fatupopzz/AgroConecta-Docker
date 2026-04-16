@@ -117,17 +117,17 @@ const getProductById = async (req, res) => {
   }
 };
 
-const getCategories = async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM categoria ORDER BY nombre ASC",
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error("Error en getCategories:", error);
-    res.status(500).json({ error: "Error al obtener categorías" });
-  }
-};
+// const getCategories = async (req, res) => {
+//   try {
+//     const result = await pool.query(
+//       "SELECT * FROM categoria ORDER BY nombre ASC",
+//     );
+//     res.json(result.rows);
+//   } catch (error) {
+//     console.error("Error en getCategories:", error);
+//     res.status(500).json({ error: "Error al obtener categorías" });
+//   }
+// };
 
 const createProduct = async (req, res) => {
   const {
@@ -395,7 +395,6 @@ const getDistributorProducts = async (req, res) => {
 module.exports = {
   getProducts,
   getProductById,
-  getCategories,
   createProduct,
   updateInventory,
   getDistributorProducts,
