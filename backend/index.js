@@ -1,12 +1,8 @@
 const express = require("express");
 const { shutdownPool } = require("./src/config/db");
 
-const productRoutes = require("./src/routes/product.routes");
+const productRoutes = require("./src/routes/productRoutes");
 const categoryRoutes = require("./src/routes/categoryRoutes");
-const distributorRoutes = require("./src/routes/distributor.routes");
-const adminRoutes = require("./src/routes/admin.routes");
-const inventoryRoutes = require("./src/routes/inventory.routes");
-
 const authRoutes = require("./src/routes/authRoutes");
 const verifyToken = require("./src/middleware/authMiddleware");
 
@@ -25,13 +21,9 @@ app.get("/api/protected", verifyToken, (req, res) => {
 });
 
 
-app.use("/api/admin", adminRoutes);
-
 
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
-app.use("/api/distributors", distributorRoutes);
-app.use("/api/inventory", inventoryRoutes);
 
 app.get("/", (req, res) => {
   res.json({ status: "AgroConecta Backend corriendo", version: "1.0.0" });
