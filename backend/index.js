@@ -31,7 +31,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/distributors", distributorRoutes);
 app.use("/api/inventory", inventoryRoutes);
-app.use("/api/cart", cartRoutes);
+app.use("/api/cart", verifyToken, cartRoutes);
 
 app.get("/", (req, res) => {
   res.json({ status: "AgroConecta Backend corriendo", version: "1.0.0" });
