@@ -5,10 +5,19 @@ const isNonNegativeInteger = (value) => /^\d+$/.test(String(value));
 
 const getProducts = async (req, res) => {
   try {
-    const { nombre, id_categoria, page = 1, limit = 10 } = req.query;
+    const {
+      nombre,
+      id_categoria,
+      marca,
+      precio_min,
+      precio_max,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
     const pageNumber = parseInt(page);
     const limitNumber = parseInt(limit);
+    const offset = (pageNumber - 1) * limitNumber;
 
     if (
       isNaN(pageNumber) ||
@@ -22,9 +31,9 @@ const getProducts = async (req, res) => {
         .json({ error: "Parámetros de paginación inválidos" });
     }
 
-    const offset = (pageNumber - 1) * limitNumber;
     const params = [];
     let whereClause = " WHERE p.activo = true";
+    let havingClause = "";
 
     if (nombre) {
       params.push(`%${nombre}%`);
@@ -39,11 +48,39 @@ const getProducts = async (req, res) => {
       whereClause += ` AND p.id_categoria = $${params.length}`;
     }
 
+    if (marca) {
+      params.push(`%${marca}%`);
+      whereClause += ` AND p.marca ILIKE $${params.length}`;
+    }
+
+    if (precio_min) {
+      const min = Number(precio_min);
+      if (isNaN(min) || min < 0) {
+        return res.status(400).json({ error: "precio_min inválido" });
+      }
+      params.push(min);
+      havingClause += `${havingClause ? " AND" : " HAVING"} MIN(i.precio) >= $${params.length}`;
+    }
+
+    if (precio_max) {
+      const max = Number(precio_max);
+      if (isNaN(max) || max < 0) {
+        return res.status(400).json({ error: "precio_max inválido" });
+      }
+      params.push(max);
+      havingClause += `${havingClause ? " AND" : " HAVING"} MIN(i.precio) <= $${params.length}`;
+    }
+
     const countResult = await pool.query(
-      `SELECT COUNT(*) AS total
-       FROM producto p
-       JOIN categoria c ON p.id_categoria = c.id_categoria
-       ${whereClause}`,
+      `SELECT COUNT(*) AS total FROM (
+     SELECT p.id_producto
+     FROM producto p
+     JOIN categoria c ON p.id_categoria = c.id_categoria
+     LEFT JOIN inventario_distribuidor i ON p.id_producto = i.id_producto
+     ${whereClause}
+     GROUP BY p.id_producto, p.nombre, p.marca, p.descripcion, p.calificacion_promedio, c.nombre
+     ${havingClause}
+   ) sub`,
       params,
     );
 
@@ -56,9 +93,10 @@ const getProducts = async (req, res) => {
        FROM producto p
        JOIN categoria c ON p.id_categoria = c.id_categoria
        LEFT JOIN inventario_distribuidor i ON p.id_producto = i.id_producto
-       ${whereClause}
+${whereClause}
        GROUP BY p.id_producto, p.nombre, p.marca, p.descripcion,
                 p.calificacion_promedio, c.nombre
+        ${havingClause}
        ORDER BY p.id_producto ASC
        LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
       queryParams,
