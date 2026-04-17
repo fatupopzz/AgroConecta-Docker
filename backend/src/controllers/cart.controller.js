@@ -133,7 +133,7 @@ const updateItem = async (req, res) => {
     await client.query("BEGIN");
 
     const invCheck = await client.query(
-      `SELECT i.stock_disponible FROM item_carrito ic
+      `SELECT COALESCE(i.stock_disponible, 0) AS stock_disponible FROM item_carrito ic
        JOIN inventario_distribuidor i ON ic.id_inventario = i.id_inventario
        JOIN carrito c ON ic.id_carrito = c.id_carrito
        WHERE ic.id_item = $1 AND c.id_agricultor = $2`,
@@ -143,7 +143,7 @@ const updateItem = async (req, res) => {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Item no encontrado" });
     }
-    if (invCheck.rows[0].stock_disponible < Number(cantidad)) {
+    if (Number(invCheck.rows[0].stock_disponible) < Number(cantidad)) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Stock insuficiente" });
     }
