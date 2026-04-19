@@ -1,15 +1,15 @@
 const express = require("express");
 const { shutdownPool } = require("./src/config/db");
 
-const productRoutes = require("./src/routes/product.routes");
-const categoryRoutes = require("./src/routes/category.routes");
-const distributorRoutes = require("./src/routes/distributor.routes");
-const adminRoutes = require("./src/routes/admin.routes");
-const inventoryRoutes = require("./src/routes/inventory.routes");
-const farmerRoutes = require("./src/routes/farmer.routes");
+const productRoutes = require("./src/routes/productRoutes");
+const categoryRoutes = require("./src/routes/categoryRoutes");
 const authRoutes = require("./src/routes/authRoutes");
 const cartRoutes = require("./src/routes/cart.routes");
 const verifyToken = require("./src/middleware/authMiddleware");
+const agricultorRoutes = require("./src/routes/agricultorRoutes");
+const distribuidorRoutes = require("./src/routes/distribuidorRoutes");
+const farmerRoutes = require("./src/routes/farmer.routes");
+const userRoutes = require("./src/routes/userRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -25,15 +25,13 @@ app.get("/api/protected", verifyToken, (req, res) => {
   });
 });
 
-app.use("/api/admin", adminRoutes);
-
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
-app.use("/api/distributors", distributorRoutes);
-app.use("/api/inventory", inventoryRoutes);
+app.use("/api/agricultores", agricultorRoutes);
+app.use("/api/distribuidores", distribuidorRoutes);
+app.use("/api/usuarios", userRoutes);
 app.use("/api/farmers", farmerRoutes);
 app.use("/api/cart", verifyToken, cartRoutes);
-
 app.get("/", (req, res) => {
   res.json({ status: "AgroConecta Backend corriendo", version: "1.0.0" });
 });
@@ -46,4 +44,3 @@ process.on("SIGTERM", async () => {
   await shutdownPool();
   process.exit(0);
 });
-
