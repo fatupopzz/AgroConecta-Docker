@@ -6,6 +6,7 @@ const categoryRoutes = require("./src/routes/categoryRoutes");
 const authRoutes = require("./src/routes/authRoutes");
 const verifyToken = require("./src/middleware/authMiddleware");
 const agricultorRoutes = require("./src/routes/agricultorRoutes");
+const distribuidorRoutes = require("./src/routes/distribuidorRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -26,6 +27,7 @@ app.get("/api/protected", verifyToken, (req, res) => {
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/agricultores", agricultorRoutes);
+app.use("/api/distribuidores", distribuidorRoutes);
 app.get("/", (req, res) => {
   res.json({ status: "AgroConecta Backend corriendo", version: "1.0.0" });
 });
