@@ -2,14 +2,286 @@ const { pool } = require("../config/db");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
+const normalizeCashPaymentMethod = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return "contra_entrega";
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === "efectivo" || normalized === "contra_entrega") {
+    return "contra_entrega";
+  }
+
+  return null;
+};
+
+const getOrderDetailData = async (db, orderId) => {
+  const orderResult = await db.query(
+    `SELECT
+        p.id_pedido,
+        p.fecha_pedido,
+        p.estado,
+        p.tipo_entrega,
+        p.direccion_entrega,
+        p.es_urgente,
+        p.total_pedido,
+        p.costo_envio,
+        p.notas,
+        a.id_agricultor,
+        ua.nombre AS agricultor_nombre,
+        ua.email AS agricultor_email,
+        ua.telefono AS agricultor_telefono,
+        d.id_distribuidor,
+        d.nombre_negocio AS distribuidor_nombre,
+        ud.nombre AS distribuidor_contacto,
+        ud.email AS distribuidor_email,
+        ud.telefono AS distribuidor_telefono,
+        pa.metodo_pago,
+        pa.estado_pago,
+        pa.monto
+     FROM pedido p
+     JOIN agricultor a ON p.id_agricultor = a.id_agricultor
+     JOIN usuario ua ON a.id_usuario = ua.id_usuario
+     JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
+     JOIN usuario ud ON d.id_usuario = ud.id_usuario
+     LEFT JOIN pago pa ON p.id_pedido = pa.id_pedido
+     WHERE p.id_pedido = $1`,
+    [orderId]
+  );
+
+  if (orderResult.rows.length === 0) {
+    return null;
+  }
+
+  const itemsResult = await db.query(
+    `SELECT
+        dp.id_detalle,
+        dp.id_inventario,
+        dp.cantidad,
+        dp.precio_unitario,
+        dp.subtotal,
+        i.id_producto,
+        i.unidad_medida,
+        pr.nombre AS producto_nombre,
+        pr.marca AS producto_marca
+     FROM detalle_pedido dp
+     JOIN inventario_distribuidor i ON dp.id_inventario = i.id_inventario
+     JOIN producto pr ON i.id_producto = pr.id_producto
+     WHERE dp.id_pedido = $1
+     ORDER BY dp.id_detalle ASC`,
+    [orderId]
+  );
+
+  return {
+    ...orderResult.rows[0],
+    productos: itemsResult.rows,
+  };
+};
+
 const createOrder = async (req, res) => {
+  const {
+    id_agricultor,
+    id_distribuidor,
+    direccion_entrega,
+    productos,
+    metodo_pago,
+  } = req.body;
+
+  if (!isPositiveInteger(id_agricultor)) {
+    return res.status(400).json({ error: "id_agricultor inválido" });
+  }
+
+  if (!isPositiveInteger(id_distribuidor)) {
+    return res.status(400).json({ error: "id_distribuidor inválido" });
+  }
+
+  if (
+    typeof direccion_entrega !== "string" ||
+    direccion_entrega.trim().length < 5
+  ) {
+    return res.status(400).json({ error: "direccion_entrega inválida" });
+  }
+
+  if (!Array.isArray(productos) || productos.length === 0) {
+    return res.status(400).json({
+      error: "Debe enviar al menos un producto en el pedido",
+    });
+  }
+
+  const paymentMethod = normalizeCashPaymentMethod(metodo_pago);
+  if (!paymentMethod) {
+    return res.status(400).json({
+      error: "metodo_pago inválido, use efectivo",
+    });
+  }
+
+  const normalizedProducts = [];
+  const inventoryIds = [];
+
+  for (const item of productos) {
+    if (!item || !isPositiveInteger(item.id_inventario)) {
+      return res.status(400).json({ error: "id_inventario inválido en productos" });
+    }
+
+    if (!isPositiveInteger(item.cantidad)) {
+      return res.status(400).json({ error: "cantidad inválida en productos" });
+    }
+
+    const normalizedItem = {
+      id_inventario: Number(item.id_inventario),
+      cantidad: Number(item.cantidad),
+    };
+
+    normalizedProducts.push(normalizedItem);
+    inventoryIds.push(normalizedItem.id_inventario);
+  }
+
+  if (new Set(inventoryIds).size !== inventoryIds.length) {
+    return res.status(400).json({
+      error: "No se permiten productos repetidos en el pedido",
+    });
+  }
+
+  const client = await pool.connect();
+
   try {
-    return res.status(501).json({
-      message: "POST /api/orders pendiente de implementación",
+    await client.query("BEGIN");
+
+    const farmerResult = await client.query(
+      "SELECT 1 FROM agricultor WHERE id_agricultor = $1",
+      [Number(id_agricultor)]
+    );
+
+    if (farmerResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Agricultor no encontrado" });
+    }
+
+    const distributorResult = await client.query(
+      "SELECT 1 FROM distribuidor WHERE id_distribuidor = $1",
+      [Number(id_distribuidor)]
+    );
+
+    if (distributorResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Distribuidor no encontrado" });
+    }
+
+    const inventoryResult = await client.query(
+      `SELECT
+          i.id_inventario,
+          i.id_distribuidor,
+          i.id_producto,
+          i.precio,
+          i.stock_disponible,
+          i.unidad_medida,
+          p.nombre AS producto_nombre
+       FROM inventario_distribuidor i
+       JOIN producto p ON i.id_producto = p.id_producto
+       WHERE i.id_inventario = ANY($1::int[])`,
+      [inventoryIds]
+    );
+
+    if (inventoryResult.rows.length !== inventoryIds.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        error: "Uno o más productos del pedido no existen en inventario",
+      });
+    }
+
+    const inventoryMap = new Map();
+    for (const row of inventoryResult.rows) {
+      inventoryMap.set(Number(row.id_inventario), row);
+    }
+
+    let totalPedido = 0;
+
+    for (const item of normalizedProducts) {
+      const inventory = inventoryMap.get(item.id_inventario);
+
+      if (!inventory) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          error: "Producto de inventario no encontrado",
+        });
+      }
+
+      if (Number(inventory.id_distribuidor) !== Number(id_distribuidor)) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: "Todos los productos deben pertenecer al distribuidor indicado",
+        });
+      }
+
+      if (Number(inventory.stock_disponible) < item.cantidad) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: `Stock insuficiente para el producto ${inventory.producto_nombre}`,
+        });
+      }
+
+      totalPedido += Number(inventory.precio) * item.cantidad;
+    }
+
+    totalPedido = Number(totalPedido.toFixed(2));
+
+    const orderResult = await client.query(
+      `INSERT INTO pedido
+       (id_agricultor, id_distribuidor, estado, tipo_entrega, direccion_entrega, es_urgente, total_pedido, costo_envio, notas)
+       VALUES ($1, $2, 'pendiente', 'domicilio', $3, false, $4, 0, NULL)
+       RETURNING *`,
+      [
+        Number(id_agricultor),
+        Number(id_distribuidor),
+        direccion_entrega.trim(),
+        totalPedido,
+      ]
+    );
+
+    const createdOrder = orderResult.rows[0];
+
+    for (const item of normalizedProducts) {
+      const inventory = inventoryMap.get(item.id_inventario);
+
+      await client.query(
+        `INSERT INTO detalle_pedido
+         (id_pedido, id_inventario, cantidad, precio_unitario)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          createdOrder.id_pedido,
+          item.id_inventario,
+          item.cantidad,
+          inventory.precio,
+        ]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO pago
+       (id_pedido, metodo_pago, monto, estado_pago, fecha_pago, referencia_transaccion)
+       VALUES ($1, $2, $3, 'pendiente', NULL, NULL)`,
+      [createdOrder.id_pedido, paymentMethod, totalPedido]
+    );
+
+    await client.query("COMMIT");
+
+    const orderDetail = await getOrderDetailData(client, createdOrder.id_pedido);
+
+    return res.status(201).json({
+      message: "Pedido creado correctamente",
+      pedido: orderDetail,
     });
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("Error en createOrder:", error);
-    res.status(500).json({ error: "Error al preparar creación de pedido" });
+    return res.status(500).json({ error: "Error al crear el pedido" });
+  } finally {
+    client.release();
   }
 };
 
@@ -21,12 +293,16 @@ const getOrderById = async (req, res) => {
       return res.status(400).json({ error: "ID de pedido inválido" });
     }
 
-    return res.status(501).json({
-      message: "GET /api/orders/:id pendiente de implementación",
-    });
+    const orderDetail = await getOrderDetailData(pool, Number(id));
+
+    if (!orderDetail) {
+      return res.status(404).json({ error: "Pedido no encontrado" });
+    }
+
+    return res.json(orderDetail);
   } catch (error) {
     console.error("Error en getOrderById:", error);
-    res.status(500).json({ error: "Error al preparar consulta de pedido" });
+    return res.status(500).json({ error: "Error al obtener el pedido" });
   }
 };
 
@@ -38,12 +314,42 @@ const getOrdersByFarmer = async (req, res) => {
       return res.status(400).json({ error: "ID de agricultor inválido" });
     }
 
-    return res.status(501).json({
-      message: "GET /api/orders/farmer/:id pendiente de implementación",
-    });
+    const farmerId = Number(id);
+
+    const farmerResult = await pool.query(
+      "SELECT 1 FROM agricultor WHERE id_agricultor = $1",
+      [farmerId]
+    );
+
+    if (farmerResult.rows.length === 0) {
+      return res.status(404).json({ error: "Agricultor no encontrado" });
+    }
+
+    const result = await pool.query(
+      `SELECT
+          p.id_pedido,
+          p.fecha_pedido,
+          p.estado,
+          p.direccion_entrega,
+          p.total_pedido,
+          d.id_distribuidor,
+          d.nombre_negocio AS distribuidor_nombre,
+          pa.metodo_pago,
+          pa.estado_pago
+       FROM pedido p
+       JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
+       LEFT JOIN pago pa ON p.id_pedido = pa.id_pedido
+       WHERE p.id_agricultor = $1
+       ORDER BY p.fecha_pedido DESC, p.id_pedido DESC`,
+      [farmerId]
+    );
+
+    return res.json(result.rows);
   } catch (error) {
     console.error("Error en getOrdersByFarmer:", error);
-    res.status(500).json({ error: "Error al preparar listado de pedidos del agricultor" });
+    return res.status(500).json({
+      error: "Error al obtener pedidos del agricultor",
+    });
   }
 };
 
