@@ -3,12 +3,14 @@ const router = express.Router();
 const {
   getProducts,
   getProductById,
+  getProductComparison,
   createProduct,
   updateProduct,
   deleteProduct
 } = require("../controllers/productController");
 
 router.get("/", getProducts);
+router.get("/:id/compare", getProductComparison);
 router.get("/:id", getProductById);
 router.post("/", createProduct);
 router.put("/:id", updateProduct);
