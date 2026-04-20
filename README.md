@@ -69,10 +69,23 @@ AgroConecta-Docker/
     ├── server.js
     └── package.json
 ```
+## Despliegue en la Nube (Azure)
 
-## Video de demostración
+**IP Pública:** 20.63.8.63
 
-https://youtu.be/FYurMSCdaw0
+| Servicio   | URL                              |
+|------------|----------------------------------|
+| Backend    | http://20.63.8.63:8080           |
+| Frontend   | http://20.63.8.63:3000           |
+| Adminer    | http://20.63.8.63:8081           |
+
+### Actualizar el servidor tras cambios en develop
+
+```bash
+git pull origin develop
+docker compose down
+docker compose up --build -d
+```
 
 ## Repositorio principal del proyecto
 
