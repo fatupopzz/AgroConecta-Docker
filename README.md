@@ -81,11 +81,15 @@ AgroConecta-Docker/
 
 ### Actualizar el servidor tras cambios en develop
 
-```bash
+ssh -i ~/.ssh/agroconecta-key.pem azureuser@20.63.8.63
+cd AgroConecta-Docker
 git pull origin develop
 docker compose down
 docker compose up --build -d
-```
+
+### Notas
+- La VM se apaga automáticamente a las 9:00 PM (Guatemala)
+- Para encenderla ir al portal de Azure y dar Start a agroconecta-vm
 
 ## Repositorio principal del proyecto
 
