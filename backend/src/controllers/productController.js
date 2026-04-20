@@ -138,6 +138,63 @@ const getProductById = async (req, res) => {
   }
 };
 
+const getProductComparison = async (req, res) => {
+  try {
+    if (!isPositiveInteger(req.params.id)) {
+      return res.status(400).json({ error: "ID de producto inválido" });
+    }
+
+    const id = Number(req.params.id);
+
+    const producto = await pool.query(
+      `SELECT p.id_producto, p.nombre, p.marca, p.descripcion,
+              p.calificacion_promedio, c.id_categoria, c.nombre AS categoria
+       FROM producto p
+       JOIN categoria c ON p.id_categoria = c.id_categoria
+       WHERE p.id_producto = $1 AND p.activo = true`,
+      [id],
+    );
+
+    if (producto.rows.length === 0) {
+      return res.status(404).json({ error: "Producto no encontrado" });
+    }
+
+    const distribuidoresResult = await pool.query(
+      `SELECT d.id_distribuidor,
+              d.nombre_negocio AS nombre,
+              i.precio,
+              i.stock_disponible,
+              i.unidad_medida,
+              d.calificacion_promedio AS calificacion_distribuidor
+       FROM inventario_distribuidor i
+       JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
+       WHERE i.id_producto = $1
+         AND d.estado_verificacion = 'verificado'
+         AND i.stock_disponible > 0
+       ORDER BY i.precio ASC`,
+      [id],
+    );
+
+    const distribuidores = distribuidoresResult.rows;
+    const precioMasBajo = distribuidores.length > 0 ? distribuidores[0].precio : null;
+
+    const distribuidoresConBandera = distribuidores.map((distribuidor) => ({
+      ...distribuidor,
+      es_precio_mas_bajo:
+        precioMasBajo !== null && Number(distribuidor.precio) === Number(precioMasBajo),
+    }));
+
+    return res.json({
+      ...producto.rows[0],
+      precio_mas_bajo: precioMasBajo,
+      distribuidores: distribuidoresConBandera,
+    });
+  } catch (error) {
+    console.error("Error en getProductComparison:", error);
+    return res.status(500).json({ error: "Error al comparar precios del producto" });
+  }
+};
+
 
 const createProduct = async (req, res) => {
   const {
@@ -413,6 +470,7 @@ const deleteProduct = async (req, res) => {
 module.exports = {
   getProducts,
   getProductById,
+  getProductComparison,
   createProduct,
   updateProduct,
   deleteProduct,
