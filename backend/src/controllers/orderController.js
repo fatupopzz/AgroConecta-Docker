@@ -125,7 +125,9 @@ const createOrder = async (req, res) => {
 
   for (const item of productos) {
     if (!item || !isPositiveInteger(item.id_inventario)) {
-      return res.status(400).json({ error: "id_inventario inválido en productos" });
+      return res
+        .status(400)
+        .json({ error: "id_inventario inválido en productos" });
     }
 
     if (!isPositiveInteger(item.cantidad)) {
@@ -361,29 +363,135 @@ const getOrdersByDistributor = async (req, res) => {
       return res.status(400).json({ error: "ID de distribuidor inválido" });
     }
 
-    return res.status(501).json({
-      message: "GET /api/orders/distributor/:id pendiente de implementación",
-    });
+    const distributorId = Number(id);
+
+    const distributorResult = await pool.query(
+      "SELECT 1 FROM distribuidor WHERE id_distribuidor = $1",
+      [distributorId]
+    );
+
+    if (distributorResult.rows.length === 0) {
+      return res.status(404).json({ error: "Distribuidor no encontrado" });
+    }
+
+    const result = await pool.query(
+      `SELECT
+          p.id_pedido,
+          p.fecha_pedido,
+          p.estado,
+          p.direccion_entrega,
+          p.total_pedido,
+          p.costo_envio,
+          p.notas,
+          a.id_agricultor,
+          ua.nombre AS agricultor_nombre,
+          ua.email AS agricultor_email,
+          ua.telefono AS agricultor_telefono,
+          pa.metodo_pago,
+          pa.estado_pago
+       FROM pedido p
+       JOIN agricultor a ON p.id_agricultor = a.id_agricultor
+       JOIN usuario ua ON a.id_usuario = ua.id_usuario
+       LEFT JOIN pago pa ON p.id_pedido = pa.id_pedido
+       WHERE p.id_distribuidor = $1
+       ORDER BY p.fecha_pedido DESC, p.id_pedido DESC`,
+      [distributorId]
+    );
+
+    return res.json(result.rows);
   } catch (error) {
     console.error("Error en getOrdersByDistributor:", error);
-    res.status(500).json({ error: "Error al preparar listado de pedidos del distribuidor" });
+    return res.status(500).json({
+      error: "Error al obtener pedidos del distribuidor",
+    });
   }
 };
 
 const updateOrderStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
+  const { estado, id_distribuidor } = req.body;
 
-    if (!isPositiveInteger(id)) {
-      return res.status(400).json({ error: "ID de pedido inválido" });
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({ error: "ID de pedido inválido" });
+  }
+
+  if (!isPositiveInteger(id_distribuidor)) {
+    return res.status(400).json({ error: "id_distribuidor inválido" });
+  }
+
+  const estadosValidos = ["confirmado", "en_camino", "entregado"];
+
+  if (typeof estado !== "string" || !estadosValidos.includes(estado.trim())) {
+    return res.status(400).json({
+      error: "estado inválido. Use confirmado, en_camino o entregado",
+    });
+  }
+
+  const estadoNormalizado = estado.trim();
+  const orderId = Number(id);
+  const distributorId = Number(id_distribuidor);
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const orderResult = await client.query(
+      `SELECT id_pedido, id_distribuidor, estado
+       FROM pedido
+       WHERE id_pedido = $1`,
+      [orderId]
+    );
+
+    if (orderResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Pedido no encontrado" });
     }
 
-    return res.status(501).json({
-      message: "PATCH /api/orders/:id/status pendiente de implementación",
+    const order = orderResult.rows[0];
+
+    if (Number(order.id_distribuidor) !== distributorId) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({
+        error: "El distribuidor no tiene permiso para actualizar este pedido",
+      });
+    }
+
+    const updatedOrderResult = await client.query(
+      `UPDATE pedido
+       SET estado = $1
+       WHERE id_pedido = $2
+       RETURNING *`,
+      [estadoNormalizado, orderId]
+    );
+
+    if (estadoNormalizado === "entregado") {
+      await client.query(
+        `UPDATE pago
+         SET estado_pago = 'completado',
+             fecha_pago = NOW()
+         WHERE id_pedido = $1
+           AND metodo_pago = 'contra_entrega'`,
+        [orderId]
+      );
+    }
+
+    await client.query("COMMIT");
+
+    const orderDetail = await getOrderDetailData(client, orderId);
+
+    return res.json({
+      message: "Estado del pedido actualizado correctamente",
+      pedido: orderDetail || updatedOrderResult.rows[0],
     });
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("Error en updateOrderStatus:", error);
-    res.status(500).json({ error: "Error al preparar actualización de estado" });
+    return res.status(500).json({
+      error: "Error al actualizar estado del pedido",
+    });
+  } finally {
+    client.release();
   }
 };
 
