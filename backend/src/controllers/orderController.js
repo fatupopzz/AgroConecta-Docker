@@ -116,7 +116,7 @@ const createOrder = async (req, res) => {
   const paymentMethod = normalizeCashPaymentMethod(metodo_pago);
   if (!paymentMethod) {
     return res.status(400).json({
-      error: "metodo_pago inválido, use efectivo",
+      error: "metodo_pago inválido, use efectivo o contra_entrega",
     });
   }
 
@@ -279,7 +279,12 @@ const createOrder = async (req, res) => {
       pedido: orderDetail,
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error("Error al hacer rollback en createOrder:", rollbackError);
+    }
+
     console.error("Error en createOrder:", error);
     return res.status(500).json({ error: "Error al crear el pedido" });
   } finally {
@@ -485,7 +490,15 @@ const updateOrderStatus = async (req, res) => {
       pedido: orderDetail || updatedOrderResult.rows[0],
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error(
+        "Error al hacer rollback en updateOrderStatus:",
+        rollbackError
+      );
+    }
+
     console.error("Error en updateOrderStatus:", error);
     return res.status(500).json({
       error: "Error al actualizar estado del pedido",
