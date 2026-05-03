@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/homeFragment">
+
+    <!-- HU-037: Bottom nav destinations -->
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.uvg.agroconecta.ui.home.HomeFragment"
+        android:label="Inicio">
+        <action
+            android:id="@+id/action_home_to_productDetail"
+            app:destination="@id/productDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/catalogFragment"
+        android:name="com.uvg.agroconecta.ui.home.HomeFragment"
+        android:label="Catálogo" />
+
+    <fragment
+        android:id="@+id/cartFragment"
+        android:name="com.uvg.agroconecta.ui.home.HomeFragment"
+        android:label="Carrito" />
+
+    <fragment
+        android:id="@+id/profileFragment"
+        android:name="com.uvg.agroconecta.ui.home.HomeFragment"
+        android:label="Perfil" />
+
+    <!-- Product detail - HU-023 sello verificado -->
+    <fragment
+        android:id="@+id/productDetailFragment"
+        android:name="com.uvg.agroconecta.ui.product.ProductDetailFragment"
+        android:label="Detalle de Producto">
+
+        <argument
+            android:name="product_id"
+            app:argType="integer"
+            android:defaultValue="-1" />
+
+        <action
+            android:id="@+id/action_productDetail_to_comparePrice"
+            app:destination="@id/comparePriceFragment" />
+
+        <!-- HU-015: Navigate to delivery -->
+        <action
+            android:id="@+id/action_productDetail_to_delivery"
+            app:destination="@id/deliveryFragment" />
+
+    </fragment>
+
+    <!-- Compare prices -->
+    <fragment
+        android:id="@+id/comparePriceFragment"
+        android:name="com.uvg.agroconecta.ui.product.ProductDetailFragment"
+        android:label="Comparar Precios">
+
+        <argument
+            android:name="product_id"
+            app:argType="integer"
+            android:defaultValue="-1" />
+    </fragment>
+
+    <!-- HU-015: Entrega directa a la finca -->
+    <fragment
+        android:id="@+id/deliveryFragment"
+        android:name="com.uvg.agroconecta.ui.product.DeliveryFragment"
+        android:label="Entrega directa">
+
+        <argument android:name="inventario_id" app:argType="integer" android:defaultValue="-1" />
+        <argument android:name="distribuidor_id" app:argType="integer" android:defaultValue="-1" />
+        <argument android:name="product_id" app:argType="integer" android:defaultValue="-1" />
+        <argument android:name="product_name" app:argType="string" android:defaultValue="" />
+        <argument android:name="price" app:argType="string" android:defaultValue="" />
+        <argument android:name="distributor_name" app:argType="string" android:defaultValue="" />
+
+    </fragment>
+
+</navigation>

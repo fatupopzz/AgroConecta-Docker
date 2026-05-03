@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AgroConecta</string>
+    <string name="login">Iniciar sesión</string>
+    <string name="register">Registrarse</string>
+    <string name="email">Correo electrónico</string>
+    <string name="password">Contraseña</string>
+    <string name="enter_password">Ingresar contraseña</string>
+    <string name="no_account">¿No tienes cuenta? </string>
+    <string name="register_link">Regístrate</string>
+    <string name="home">Inicio</string>
+    <string name="catalog">Catálogo</string>
+    <string name="cart">Carrito</string>
+    <string name="profile">Perfil</string>
+    <string name="search_hint">Buscar productos…</string>
+    <string name="categories">Categorías</string>
+    <string name="see_all">Ver todas…</string>
+    <string name="featured_products">Productos destacados</string>
+    <string name="see_more">Ver más</string>
+    <string name="verified_distributors">Distribuidores verificados</string>
+    <string name="product_detail">Detalle de producto</string>
+    <string name="compare_prices">Comparar precios</string>
+    <string name="add_to_cart">Agregar al carrito</string>
+    <string name="verified_badge">Verificado</string>
+    <string name="delivery_direct">Entrega directa a la finca</string>
+    <string name="nav_icons_title">Navegación con íconos</string>
+    <string name="distributor_label">Distribuidor</string>
+    <string name="price_label">Precio</string>
+    <string name="delivery_label">Entrega</string>
+    <string name="best_price">Mejor precio</string>
+    <string name="loading">Cargando…</string>
+    <string name="error_network">Error de conexión. Verifica tu internet.</string>
+    <string name="good_morning">Buen día, </string>
+    <string name="offers_today">Oferta del día</string>
+    <string name="stock_label">Stock</string>
+    <string name="dose_label">Dosis</string>
+</resources>
