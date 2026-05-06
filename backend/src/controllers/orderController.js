@@ -324,12 +324,22 @@ const getOrdersByFarmer = async (req, res) => {
     const farmerId = Number(id);
 
     const farmerResult = await pool.query(
-      "SELECT 1 FROM agricultor WHERE id_agricultor = $1",
+      "SELECT id_usuario FROM agricultor WHERE id_agricultor = $1",
       [farmerId]
     );
 
     if (farmerResult.rows.length === 0) {
       return res.status(404).json({ error: "Agricultor no encontrado" });
+    }
+
+    const ownerUserId = Number(farmerResult.rows[0].id_usuario);
+    const requesterId = req.user ? Number(req.user.id) : null;
+    const requesterTipo = req.user ? req.user.tipo : null;
+
+    if (requesterTipo !== "administrador" && requesterId !== ownerUserId) {
+      return res.status(403).json({
+        error: "No autorizado para ver el historial de este agricultor",
+      });
     }
 
     const result = await pool.query(
