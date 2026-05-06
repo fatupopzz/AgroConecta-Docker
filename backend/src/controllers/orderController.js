@@ -313,6 +313,14 @@ const getOrderById = async (req, res) => {
   }
 };
 
+const ESTADOS_PEDIDO_VALIDOS = [
+  "pendiente",
+  "confirmado",
+  "en_camino",
+  "entregado",
+  "cancelado",
+];
+
 const getOrdersByFarmer = async (req, res) => {
   try {
     const { id } = req.params;
@@ -342,26 +350,80 @@ const getOrdersByFarmer = async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      `SELECT
-          p.id_pedido,
-          p.fecha_pedido,
-          p.estado,
-          p.direccion_entrega,
-          p.total_pedido,
-          d.id_distribuidor,
-          d.nombre_negocio AS distribuidor_nombre,
-          pa.metodo_pago,
-          pa.estado_pago
-       FROM pedido p
-       JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
-       LEFT JOIN pago pa ON p.id_pedido = pa.id_pedido
-       WHERE p.id_agricultor = $1
-       ORDER BY p.fecha_pedido DESC, p.id_pedido DESC`,
-      [farmerId]
+    const { page: pageParam, limit: limitParam, estado: estadoParam } = req.query;
+
+    const page = pageParam === undefined ? 1 : Number(pageParam);
+    const limit = limitParam === undefined ? 10 : Number(limitParam);
+
+    if (!Number.isInteger(page) || page < 1) {
+      return res.status(400).json({ error: "page inválido" });
+    }
+
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return res.status(400).json({ error: "limit inválido (1-100)" });
+    }
+
+    let estadoFiltro = null;
+    if (estadoParam !== undefined && estadoParam !== "") {
+      if (
+        typeof estadoParam !== "string" ||
+        !ESTADOS_PEDIDO_VALIDOS.includes(estadoParam.trim())
+      ) {
+        return res.status(400).json({
+          error: `estado inválido. Use: ${ESTADOS_PEDIDO_VALIDOS.join(" | ")}`,
+        });
+      }
+      estadoFiltro = estadoParam.trim();
+    }
+
+    const filters = ["p.id_agricultor = $1"];
+    const params = [farmerId];
+
+    if (estadoFiltro) {
+      params.push(estadoFiltro);
+      filters.push(`p.estado = $${params.length}`);
+    }
+
+    const whereClause = filters.join(" AND ");
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM pedido p WHERE ${whereClause}`,
+      params
     );
 
-    return res.json(result.rows);
+    const total = countResult.rows[0].total;
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+
+    const dataParams = [...params, limit, offset];
+
+    const result = await pool.query(
+      `SELECT
+          p.id_pedido          AS id,
+          p.estado,
+          p.fecha_pedido,
+          p.total_pedido,
+          d.id_distribuidor,
+          d.nombre_negocio     AS distribuidor_nombre,
+          (
+            SELECT COUNT(*)::int
+            FROM detalle_pedido dp
+            WHERE dp.id_pedido = p.id_pedido
+          )                    AS cantidad_productos
+       FROM pedido p
+       JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
+       WHERE ${whereClause}
+       ORDER BY p.fecha_pedido DESC, p.id_pedido DESC
+       LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+      dataParams
+    );
+
+    return res.json({
+      data: result.rows,
+      total,
+      page,
+      totalPages,
+    });
   } catch (error) {
     console.error("Error en getOrdersByFarmer:", error);
     return res.status(500).json({
