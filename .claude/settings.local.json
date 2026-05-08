@@ -1,8 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node --check src/controllers/orderController.js)",
-      "Bash(node --check src/routes/orderRoutes.js)"
+      "Bash(node --check backend/src/controllers/orderController.js)",
+      "Bash(node --check backend/src/routes/orderRoutes.js)"
     ]
   }
 }
