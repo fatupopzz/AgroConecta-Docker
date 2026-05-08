@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const { ORDER_STATES, ORDER_STATES_FILTERABLE, ORDER_STATES_UPDATEABLE } = require("../constants/orderStates");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
@@ -313,14 +314,6 @@ const getOrderById = async (req, res) => {
   }
 };
 
-const ESTADOS_PEDIDO_VALIDOS = [
-  "pendiente",
-  "confirmado",
-  "en_camino",
-  "entregado",
-  "cancelado",
-];
-
 const getOrdersByFarmer = async (req, res) => {
   try {
     const { id } = req.params;
@@ -331,23 +324,18 @@ const getOrdersByFarmer = async (req, res) => {
 
     const farmerId = Number(id);
 
+    const requesterId = req.user ? Number(req.user.id) : null;
+    const requesterTipo = req.user ? req.user.tipo : null;
+
     const farmerResult = await pool.query(
-      "SELECT id_usuario FROM agricultor WHERE id_agricultor = $1",
-      [farmerId]
+      `SELECT id_usuario FROM agricultor
+       WHERE id_agricultor = $1
+         AND (id_usuario = $2 OR $3::text = 'administrador')`,
+      [farmerId, requesterId, requesterTipo]
     );
 
     if (farmerResult.rows.length === 0) {
       return res.status(404).json({ error: "Agricultor no encontrado" });
-    }
-
-    const ownerUserId = Number(farmerResult.rows[0].id_usuario);
-    const requesterId = req.user ? Number(req.user.id) : null;
-    const requesterTipo = req.user ? req.user.tipo : null;
-
-    if (requesterTipo !== "administrador" && requesterId !== ownerUserId) {
-      return res.status(403).json({
-        error: "No autorizado para ver el historial de este agricultor",
-      });
     }
 
     const { page: pageParam, limit: limitParam, estado: estadoParam } = req.query;
@@ -367,10 +355,10 @@ const getOrdersByFarmer = async (req, res) => {
     if (estadoParam !== undefined && estadoParam !== "") {
       if (
         typeof estadoParam !== "string" ||
-        !ESTADOS_PEDIDO_VALIDOS.includes(estadoParam.trim())
+        !ORDER_STATES_FILTERABLE.includes(estadoParam.trim())
       ) {
         return res.status(400).json({
-          error: `estado inválido. Use: ${ESTADOS_PEDIDO_VALIDOS.join(" | ")}`,
+          error: `estado inválido. Use: ${ORDER_STATES_FILTERABLE.join(" | ")}`,
         });
       }
       estadoFiltro = estadoParam.trim();
@@ -403,16 +391,13 @@ const getOrdersByFarmer = async (req, res) => {
           p.estado,
           p.fecha_pedido,
           p.total_pedido,
-          d.id_distribuidor,
           d.nombre_negocio     AS distribuidor_nombre,
-          (
-            SELECT COUNT(*)::int
-            FROM detalle_pedido dp
-            WHERE dp.id_pedido = p.id_pedido
-          )                    AS cantidad_productos
+          COALESCE(COUNT(dp.id_detalle), 0)::int AS cantidad_productos
        FROM pedido p
        JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
+       LEFT JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
        WHERE ${whereClause}
+       GROUP BY p.id_pedido, p.estado, p.fecha_pedido, p.total_pedido, d.nombre_negocio
        ORDER BY p.fecha_pedido DESC, p.id_pedido DESC
        LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
       dataParams
@@ -496,11 +481,9 @@ const updateOrderStatus = async (req, res) => {
     return res.status(400).json({ error: "id_distribuidor inválido" });
   }
 
-  const estadosValidos = ["confirmado", "en_camino", "entregado"];
-
-  if (typeof estado !== "string" || !estadosValidos.includes(estado.trim())) {
+  if (typeof estado !== "string" || !ORDER_STATES_UPDATEABLE.includes(estado.trim())) {
     return res.status(400).json({
-      error: "estado inválido. Use confirmado, en_camino o entregado",
+      error: `estado inválido. Use: ${ORDER_STATES_UPDATEABLE.join(", ")}`,
     });
   }
 
