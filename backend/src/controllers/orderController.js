@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const { ORDER_STATES, ORDER_STATES_FILTERABLE, ORDER_STATES_UPDATEABLE } = require("../constants/orderStates");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
@@ -323,35 +324,91 @@ const getOrdersByFarmer = async (req, res) => {
 
     const farmerId = Number(id);
 
+    const requesterId = req.user ? Number(req.user.id) : null;
+    const requesterTipo = req.user ? req.user.tipo : null;
+
     const farmerResult = await pool.query(
-      "SELECT 1 FROM agricultor WHERE id_agricultor = $1",
-      [farmerId]
+      `SELECT id_usuario FROM agricultor
+       WHERE id_agricultor = $1
+         AND (id_usuario = $2 OR $3::text = 'administrador')`,
+      [farmerId, requesterId, requesterTipo]
     );
 
     if (farmerResult.rows.length === 0) {
       return res.status(404).json({ error: "Agricultor no encontrado" });
     }
 
-    const result = await pool.query(
-      `SELECT
-          p.id_pedido,
-          p.fecha_pedido,
-          p.estado,
-          p.direccion_entrega,
-          p.total_pedido,
-          d.id_distribuidor,
-          d.nombre_negocio AS distribuidor_nombre,
-          pa.metodo_pago,
-          pa.estado_pago
-       FROM pedido p
-       JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
-       LEFT JOIN pago pa ON p.id_pedido = pa.id_pedido
-       WHERE p.id_agricultor = $1
-       ORDER BY p.fecha_pedido DESC, p.id_pedido DESC`,
-      [farmerId]
+    const { page: pageParam, limit: limitParam, estado: estadoParam } = req.query;
+
+    const page = pageParam === undefined ? 1 : Number(pageParam);
+    const limit = limitParam === undefined ? 10 : Number(limitParam);
+
+    if (!Number.isInteger(page) || page < 1) {
+      return res.status(400).json({ error: "page inválido" });
+    }
+
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return res.status(400).json({ error: "limit inválido (1-100)" });
+    }
+
+    let estadoFiltro = null;
+    if (estadoParam !== undefined && estadoParam !== "") {
+      if (
+        typeof estadoParam !== "string" ||
+        !ORDER_STATES_FILTERABLE.includes(estadoParam.trim())
+      ) {
+        return res.status(400).json({
+          error: `estado inválido. Use: ${ORDER_STATES_FILTERABLE.join(" | ")}`,
+        });
+      }
+      estadoFiltro = estadoParam.trim();
+    }
+
+    const filters = ["p.id_agricultor = $1"];
+    const params = [farmerId];
+
+    if (estadoFiltro) {
+      params.push(estadoFiltro);
+      filters.push(`p.estado = $${params.length}`);
+    }
+
+    const whereClause = filters.join(" AND ");
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM pedido p WHERE ${whereClause}`,
+      params
     );
 
-    return res.json(result.rows);
+    const total = countResult.rows[0].total;
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+
+    const dataParams = [...params, limit, offset];
+
+    const result = await pool.query(
+      `SELECT
+          p.id_pedido          AS id,
+          p.estado,
+          p.fecha_pedido,
+          p.total_pedido,
+          d.nombre_negocio     AS distribuidor_nombre,
+          COALESCE(COUNT(dp.id_detalle), 0)::int AS cantidad_productos
+       FROM pedido p
+       JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
+       LEFT JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
+       WHERE ${whereClause}
+       GROUP BY p.id_pedido, p.estado, p.fecha_pedido, p.total_pedido, d.nombre_negocio
+       ORDER BY p.fecha_pedido DESC, p.id_pedido DESC
+       LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+      dataParams
+    );
+
+    return res.json({
+      data: result.rows,
+      total,
+      page,
+      totalPages,
+    });
   } catch (error) {
     console.error("Error en getOrdersByFarmer:", error);
     return res.status(500).json({
@@ -424,11 +481,9 @@ const updateOrderStatus = async (req, res) => {
     return res.status(400).json({ error: "id_distribuidor inválido" });
   }
 
-  const estadosValidos = ["confirmado", "en_camino", "entregado"];
-
-  if (typeof estado !== "string" || !estadosValidos.includes(estado.trim())) {
+  if (typeof estado !== "string" || !ORDER_STATES_UPDATEABLE.includes(estado.trim())) {
     return res.status(400).json({
-      error: "estado inválido. Use confirmado, en_camino o entregado",
+      error: `estado inválido. Use: ${ORDER_STATES_UPDATEABLE.join(", ")}`,
     });
   }
 
