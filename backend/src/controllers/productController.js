@@ -130,6 +130,7 @@ const getProductById = async (req, res) => {
 
     res.json({
       ...producto.rows[0],
+      unidad_medida: ofertas.rows.length > 0 ? ofertas.rows[0].unidad_medida : null,
       ofertas: ofertas.rows,
     });
   } catch (error) {
