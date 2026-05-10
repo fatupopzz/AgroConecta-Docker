@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary green palette (from Figma) -->
+    <color name="green_primary">#2E7D32</color>
+    <color name="green_primary_dark">#1B5E20</color>
+    <color name="green_light">#4CAF50</color>
+    <color name="green_pale">#C8E6C9</color>
+    <color name="green_surface">#F1F8E9</color>
+
+    <!-- Accent -->
+    <color name="orange_accent">#FF8F00</color>
+    <color name="orange_light">#FFF3E0</color>
+
+    <!-- Neutrals -->
+    <color name="gray_dark">#37474F</color>
+    <color name="gray_mid">#78909C</color>
+    <color name="gray_light">#ECEFF1</color>
+    <color name="gray_border">#B0BEC5</color>
+
+    <!-- Semantic -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="verified_blue">#1565C0</color>
+    <color name="error_red">#C62828</color>
+
+    <!-- Chip selected/unselected -->
+    <color name="chip_selected">#2E7D32</color>
+    <color name="chip_unselected">#ECEFF1</color>
+    <color name="chip_text_selected">#FFFFFF</color>
+    <color name="chip_text_unselected">#37474F</color>
+</resources>
