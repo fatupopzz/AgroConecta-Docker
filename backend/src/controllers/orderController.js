@@ -610,21 +610,29 @@ const receiveOrder = async (req, res) => {
       });
     }
 
-    if (order.estado !== "en_camino") {
+    if (order.estado !== ORDER_STATES.IN_TRANSIT) {
       await client.query("ROLLBACK");
       return res.status(400).json({
         error: "Solo se puede confirmar recepción de pedidos en estado en_camino",
       });
     }
 
-    await client.query(
+    const updatedOrderResult = await client.query(
       `UPDATE pedido
-       SET estado = 'entregado',
+       SET estado = $1,
            fecha_entrega_real = NOW()
-       WHERE id_pedido = $1
+       WHERE id_pedido = $2
+         AND estado = $3
        RETURNING *`,
-      [orderId]
+      [ORDER_STATES.DELIVERED, orderId, ORDER_STATES.IN_TRANSIT]
     );
+
+    if (updatedOrderResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "El pedido ya no está en estado en_camino",
+      });
+    }
 
     await client.query(
       `UPDATE pago
