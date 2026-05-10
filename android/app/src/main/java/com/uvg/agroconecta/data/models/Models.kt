@@ -171,3 +171,21 @@ data class Order(
     @SerializedName("distribuidor_nombre") val distribuidorNombre: String?,
     @SerializedName("metodo_pago") val metodoPago: String?
 )
+
+// ─── Orders by Farmer (paginated) ──────────────────────────────────────
+
+data class OrdersByFarmerResponse(
+    val data: List<OrderSummary>,
+    val total: Int,
+    val page: Int,
+    @SerializedName("totalPages") val totalPages: Int
+)
+
+data class OrderSummary(
+    val id: Int,
+    val estado: String,
+    @SerializedName("fecha_pedido") val fechaPedido: String,
+    @SerializedName("total_pedido") val totalPedido: Double,
+    @SerializedName("distribuidor_nombre") val distribuidorNombre: String,
+    @SerializedName("cantidad_productos") val cantidadProductos: Int
+)

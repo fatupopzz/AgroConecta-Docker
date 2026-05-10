@@ -64,5 +64,11 @@ interface ApiService {
     suspend fun createOrder(@Body request: CreateOrderRequest): Response<OrderResponse>
 
     @GET("orders/farmer/{id}")
-    suspend fun getOrdersByFarmer(@Path("id") idAgricultor: Int): Response<List<Order>>
+    suspend fun getOrdersByFarmer(
+        @Path("id") idAgricultor: Int,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10,
+        @Query("estado") estado: String? = null
+    ): Response<OrdersByFarmerResponse>
+
 }

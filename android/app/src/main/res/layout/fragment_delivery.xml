@@ -176,8 +176,8 @@
                 android:textColor="@color/gray_mid"
                 android:textSize="13sp" />
 
-            <!-- HU-015: Opción Entrega directa a la finca -->
-            <androidx.cardview.widget.CardView
+            <!-- HU-015: Opción Entrega directa a la finca (MaterialCardView para usar stroke) -->
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_delivery_home"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -241,7 +241,7 @@
 
                 </LinearLayout>
 
-            </androidx.cardview.widget.CardView>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Opción: Punto de recogida -->
             <androidx.cardview.widget.CardView

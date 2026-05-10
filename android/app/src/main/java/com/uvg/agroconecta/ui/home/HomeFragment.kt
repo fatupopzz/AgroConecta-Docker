@@ -16,7 +16,8 @@ import com.uvg.agroconecta.databinding.FragmentHomeBinding
 import com.uvg.agroconecta.ui.home.adapters.DistributorAdapter
 import com.uvg.agroconecta.ui.home.adapters.ProductAdapter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class HomeFragment : Fragment() {
 
@@ -43,16 +44,13 @@ class HomeFragment : Fragment() {
         setupChips()
         setupObservers()
 
-        // Load data
-        val token = runBlocking {
-            SessionManager.getToken(requireContext()).first()
+        // Load session data and trigger initial fetch
+        viewLifecycleOwner.lifecycleScope.launch {
+            val token = SessionManager.getToken(requireContext()).first()
+            val userName = SessionManager.getUserName(requireContext()).first()
+            binding.tvUsername.text = userName?.substringBefore("@") ?: "Agricultor"
+            viewModel.loadData(token)
         }
-        val userName = runBlocking {
-            SessionManager.getUserName(requireContext()).first()
-        }
-
-        binding.tvUsername.text = userName?.substringBefore("@") ?: "Agricultor"
-        viewModel.loadData(token)
     }
 
     private fun setupRecyclerViews() {
@@ -82,22 +80,26 @@ class HomeFragment : Fragment() {
         binding.etSearch.setOnEditorActionListener { _, _, _ ->
             val query = binding.etSearch.text?.toString()?.trim()
             if (!query.isNullOrEmpty()) {
-                val token = runBlocking { SessionManager.getToken(requireContext()).first() }
-                viewModel.searchProducts(token, query)
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val token = SessionManager.getToken(requireContext()).first()
+                    viewModel.searchProducts(token, query)
+                }
             }
             true
         }
     }
 
     private fun setupChips() {
-        binding.chipGroupCategories.setOnCheckedStateChangeListener { group, checkedIds ->
-            val token = runBlocking { SessionManager.getToken(requireContext()).first() }
-            when {
-                checkedIds.contains(R.id.chip_all) -> viewModel.loadProducts(token)
-                checkedIds.contains(R.id.chip_fertilizantes) -> viewModel.loadProductsByCategory(token, 1)
-                checkedIds.contains(R.id.chip_pesticidas) -> viewModel.loadProductsByCategory(token, 2)
-                checkedIds.contains(R.id.chip_semillas) -> viewModel.loadProductsByCategory(token, 4)
-                checkedIds.contains(R.id.chip_herbicidas) -> viewModel.loadProductsByCategory(token, 3)
+        binding.chipGroupCategories.setOnCheckedStateChangeListener { _, checkedIds ->
+            viewLifecycleOwner.lifecycleScope.launch {
+                val token = SessionManager.getToken(requireContext()).first()
+                when {
+                    checkedIds.contains(R.id.chip_all) -> viewModel.loadProducts(token)
+                    checkedIds.contains(R.id.chip_fertilizantes) -> viewModel.loadProductsByCategory(token, 1)
+                    checkedIds.contains(R.id.chip_pesticidas) -> viewModel.loadProductsByCategory(token, 2)
+                    checkedIds.contains(R.id.chip_semillas) -> viewModel.loadProductsByCategory(token, 4)
+                    checkedIds.contains(R.id.chip_herbicidas) -> viewModel.loadProductsByCategory(token, 3)
+                }
             }
         }
 

@@ -51,13 +51,8 @@ class ProductDetailFragment : Fragment() {
             findNavController().popBackStack()
         }
 
-        // Navigate to compare prices screen
-        binding.btnCompare.setOnClickListener {
-            val bundle = Bundle().apply {
-                putInt("product_id", productId)
-            }
-            findNavController().navigate(R.id.action_productDetail_to_comparePrice, bundle)
-        }
+        // TODO: Implementar ComparePriceFragment en próximo sprint
+        binding.btnCompare.visibility = View.GONE
 
         // HU-015: Trigger delivery flow
         binding.btnAddToCart.setOnClickListener {

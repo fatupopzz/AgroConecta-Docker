@@ -41,27 +41,11 @@
             app:argType="integer"
             android:defaultValue="-1" />
 
-        <action
-            android:id="@+id/action_productDetail_to_comparePrice"
-            app:destination="@id/comparePriceFragment" />
-
         <!-- HU-015: Navigate to delivery -->
         <action
             android:id="@+id/action_productDetail_to_delivery"
             app:destination="@id/deliveryFragment" />
 
-    </fragment>
-
-    <!-- Compare prices -->
-    <fragment
-        android:id="@+id/comparePriceFragment"
-        android:name="com.uvg.agroconecta.ui.product.ProductDetailFragment"
-        android:label="Comparar Precios">
-
-        <argument
-            android:name="product_id"
-            app:argType="integer"
-            android:defaultValue="-1" />
     </fragment>
 
     <!-- HU-015: Entrega directa a la finca -->
