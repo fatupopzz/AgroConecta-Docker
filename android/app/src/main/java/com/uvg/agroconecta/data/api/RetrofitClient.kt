@@ -16,6 +16,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
 
 // ─── Session / Token Storage ─────────────────────────────────────────────────
@@ -60,8 +61,7 @@ object RetrofitClient {
 
     private val baseUrl = BuildConfig.API_BASE_URL.ensureTrailingSlash()
 
-    @Volatile
-    private var currentToken: String? = null
+    private val currentToken = AtomicReference<String?>(null)
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         redactHeader("Authorization")
@@ -74,7 +74,7 @@ object RetrofitClient {
 
     private val authInterceptor = Interceptor { chain ->
         val requestBuilder = chain.request().newBuilder()
-        currentToken?.let { token ->
+        currentToken.get()?.let { token ->
             requestBuilder.addHeader("Authorization", "Bearer $token")
         }
         chain.proceed(requestBuilder.build())
@@ -90,7 +90,7 @@ object RetrofitClient {
         .build()
 
     private val retrofit: Retrofit = Retrofit.Builder()
-        .baseUrl(BASE_URL)
+        .baseUrl(baseUrl)
         .client(okHttpClient)
         .addConverterFactory(GsonConverterFactory.create(gson))
         .build()
@@ -98,7 +98,7 @@ object RetrofitClient {
     private val apiService: ApiService = retrofit.create(ApiService::class.java)
 
     fun getService(token: String? = null): ApiService {
-        currentToken = token
+        currentToken.set(token)
         return apiService
     }
 
