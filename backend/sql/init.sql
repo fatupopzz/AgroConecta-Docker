@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS pedido (
     id_agricultor       INT NOT NULL REFERENCES agricultor(id_agricultor),
     id_distribuidor     INT NOT NULL REFERENCES distribuidor(id_distribuidor),
     fecha_pedido        TIMESTAMP DEFAULT NOW(),
+    fecha_entrega_real  TIMESTAMP,
     estado              VARCHAR(30) DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'confirmado', 'en_camino', 'entregado', 'cancelado')),
     tipo_entrega        VARCHAR(20) CHECK (tipo_entrega IN ('domicilio', 'punto_recogida')),
     direccion_entrega   TEXT,
