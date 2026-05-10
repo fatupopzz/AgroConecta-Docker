@@ -1,0 +1,2 @@
+ALTER TABLE pedido
+ADD COLUMN IF NOT EXISTS fecha_entrega_real TIMESTAMP;
