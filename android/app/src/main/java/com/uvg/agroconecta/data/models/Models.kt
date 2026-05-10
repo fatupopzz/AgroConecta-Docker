@@ -69,7 +69,7 @@ data class DistributorOffer(
     val distribuidor: String,               // nombre_negocio
     @SerializedName("calificacion_distribuidor") val calificacionDistribuidor: Double,
     // HU-023: sello verificado - viene del estado del distribuidor
-    @SerializedName("estado_verificacion") val estadoVerificacion: String? = "verificado"
+    @SerializedName("estado_verificacion") val estadoVerificacion: String?
 )
 
 // ─── Comparison ──────────────────────────────────────────────────────────────
