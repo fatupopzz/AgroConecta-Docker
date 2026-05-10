@@ -16,7 +16,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 // ─── Session / Token Storage ─────────────────────────────────────────────────
@@ -61,8 +61,6 @@ object RetrofitClient {
 
     private val baseUrl = BuildConfig.API_BASE_URL.ensureTrailingSlash()
 
-    private val currentToken = AtomicReference<String?>(null)
-
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         redactHeader("Authorization")
         level = if (BuildConfig.DEBUG) {
@@ -72,34 +70,44 @@ object RetrofitClient {
         }
     }
 
-    private val authInterceptor = Interceptor { chain ->
-        val requestBuilder = chain.request().newBuilder()
-        currentToken.get()?.let { token ->
-            requestBuilder.addHeader("Authorization", "Bearer $token")
-        }
-        chain.proceed(requestBuilder.build())
-    }
-
     private val gson = GsonBuilder().setLenient().create()
 
-    private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
+    private val baseClient: OkHttpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
-        .addInterceptor(authInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private val retrofit: Retrofit = Retrofit.Builder()
-        .baseUrl(baseUrl)
-        .client(okHttpClient)
-        .addConverterFactory(GsonConverterFactory.create(gson))
-        .build()
+    private val publicService: ApiService by lazy { createService(null) }
+    private val tokenServices = ConcurrentHashMap<String, ApiService>()
 
-    private val apiService: ApiService = retrofit.create(ApiService::class.java)
+    fun getService(token: String? = null): ApiService =
+        if (token.isNullOrBlank()) {
+            publicService
+        } else {
+            tokenServices.computeIfAbsent(token, ::createService)
+        }
 
-    fun getService(token: String? = null): ApiService {
-        currentToken.set(token)
-        return apiService
+    private fun createService(token: String?): ApiService {
+        val client = if (token.isNullOrBlank()) {
+            baseClient
+        } else {
+            baseClient.newBuilder()
+                .addInterceptor(Interceptor { chain ->
+                    val request = chain.request().newBuilder()
+                        .addHeader("Authorization", "Bearer $token")
+                        .build()
+                    chain.proceed(request)
+                })
+                .build()
+        }
+
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+            .create(ApiService::class.java)
     }
 
     private fun String.ensureTrailingSlash(): String =
