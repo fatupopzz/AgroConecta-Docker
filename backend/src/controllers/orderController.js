@@ -26,6 +26,7 @@ const getOrderDetailData = async (db, orderId) => {
     `SELECT
         p.id_pedido,
         p.fecha_pedido,
+        p.fecha_entrega_real,
         p.estado,
         p.tipo_entrega,
         p.direccion_entrega,
@@ -563,10 +564,106 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+
+const receiveOrder = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({ error: "ID de pedido inválido" });
+  }
+
+  const orderId = Number(id);
+  const requesterId = req.user ? Number(req.user.id) : null;
+
+  if (!requesterId) {
+    return res.status(401).json({ error: "Usuario no autenticado" });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const orderResult = await client.query(
+      `SELECT
+          p.id_pedido,
+          p.id_agricultor,
+          p.estado,
+          a.id_usuario
+       FROM pedido p
+       JOIN agricultor a ON p.id_agricultor = a.id_agricultor
+       WHERE p.id_pedido = $1`,
+      [orderId]
+    );
+
+    if (orderResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Pedido no encontrado" });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (Number(order.id_usuario) !== requesterId) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({
+        error: "El agricultor no tiene permiso para confirmar este pedido",
+      });
+    }
+
+    if (order.estado !== "en_camino") {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "Solo se puede confirmar recepción de pedidos en estado en_camino",
+      });
+    }
+
+    await client.query(
+      `UPDATE pedido
+       SET estado = 'entregado',
+           fecha_entrega_real = NOW()
+       WHERE id_pedido = $1
+       RETURNING *`,
+      [orderId]
+    );
+
+    await client.query(
+      `UPDATE pago
+       SET estado_pago = 'completado',
+           fecha_pago = COALESCE(fecha_pago, NOW())
+       WHERE id_pedido = $1
+         AND metodo_pago = 'contra_entrega'`,
+      [orderId]
+    );
+
+    await client.query("COMMIT");
+
+    const orderDetail = await getOrderDetailData(pool, orderId);
+
+    return res.json({
+      message: "Recepción del pedido confirmada correctamente",
+      pedido: orderDetail,
+    });
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error("Error al hacer rollback en receiveOrder:", rollbackError);
+    }
+
+    console.error("Error en receiveOrder:", error);
+    return res.status(500).json({
+      error: "Error al confirmar recepción del pedido",
+    });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   createOrder,
   getOrderById,
   getOrdersByFarmer,
   getOrdersByDistributor,
   updateOrderStatus,
+  receiveOrder,
 };
