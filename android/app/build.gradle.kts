@@ -3,9 +3,22 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
-val apiBaseUrl = providers.gradleProperty("AGROCONECTA_API_BASE_URL")
+val configuredApiBaseUrl = providers.gradleProperty("AGROCONECTA_API_BASE_URL")
     .orElse(providers.environmentVariable("AGROCONECTA_API_BASE_URL"))
+
+val debugApiBaseUrl = configuredApiBaseUrl
     .orElse("http://10.0.2.2:8080/api/")
+    .get()
+
+val releaseApiBaseUrl = configuredApiBaseUrl
+    .map { url ->
+        if (url.startsWith("http://")) {
+            "https://${url.removePrefix("http://")}"
+        } else {
+            url
+        }
+    }
+    .orElse("https://10.0.2.2:8080/api/")
     .get()
 
 android {
@@ -18,12 +31,15 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
+        }
         release {
             isMinifyEnabled = false
+            buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
         }
     }
     compileOptions {

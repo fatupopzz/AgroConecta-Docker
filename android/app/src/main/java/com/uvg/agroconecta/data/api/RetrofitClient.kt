@@ -109,7 +109,10 @@ object RetrofitClient {
     private fun createPublicService(): ApiService =
         createRetrofit(baseClient).create(ApiService::class.java)
 
-    private fun String.ensureTrailingSlash(): String =
-        trimEnd('/') + "/"
+    private fun String.ensureTrailingSlash(): String {
+        val normalized = trimEnd('/')
+        require(normalized.isNotBlank()) { "BuildConfig.API_BASE_URL must not be blank" }
+        return "$normalized/"
+    }
 
 }
