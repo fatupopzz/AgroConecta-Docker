@@ -78,15 +78,12 @@ object RetrofitClient {
         .build()
 
     private val publicService: ApiService by lazy { createService(null) }
-    private val tokenServices = mutableMapOf<String, ApiService>()
 
     fun getService(token: String? = null): ApiService =
         if (token.isNullOrBlank()) {
             publicService
         } else {
-            synchronized(tokenServices) {
-                tokenServices[token] ?: createService(token).also { tokenServices[token] = it }
-            }
+            createService(token)
         }
 
     private fun createService(token: String?): ApiService {
