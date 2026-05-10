@@ -77,7 +77,7 @@ object RetrofitClient {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private val publicService: ApiService by lazy { createService(null) }
+    private val publicService: ApiService by lazy { createPublicService() }
 
     fun getService(token: String? = null): ApiService =
         if (token.isNullOrBlank()) {
@@ -107,6 +107,8 @@ object RetrofitClient {
             .build()
             .create(ApiService::class.java)
     }
+
+    private fun createPublicService(): ApiService = createService(null)
 
     private fun String.ensureTrailingSlash(): String =
         if (endsWith("/")) this else "$this/"
