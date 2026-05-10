@@ -16,7 +16,6 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 // ─── Session / Token Storage ─────────────────────────────────────────────────
@@ -79,13 +78,15 @@ object RetrofitClient {
         .build()
 
     private val publicService: ApiService by lazy { createService(null) }
-    private val tokenServices = ConcurrentHashMap<String, ApiService>()
+    private val tokenServices = mutableMapOf<String, ApiService>()
 
     fun getService(token: String? = null): ApiService =
         if (token.isNullOrBlank()) {
             publicService
         } else {
-            tokenServices.computeIfAbsent(token, ::createService)
+            synchronized(tokenServices) {
+                tokenServices[token] ?: createService(token).also { tokenServices[token] = it }
+            }
         }
 
     private fun createService(token: String?): ApiService {
