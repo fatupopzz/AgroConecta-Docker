@@ -146,6 +146,18 @@ CREATE TABLE IF NOT EXISTS item_carrito (
   UNIQUE(id_carrito, id_inventario)
 );
 
+CREATE TABLE IF NOT EXISTS inventario_distribuidor (
+    id_inventario       SERIAL PRIMARY KEY,
+    id_distribuidor     INT NOT NULL REFERENCES distribuidor(id_distribuidor),
+    id_producto         INT NOT NULL REFERENCES producto(id_producto),
+    precio              DECIMAL(10,2) NOT NULL,
+    stock_disponible    INT DEFAULT 0,
+    unidad_medida       VARCHAR(30),
+    tiempo_entrega_dias INT,  
+    ultima_actualizacion TIMESTAMP DEFAULT NOW(),
+    UNIQUE (id_distribuidor, id_producto)
+);
+
 
 INSERT INTO categoria (nombre, descripcion) VALUES
     ('Fertilizantes', 'Productos para nutrición del suelo y cultivos'),

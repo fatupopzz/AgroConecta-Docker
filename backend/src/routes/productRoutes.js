@@ -6,10 +6,12 @@ const {
   getProductComparison,
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  comparePrices
 } = require("../controllers/productController");
 
 router.get("/", getProducts);
+router.get("/compare", comparePrices);
 router.get("/:id/compare", getProductComparison);
 router.get("/:id", getProductById);
 router.post("/", createProduct);
