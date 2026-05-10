@@ -4,6 +4,11 @@ plugins {
 }
 
 android {
+    val apiBaseUrl = providers.gradleProperty("AGROCONECTA_API_BASE_URL")
+        .orElse(providers.environmentVariable("AGROCONECTA_API_BASE_URL"))
+        .orElse("http://10.0.2.2:8080/api/")
+        .get()
+
     namespace = "com.uvg.agroconecta"
     compileSdk = 34
 
@@ -13,6 +18,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     buildTypes {

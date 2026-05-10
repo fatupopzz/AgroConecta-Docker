@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.GsonBuilder
+import com.uvg.agroconecta.BuildConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import okhttp3.Interceptor
@@ -57,15 +58,18 @@ object SessionManager {
 
 object RetrofitClient {
 
-    // Change to your actual server IP. In emulator: 10.0.2.2 = localhost.
-    // For Azure VM: 20.63.8.63
-    private const val BASE_URL = "http://20.63.8.63:8080/api/"
+    private val baseUrl = BuildConfig.API_BASE_URL.ensureTrailingSlash()
 
     @Volatile
     private var currentToken: String? = null
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        redactHeader("Authorization")
+        level = if (BuildConfig.DEBUG) {
+            HttpLoggingInterceptor.Level.BODY
+        } else {
+            HttpLoggingInterceptor.Level.NONE
+        }
     }
 
     private val authInterceptor = Interceptor { chain ->
@@ -97,4 +101,7 @@ object RetrofitClient {
         currentToken = token
         return apiService
     }
+
+    private fun String.ensureTrailingSlash(): String =
+        if (endsWith("/")) this else "$this/"
 }
