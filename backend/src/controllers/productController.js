@@ -466,6 +466,48 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+const comparePrices = async (req, res) => {
+  try {
+    const { product_id } = req.query;
+
+    if (!product_id) {
+      return res.status(400).json({
+        error: "product_id es requerido",
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT 
+        d.id_distribuidor,
+        d.nombre_negocio,
+        i.precio,
+        i.stock_disponible,
+        d.calificacion_promedio,
+        i.tiempo_entrega_dias
+       FROM inventario_distribuidor i
+       JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
+       WHERE i.id_producto = $1
+         AND i.stock_disponible > 0
+         AND d.estado_verificacion = 'verificado'
+       ORDER BY i.precio ASC`,
+      [product_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({
+        message: "No hay distribuidores disponibles",
+        data: [],
+      });
+    }
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error("Error en comparePrices:", error);
+    res.status(500).json({ error: "Error en servidor" });
+  }
+};
+
 
 module.exports = {
   getProducts,
@@ -474,4 +516,5 @@ module.exports = {
   createProduct,
   updateProduct,
   deleteProduct,
+  comparePrices
 };
