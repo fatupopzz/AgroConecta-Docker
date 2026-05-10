@@ -83,33 +83,33 @@ object RetrofitClient {
         if (token.isNullOrBlank()) {
             publicService
         } else {
-            createService(token)
+            createAuthenticatedService(token)
         }
 
-    private fun createService(token: String?): ApiService {
-        val client = if (token.isNullOrBlank()) {
-            baseClient
-        } else {
-            baseClient.newBuilder()
-                .addInterceptor(Interceptor { chain ->
-                    val request = chain.request().newBuilder()
-                        .addHeader("Authorization", "Bearer $token")
-                        .build()
-                    chain.proceed(request)
-                })
-                .build()
-        }
+    private fun createAuthenticatedService(token: String): ApiService {
+        val client = baseClient.newBuilder()
+            .addInterceptor(Interceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .addHeader("Authorization", "Bearer $token")
+                    .build()
+                chain.proceed(request)
+            })
+            .build()
 
-        return Retrofit.Builder()
+        return createRetrofit(client).create(ApiService::class.java)
+    }
+
+    private fun createRetrofit(client: OkHttpClient): Retrofit =
+        Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
-            .create(ApiService::class.java)
-    }
 
-    private fun createPublicService(): ApiService = createService(null)
+    private fun createPublicService(): ApiService =
+        createRetrofit(baseClient).create(ApiService::class.java)
 
     private fun String.ensureTrailingSlash(): String =
-        if (endsWith("/")) this else "$this/"
+        trimEnd('/') + "/"
+
 }
