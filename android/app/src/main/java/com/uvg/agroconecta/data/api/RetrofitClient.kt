@@ -61,34 +61,40 @@ object RetrofitClient {
     // For Azure VM: 20.63.8.63
     private const val BASE_URL = "http://20.63.8.63:8080/api/"
 
+    @Volatile
+    private var currentToken: String? = null
+
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
-    private fun buildClient(token: String? = null): OkHttpClient {
-        val builder = OkHttpClient.Builder()
-            .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-
-        if (token != null) {
-            builder.addInterceptor(Interceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .addHeader("Authorization", "Bearer $token")
-                    .build()
-                chain.proceed(request)
-            })
+    private val authInterceptor = Interceptor { chain ->
+        val requestBuilder = chain.request().newBuilder()
+        currentToken?.let { token ->
+            requestBuilder.addHeader("Authorization", "Bearer $token")
         }
-        return builder.build()
+        chain.proceed(requestBuilder.build())
     }
 
     private val gson = GsonBuilder().setLenient().create()
 
-    fun getService(token: String? = null): ApiService =
-        Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(buildClient(token))
-            .addConverterFactory(GsonConverterFactory.create(gson))
-            .build()
-            .create(ApiService::class.java)
+    private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(loggingInterceptor)
+        .addInterceptor(authInterceptor)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    private val retrofit: Retrofit = Retrofit.Builder()
+        .baseUrl(BASE_URL)
+        .client(okHttpClient)
+        .addConverterFactory(GsonConverterFactory.create(gson))
+        .build()
+
+    private val apiService: ApiService = retrofit.create(ApiService::class.java)
+
+    fun getService(token: String? = null): ApiService {
+        currentToken = token
+        return apiService
+    }
 }
