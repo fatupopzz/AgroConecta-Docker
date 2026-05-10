@@ -18,7 +18,7 @@ val releaseApiBaseUrl = configuredApiBaseUrl
             url
         }
     }
-    .orElse("https://20.63.8.63:8080/api/")
+    .orElse("")
     .get()
 
 android {

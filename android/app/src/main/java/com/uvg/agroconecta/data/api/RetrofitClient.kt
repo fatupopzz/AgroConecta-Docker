@@ -111,7 +111,9 @@ object RetrofitClient {
 
     private fun String.ensureTrailingSlash(): String {
         val normalized = trimEnd('/')
-        require(normalized.isNotBlank()) { "BuildConfig.API_BASE_URL must not be blank" }
+        require(normalized.isNotBlank()) {
+            "API_BASE_URL is not configured. Set AGROCONECTA_API_BASE_URL in gradle.properties or as an environment variable."
+        }
         return "$normalized/"
     }
 
