@@ -141,8 +141,15 @@ class DeliveryFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            // Use farmerId from session; fallback to 1 for demo if not set
-            val resolvedFarmerId = if ((farmerId ?: -1) > 0) farmerId!! else 1
+            val resolvedFarmerId = farmerId?.takeIf { it > 0 }
+            if (resolvedFarmerId == null) {
+                Toast.makeText(
+                    context,
+                    "No se pudo identificar tu cuenta. Vuelve a iniciar sesión e inténtalo de nuevo.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@setOnClickListener
+            }
 
             createOrder(token, resolvedFarmerId, address)
         }
