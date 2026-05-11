@@ -1,4 +1,4 @@
-const pool = require("../config/db");
+const { pool } = require("../config/db");
 
 const createQualityReport = async (req, res) => {
     try {
@@ -9,9 +9,15 @@ const createQualityReport = async (req, res) => {
             descripcion
         } = req.body;
 
+        if (!agricultor_id || !producto_id || !pedido_id || !descripcion) {
+            return res.status(400).json({
+                error: "Debe enviar agricultor_id, producto_id, pedido_id y descripcion"
+            });
+        }
+
         const result = await pool.query(
             `INSERT INTO reporte_calidad
-            (agricultor_id, producto_id, pedido_id, descripcion)
+            (id_agricultor, id_producto, id_pedido, descripcion_problema)
             VALUES ($1, $2, $3, $4)
             RETURNING *`,
             [agricultor_id, producto_id, pedido_id, descripcion]
@@ -34,15 +40,18 @@ const getAllQualityReports = async (req, res) => {
     try {
         const { estado } = req.query;
 
-        let query = "SELECT * FROM reporte_calidad";
-        let values = [];
+        let query = `
+            SELECT *
+            FROM reporte_calidad
+        `;
+        const values = [];
 
         if (estado) {
-            query += " WHERE estado = $1";
+            query += " WHERE estado_reporte = $1";
             values.push(estado);
         }
 
-        query += " ORDER BY fecha_creacion DESC";
+        query += " ORDER BY fecha_reporte DESC";
 
         const result = await pool.query(query, values);
 
@@ -61,12 +70,18 @@ const updateQualityReport = async (req, res) => {
         const { id } = req.params;
         const { estado, accion_tomada } = req.body;
 
+        if (!estado || !accion_tomada) {
+            return res.status(400).json({
+                error: "Debe enviar estado y accion_tomada"
+            });
+        }
+
         const result = await pool.query(
             `UPDATE reporte_calidad
-            SET estado = $1,
-                accion_tomada = $2,
+            SET estado_reporte = $1,
+                resolucion = $2,
                 fecha_resolucion = CURRENT_TIMESTAMP
-            WHERE id = $3
+            WHERE id_reporte = $3
             RETURNING *`,
             [estado, accion_tomada, id]
         );
