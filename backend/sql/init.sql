@@ -3,6 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS usuario (
     id_usuario    SERIAL PRIMARY KEY,
     nombre        VARCHAR(100) NOT NULL,
+    apellido      VARCHAR(100),
     telefono      VARCHAR(20)  UNIQUE NOT NULL,
     email         VARCHAR(150) UNIQUE,
     contrasena_hash TEXT       NOT NULL,
@@ -172,3 +173,7 @@ INSERT INTO usuario (nombre, telefono, email, contrasena_hash, tipo_usuario) VAL
     ('Admin AgroConecta', '50200000000', 'admin@agroconecta.gt',
      crypt('admin123', gen_salt('bf', 10)), 'administrador')
 ON CONFLICT DO NOTHING;
+
+-- ─── Migraciones idempotentes para BDs existentes ───
+-- Estas sentencias usan IF NOT EXISTS para que sea seguro re-ejecutarlas.
+ALTER TABLE usuario ADD COLUMN IF NOT EXISTS apellido VARCHAR(100);
