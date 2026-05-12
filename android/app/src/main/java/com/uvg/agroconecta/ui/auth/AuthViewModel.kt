@@ -9,14 +9,28 @@ import com.uvg.agroconecta.data.api.RetrofitClient
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.LoginRequest
 import com.uvg.agroconecta.data.models.RegisterRequest
+import com.uvg.agroconecta.data.models.TipoCuenta
 import kotlinx.coroutines.launch
 
 sealed class AuthState {
-    object Idle : AuthState()
-    object Loading : AuthState()
-    object Success : AuthState()
+    data object Idle : AuthState()
+    data object Loading : AuthState()
+    data object Success : AuthState()
     data class Error(val message: String) : AuthState()
 }
+
+data class RegisterDraft(
+    val tipoCuenta: TipoCuenta = TipoCuenta.AGRICULTOR,
+    val nombre: String = "",
+    val apellido: String = "",
+    val telefono: String = "",
+    val email: String = "",
+    val password: String = "",
+    val departamento: String? = null,
+    val municipio: String? = null,
+    val nombreNegocio: String? = null,
+    val nit: String? = null
+)
 
 class AuthViewModel : ViewModel() {
 
@@ -25,6 +39,18 @@ class AuthViewModel : ViewModel() {
 
     private val _registerState = MutableLiveData<AuthState>(AuthState.Idle)
     val registerState: LiveData<AuthState> = _registerState
+
+    private val _registerDraft = MutableLiveData(RegisterDraft())
+    val registerDraft: LiveData<RegisterDraft> = _registerDraft
+
+    fun updateDraft(transform: (RegisterDraft) -> RegisterDraft) {
+        _registerDraft.value = transform(_registerDraft.value ?: RegisterDraft())
+    }
+
+    fun resetRegister() {
+        _registerDraft.value = RegisterDraft()
+        _registerState.value = AuthState.Idle
+    }
 
     fun login(email: String, password: String, context: Context) {
         _loginState.value = AuthState.Loading
@@ -35,8 +61,6 @@ class AuthViewModel : ViewModel() {
 
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
-                    // Save token — farmerId will be set after profile load
-                    // For now we save -1 and will update when needed
                     SessionManager.saveSession(context, body.token, email, -1, -1)
                     _loginState.value = AuthState.Success
                 } else {
@@ -54,17 +78,35 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun register(nombre: String, telefono: String, email: String, password: String, context: Context) {
+    fun submitRegister(context: Context) {
+        val draft = _registerDraft.value ?: return
         _registerState.value = AuthState.Loading
+
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService()
-                    .register(RegisterRequest(nombre, telefono, email, password))
+                val request = RegisterRequest(
+                    nombre = draft.nombre.trim(),
+                    apellido = draft.apellido.trim().ifBlank { null },
+                    telefono = draft.telefono.trim(),
+                    email = draft.email.trim(),
+                    password = draft.password,
+                    tipoUsuario = draft.tipoCuenta.apiValue,
+                    departamento = draft.departamento,
+                    municipio = draft.municipio,
+                    nombreNegocio = draft.nombreNegocio?.trim()?.ifBlank { null },
+                    nit = draft.nit?.trim()?.ifBlank { null }
+                )
+
+                val response = RetrofitClient.getService().register(request)
 
                 if (response.isSuccessful) {
                     _registerState.value = AuthState.Success
                 } else {
-                    _registerState.value = AuthState.Error("Error al registrarse (${response.code()})")
+                    val msg = when (response.code()) {
+                        400 -> "Datos inválidos o usuario ya existe"
+                        else -> "Error al registrarse (${response.code()})"
+                    }
+                    _registerState.value = AuthState.Error(msg)
                 }
             } catch (e: Exception) {
                 _registerState.value = AuthState.Error("Error de conexión: ${e.localizedMessage}")
