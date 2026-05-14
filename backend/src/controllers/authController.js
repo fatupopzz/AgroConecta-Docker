@@ -6,6 +6,7 @@ const TIPOS_VALIDOS = ["agricultor", "distribuidor"];
 
 const register = async (req, res) => {
   let client;
+  let transactionStarted = false;
 
   try {
     const {
@@ -44,7 +45,11 @@ const register = async (req, res) => {
       });
     }
 
-    client = await pool.connect();
+    client = await pool.connect().catch(() => null);
+    if (!client) {
+      console.error("Error de conexión en register");
+      return res.status(500).json({ error: "Error de conexión con la base de datos" });
+    }
 
     // Verificar duplicados
     const userExist = await client.query(
@@ -57,6 +62,7 @@ const register = async (req, res) => {
     }
 
     await client.query("BEGIN");
+    transactionStarted = true;
 
     const hash = await bcrypt.hash(password, 10);
 
@@ -99,15 +105,12 @@ const register = async (req, res) => {
       perfil,
     });
   } catch (error) {
-    if (!client) {
-      console.error("Error de conexión en register");
-      return res.status(500).json({ error: "Error de conexión con la base de datos" });
-    }
-
-    try {
-      await client.query("ROLLBACK");
-    } catch (rollbackError) {
-      console.error("Error en rollback de register:", rollbackError);
+    if (transactionStarted) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Error en rollback de register:", rollbackError);
+      }
     }
     console.error("Error en register:", error);
     return res.status(500).json({ error: "Error en servidor" });
