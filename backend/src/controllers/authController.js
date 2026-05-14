@@ -5,57 +5,52 @@ const jwt = require("jsonwebtoken");
 const TIPOS_VALIDOS = ["agricultor", "distribuidor"];
 
 const register = async (req, res) => {
+  // Validaciones de body ANTES de tomar conexion del pool
+  const {
+    nombre,
+    apellido,
+    telefono,
+    email,
+    password,
+    tipo_usuario,
+    departamento,
+    municipio,
+    nombre_negocio,
+    nit,
+  } = req.body;
+
+  if (!nombre || !telefono || !email || !password || !tipo_usuario) {
+    return res.status(400).json({
+      error:
+        "Datos incompletos. Requeridos: nombre, telefono, email, password, tipo_usuario",
+    });
+  }
+
+  if (!TIPOS_VALIDOS.includes(tipo_usuario)) {
+    return res.status(400).json({
+      error: `tipo_usuario inválido. Use: ${TIPOS_VALIDOS.join(" | ")}`,
+    });
+  }
+
+  // Validacion de nombre_negocio con trim para distribuidores
+  let nombreNegocioNormalizado = null;
+  if (tipo_usuario === "distribuidor") {
+    if (typeof nombre_negocio !== "string" || nombre_negocio.trim().length < 2) {
+      return res.status(400).json({
+        error: "nombre_negocio es obligatorio para distribuidores (mínimo 2 caracteres)",
+      });
+    }
+    nombreNegocioNormalizado = nombre_negocio.trim();
+  }
+
+  // Ahora si tomamos conexion del pool
   let client;
-  let transactionStarted = false;
+  let inTransaction = false;
 
   try {
-    const {
-      nombre,
-      apellido,
-      telefono,
-      email,
-      password,
-      tipo_usuario,
-      // Datos del perfil (paso 2 del registro)
-      departamento,
-      municipio,
-      // Solo distribuidor
-      nombre_negocio,
-      nit,
-    } = req.body;
+    client = await pool.connect();
 
-    // Validaciones basicas
-    if (!nombre || !telefono || !email || !password || !tipo_usuario) {
-      return res.status(400).json({
-        error:
-          "Datos incompletos. Requeridos: nombre, telefono, email, password, tipo_usuario",
-      });
-    }
-
-    if (!TIPOS_VALIDOS.includes(tipo_usuario)) {
-      return res.status(400).json({
-        error: `tipo_usuario invalido. Use: ${TIPOS_VALIDOS.join(" | ")}`,
-      });
-    }
-
-    // Si es distribuidor, nombre_negocio es obligatorio
-    if (tipo_usuario === "distribuidor" && (!nombre_negocio || typeof nombre_negocio !== "string")) {
-      return res.status(400).json({
-        error: "nombre_negocio es obligatorio para distribuidores",
-      });
-    }
-
-    try {
-      client = await pool.connect();
-    } catch (connectionError) {
-      console.error("Error de conexión en register:", {
-        message: connectionError.message,
-        code: connectionError.code,
-      });
-      return res.status(500).json({ error: "Error de conexión con la base de datos" });
-    }
-
-    // Verificar duplicados
+    // Verificar duplicados antes de la transaccion
     const userExist = await client.query(
       "SELECT 1 FROM usuario WHERE telefono = $1 OR email = $2",
       [telefono, email]
@@ -66,11 +61,10 @@ const register = async (req, res) => {
     }
 
     await client.query("BEGIN");
-    transactionStarted = true;
+    inTransaction = true;
 
     const hash = await bcrypt.hash(password, 10);
 
-    // Insertar usuario
     const userResult = await client.query(
       `INSERT INTO usuario (nombre, apellido, telefono, email, contrasena_hash, tipo_usuario)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -80,7 +74,6 @@ const register = async (req, res) => {
 
     const newUser = userResult.rows[0];
 
-    // Insertar perfil segun tipo
     let perfil = null;
 
     if (tipo_usuario === "agricultor") {
@@ -96,12 +89,13 @@ const register = async (req, res) => {
         `INSERT INTO distribuidor (id_usuario, nombre_negocio, nit, departamento, estado_verificacion)
          VALUES ($1, $2, $3, $4, 'pendiente')
          RETURNING id_distribuidor, nombre_negocio, nit, departamento, estado_verificacion`,
-        [newUser.id_usuario, nombre_negocio, nit || null, departamento || null]
+        [newUser.id_usuario, nombreNegocioNormalizado, nit || null, departamento || null]
       );
       perfil = perfilResult.rows[0];
     }
 
     await client.query("COMMIT");
+    inTransaction = false;
 
     return res.status(201).json({
       message: "Usuario creado correctamente",
@@ -109,13 +103,22 @@ const register = async (req, res) => {
       perfil,
     });
   } catch (error) {
-    if (transactionStarted) {
+    // Solo hacer rollback si la transaccion estaba abierta
+    if (inTransaction && client) {
       try {
         await client.query("ROLLBACK");
       } catch (rollbackError) {
         console.error("Error en rollback de register:", rollbackError);
       }
     }
+
+    // Manejar violacion de UNIQUE constraint (race condition) con 400 en vez de 500
+    if (error.code === "23505") {
+      return res.status(400).json({
+        error: "El usuario ya existe (telefono o email duplicado)",
+      });
+    }
+
     console.error("Error en register:", error);
     return res.status(500).json({ error: "Error en servidor" });
   } finally {
@@ -145,7 +148,7 @@ const login = async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.contrasena_hash);
 
     if (!validPassword) {
-      return res.status(401).json({ error: "Contrasena incorrecta" });
+      return res.status(401).json({ error: "Contraseña incorrecta" });
     }
 
     const token = jwt.sign(
