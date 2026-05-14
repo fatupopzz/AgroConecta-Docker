@@ -41,7 +41,10 @@ class AuthViewModel : ViewModel() {
     val registerState: LiveData<AuthState> = _registerState
 
     private val _registerDraft = MutableLiveData(RegisterDraft())
+
     val registerDraft: LiveData<RegisterDraft> = _registerDraft
+    private val _nombreUsuario = MutableLiveData<String>("")
+    val nombreUsuario: LiveData<String> = _nombreUsuario
 
     fun updateDraft(transform: (RegisterDraft) -> RegisterDraft) {
         _registerDraft.value = transform(_registerDraft.value ?: RegisterDraft())
@@ -62,6 +65,7 @@ class AuthViewModel : ViewModel() {
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
                     SessionManager.saveSession(context, body.token, email, -1, -1)
+                    _nombreUsuario.value = body.nombre ?: email.substringBefore("@")
                     _loginState.value = AuthState.Success
                 } else {
                     val msg = when (response.code()) {

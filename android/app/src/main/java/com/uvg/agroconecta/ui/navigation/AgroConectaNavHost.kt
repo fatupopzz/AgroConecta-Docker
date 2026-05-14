@@ -1,20 +1,26 @@
 package com.uvg.agroconecta.ui.navigation
 
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import androidx.compose.runtime.livedata.observeAsState
 import com.uvg.agroconecta.ui.auth.AuthViewModel
 import com.uvg.agroconecta.ui.auth.LoginScreen
 import com.uvg.agroconecta.ui.auth.RegisterStep1Screen
 import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
+import com.uvg.agroconecta.ui.home.HomeScreen
+import com.uvg.agroconecta.ui.home.HomeViewModel
 
 @Composable
-fun AgroConectaNavHost(navController: NavHostController) {
+fun AgroConectaNavHost(
+    navController: NavHostController,
+    authViewModel: AuthViewModel = viewModel()
+) {
     NavHost(
         navController = navController,
         startDestination = Screen.Login.route
@@ -28,23 +34,24 @@ fun AgroConectaNavHost(navController: NavHostController) {
                 },
                 onNavigateToRegister = {
                     navController.navigate(Screen.RegisterStep1.route)
-                }
+                },
+                viewModel = authViewModel
             )
         }
 
         composable(Screen.RegisterStep1.route) { backStackEntry ->
-            val authViewModel = backStackEntry.sharedAuthViewModel(navController)
+            val registerViewModel = backStackEntry.sharedAuthViewModel(navController)
             RegisterStep1Screen(
-                viewModel = authViewModel,
+                viewModel = registerViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNext = { navController.navigate(Screen.RegisterStep2.route) }
             )
         }
 
         composable(Screen.RegisterStep2.route) { backStackEntry ->
-            val authViewModel = backStackEntry.sharedAuthViewModel(navController)
+            val registerViewModel = backStackEntry.sharedAuthViewModel(navController)
             RegisterStep2Screen(
-                viewModel = authViewModel,
+                viewModel = registerViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onRegisterSuccess = {
                     navController.popBackStack(Screen.Login.route, inclusive = false)
@@ -53,14 +60,37 @@ fun AgroConectaNavHost(navController: NavHostController) {
         }
 
         composable(Screen.Home.route) {
-            Text("Pantalla Home (migración pendiente)")
+            val homeViewModel: HomeViewModel = viewModel()
+            val nombre by authViewModel.nombreUsuario.observeAsState("")
+
+            LaunchedEffect(nombre) {
+                if (nombre.isNotBlank()) {
+                    homeViewModel.setNombreAgricultor(nombre)
+                }
+            }
+
+            HomeScreen(
+                viewModel = homeViewModel,
+                onProductoClick = { productoId ->
+                    navController.navigate("product_detail/$productoId")
+                },
+                onVerMasProductos = { },
+                onVerTodasCategorias = { },
+                onCarritoClick = { },
+                onPerfilClick = { }
+            )
+        }
+
+        composable(
+            route = "product_detail/{productoId}",
+            arguments = listOf(navArgument("productoId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val productoId = backStackEntry.arguments?.getInt("productoId") ?: return@composable
+            // ProductDetailScreen(productoId = productoId) ← Daniel implementa esto
         }
     }
 }
 
-/**
- * Devuelve el AuthViewModel compartido entre RegisterStep1 y RegisterStep2.
- */
 @Composable
 private fun NavBackStackEntry.sharedAuthViewModel(
     navController: NavHostController
