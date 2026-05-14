@@ -44,12 +44,7 @@ const register = async (req, res) => {
       });
     }
 
-    try {
-      client = await pool.connect();
-    } catch (connectionError) {
-      console.error("Error de conexión en register:", connectionError.message);
-      return res.status(500).json({ error: "Error de conexión con la base de datos" });
-    }
+    client = await pool.connect();
 
     // Verificar duplicados
     const userExist = await client.query(
@@ -104,6 +99,11 @@ const register = async (req, res) => {
       perfil,
     });
   } catch (error) {
+    if (!client) {
+      console.error("Error de conexión en register");
+      return res.status(500).json({ error: "Error de conexión con la base de datos" });
+    }
+
     try {
       await client.query("ROLLBACK");
     } catch (rollbackError) {
