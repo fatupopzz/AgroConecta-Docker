@@ -45,9 +45,11 @@ const register = async (req, res) => {
       });
     }
 
-    client = await pool.connect().catch(() => null);
+    client = await pool.connect().catch((connectionError) => {
+      console.error("Error de conexión en register:", connectionError.message);
+      return null;
+    });
     if (!client) {
-      console.error("Error de conexión en register");
       return res.status(500).json({ error: "Error de conexión con la base de datos" });
     }
 
