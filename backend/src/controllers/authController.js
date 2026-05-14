@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken");
 const TIPOS_VALIDOS = ["agricultor", "distribuidor"];
 
 const register = async (req, res) => {
-  const client = await pool.connect();
+  let client;
 
   try {
     const {
@@ -42,6 +42,13 @@ const register = async (req, res) => {
       return res.status(400).json({
         error: "nombre_negocio es obligatorio para distribuidores",
       });
+    }
+
+    try {
+      client = await pool.connect();
+    } catch (connectionError) {
+      console.error("Error de conexión en register:", connectionError);
+      return res.status(500).json({ error: "Error de conexión con la base de datos" });
     }
 
     // Verificar duplicados
@@ -105,7 +112,7 @@ const register = async (req, res) => {
     console.error("Error en register:", error);
     return res.status(500).json({ error: "Error en servidor" });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 
