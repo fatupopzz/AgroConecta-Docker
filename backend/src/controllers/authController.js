@@ -114,6 +114,14 @@ const register = async (req, res) => {
 
     // Manejar violacion de UNIQUE constraint (race condition) con 400 en vez de 500
     if (error.code === "23505") {
+      const constraint = error.constraint;
+
+      if (constraint === "distribuidor_nit_key") {
+        return res.status(400).json({
+          error: "El distribuidor ya existe (NIT duplicado)",
+        });
+      }
+
       return res.status(400).json({
         error: "El usuario ya existe (telefono o email duplicado)",
       });
