@@ -170,9 +170,10 @@ const login = async (req, res) => {
     );
 
     res.json({
-      message: "Login exitoso",
-      token,
-    });
+  message: "Login exitoso",
+  token,
+  nombre: user.nombre,
+});
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error en servidor" });
