@@ -42,35 +42,68 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+
     kotlinOptions {
         jvmTarget = "1.8"
     }
+
     buildFeatures {
         buildConfig = true
-        viewBinding = true
+        compose = true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
     }
 }
 
 dependencies {
+    // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.lifecycle.viewmodel)
-    implementation(libs.androidx.lifecycle.livedata)
-    implementation(libs.androidx.navigation.fragment)
-    implementation(libs.androidx.navigation.ui)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+
+    // Compose UI (versiones fijas, sin BOM)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.compose.runtime.livedata)
+
+    // Navigation Compose
+    implementation(libs.androidx.navigation.compose)
+
+    // ViewModel integration
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // Networking
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
     implementation(libs.gson)
     implementation(libs.coroutines.android)
-    implementation(libs.glide)
+
+    // Storage
     implementation(libs.androidx.datastore)
-    implementation(libs.androidx.activity.ktx)
-    implementation(libs.androidx.fragment.ktx)
+
+    // Image loading
+    implementation(libs.coil.compose)
+
+    // Debug tooling
+    debugImplementation(libs.androidx.compose.ui.tooling)
 }

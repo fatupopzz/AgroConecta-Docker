@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        Permitir HTTP sin TLS solo para:
+        - Backend Azure de desarrollo (20.63.8.63)
+        - Emulador (10.0.2.2 = host machine)
+        - Localhost (para desarrollo local)
+
+        En produccion se debe migrar a HTTPS y eliminar este archivo.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">20.63.8.63</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+</network-security-config>

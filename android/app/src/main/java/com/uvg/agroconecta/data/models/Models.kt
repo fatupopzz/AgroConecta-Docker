@@ -16,10 +16,21 @@ data class LoginResponse(
 
 data class RegisterRequest(
     val nombre: String,
+    val apellido: String?,
     val telefono: String,
     val email: String,
-    val password: String
+    val password: String,
+    @SerializedName("tipo_usuario") val tipoUsuario: String,
+    val departamento: String?,
+    val municipio: String?,
+    @SerializedName("nombre_negocio") val nombreNegocio: String?,
+    val nit: String?
 )
+
+enum class TipoCuenta(val apiValue: String, val displayName: String) {
+    AGRICULTOR("agricultor", "Agricultor"),
+    DISTRIBUIDOR("distribuidor", "Distribuidor")
+}
 
 // ─── Product ─────────────────────────────────────────────────────────────────
 
