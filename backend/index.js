@@ -13,10 +13,12 @@ const userRoutes = require("./src/routes/userRoutes");
 const orderRoutes = require("./src/routes/orderRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const qualityReportRoutes = require("./src/routes/qualityReportRoutes");
+const paymentRoutes = require("./src/routes/paymentRoutes");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
+
 
 app.use("/api/auth", authRoutes);
 
@@ -27,6 +29,8 @@ app.get("/api/protected", verifyToken, (req, res) => {
   });
 });
 
+
+app.use("/api/payments", paymentRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/agricultores", agricultorRoutes);
