@@ -37,8 +37,8 @@ private val AgroConectaLightColors = lightColorScheme(
     onError = White
 )
 
-// Por ahora reusamos los light colors. Si en el futuro se necesita modo oscuro real,
-// se define un dark scheme aquí.
+// Esquema de colores para modo oscuro con valores específicos de la marca.
+// Si en el futuro se requiere, puede ampliarse con más tokens para dark theme.
 private val AgroConectaDarkColors = darkColorScheme(
     primary = GreenLight,
     onPrimary = GreenPrimaryDark,
