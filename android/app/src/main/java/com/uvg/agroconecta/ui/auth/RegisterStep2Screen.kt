@@ -76,7 +76,8 @@ fun RegisterStep2Screen(
     LaunchedEffect(registerState) {
         when (val state = registerState) {
             is AuthState.Success -> {
-                snackbarHostState.showSnackbar("Cuenta creada. Inicia sesión.")
+                // Lanzar el snackbar sin bloquear para que la navegacion ocurra inmediatamente
+                scope.launch { snackbarHostState.showSnackbar("Cuenta creada. Inicia sesión.") }
                 viewModel.resetRegister()
                 onRegisterSuccess()
             }
