@@ -189,7 +189,7 @@ fun RegisterStep2Screen(
                                 nit = if (esDistribuidor) nit.trim().ifBlank { null } else null
                             )
                         }
-                        viewModel.submitRegister(context)
+                        viewModel.submitRegister()
                     },
                     enabled = registerState !is AuthState.Loading,
                     modifier = Modifier

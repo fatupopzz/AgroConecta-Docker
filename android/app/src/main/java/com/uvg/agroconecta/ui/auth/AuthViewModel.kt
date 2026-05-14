@@ -78,7 +78,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun submitRegister(context: Context) {
+    fun submitRegister() {
         val draft = _registerDraft.value ?: return
         _registerState.value = AuthState.Loading
 

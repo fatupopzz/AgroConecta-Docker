@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        Manifest overlay para builds debug.
+        Habilita CLEARTEXT solo en debug para conectar al backend HTTP de desarrollo.
+        En release no se aplica este overlay, por lo que el backend de produccion DEBE ser HTTPS.
+    -->
+    <application
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:replace="android:networkSecurityConfig" />
+</manifest>

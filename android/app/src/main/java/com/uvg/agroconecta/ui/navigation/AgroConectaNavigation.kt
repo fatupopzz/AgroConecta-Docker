@@ -26,8 +26,8 @@ sealed class Screen(val route: String) {
             price: String,
             distributorName: String
         ) = "delivery/$inventarioId/$distribuidorId/$productId" +
-                "?productName=${java.net.URLEncoder.encode(productName, "UTF-8")}" +
-                "&price=${java.net.URLEncoder.encode(price, "UTF-8")}" +
-                "&distributorName=${java.net.URLEncoder.encode(distributorName, "UTF-8")}"
+                "?productName=${android.net.Uri.encode(productName)}" +
+                "&price=${android.net.Uri.encode(price)}" +
+                "&distributorName=${android.net.Uri.encode(distributorName)}"
     }
 }
