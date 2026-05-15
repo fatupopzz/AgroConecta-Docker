@@ -15,6 +15,7 @@ import com.uvg.agroconecta.ui.auth.RegisterStep1Screen
 import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
+import com.uvg.agroconecta.ui.product.ProductDetailScreen
 
 @Composable
 fun AgroConectaNavHost(
@@ -86,7 +87,11 @@ fun AgroConectaNavHost(
             arguments = listOf(navArgument("productoId") { type = NavType.IntType })
         ) { backStackEntry ->
             val productoId = backStackEntry.arguments?.getInt("productoId") ?: return@composable
-            // ProductDetailScreen(productoId = productoId) ← Daniel implementa esto
+            ProductDetailScreen(
+                productId = productoId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToCart = { navController.navigate(Screen.Cart.route) }
+            )
         }
     }
 }
