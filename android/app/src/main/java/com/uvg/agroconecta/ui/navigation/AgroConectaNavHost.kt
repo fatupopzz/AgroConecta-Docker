@@ -90,7 +90,7 @@ fun AgroConectaNavHost(
             ProductDetailScreen(
                 productId = productoId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToCart = { navController.navigate(Screen.Cart.route) }
+                onNavigateToCart = { }
             )
         }
     }

@@ -41,13 +41,14 @@ const getResenasByProducto = async (req, res) => {
 // POST /api/products/:id/reviews
 const createResena = async (req, res) => {
   const { id } = req.params;
-  const { id_agricultor, id_pedido, calificacion, comentario } = req.body;
+  const { id_pedido, calificacion, comentario } = req.body;
+  const idUsuario = req.user?.id;
 
   if (!isPositiveInteger(id)) {
     return res.status(400).json({ error: "ID de producto inválido" });
   }
-  if (!isPositiveInteger(id_agricultor)) {
-    return res.status(400).json({ error: "id_agricultor inválido" });
+  if (!idUsuario) {
+    return res.status(401).json({ error: "Usuario autenticado inválido" });
   }
   if (!isPositiveInteger(id_pedido)) {
     return res.status(400).json({ error: "id_pedido inválido" });
@@ -59,7 +60,17 @@ const createResena = async (req, res) => {
   }
 
   try {
-    // Verificar que el pedido pertenece al agricultor y contiene el producto
+    const agricultorResult = await pool.query(
+      `SELECT id_agricultor FROM agricultor WHERE id_usuario = $1`,
+      [Number(idUsuario)]
+    );
+
+    if (agricultorResult.rows.length === 0) {
+      return res.status(403).json({ error: "Solo agricultores pueden dejar reseñas" });
+    }
+
+    const id_agricultor = agricultorResult.rows[0].id_agricultor;
+
     const pedidoCheck = await pool.query(
       `SELECT p.id_pedido
        FROM pedido p
@@ -69,7 +80,7 @@ const createResena = async (req, res) => {
          AND p.id_agricultor = $2
          AND i.id_producto = $3
          AND p.estado = 'entregado'`,
-      [Number(id_pedido), Number(id_agricultor), Number(id)]
+      [Number(id_pedido), id_agricultor, Number(id)]
     );
 
     if (pedidoCheck.rows.length === 0) {
@@ -82,16 +93,9 @@ const createResena = async (req, res) => {
       `INSERT INTO resena (id_agricultor, id_producto, id_pedido, calificacion, comentario)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id_resena, calificacion, comentario, fecha_resena`,
-      [
-        Number(id_agricultor),
-        Number(id),
-        Number(id_pedido),
-        cal,
-        comentario?.trim() || null,
-      ]
+      [id_agricultor, Number(id), Number(id_pedido), cal, comentario?.trim() || null]
     );
 
-    // Actualizar calificacion_promedio en producto
     await pool.query(
       `UPDATE producto
        SET calificacion_promedio = (
