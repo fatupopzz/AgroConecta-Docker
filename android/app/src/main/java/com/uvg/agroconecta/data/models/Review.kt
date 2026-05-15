@@ -1,22 +1,22 @@
 package com.uvg.agroconecta.data.models
 
+import com.google.gson.annotations.SerializedName
+
 data class Review(
-    val id: Int,
-    val idProducto: Int,
-    val idAgricultor: Int,
-    val nombreAgricultor: String?,
-    val calificacion: Int,        // 1-5
-    val comentario: String?,
-    val fechaCreacion: String
+    @SerializedName("id_resena")          val id: Int,
+    @SerializedName("calificacion")       val calificacion: Int,
+    @SerializedName("comentario")         val comentario: String?,
+    @SerializedName("fecha_resena")       val fechaCreacion: String,
+    @SerializedName("agricultor_nombre")  val nombreAgricultor: String?
 )
 
 data class ReviewsResponse(
-    val reviews: List<Review>,
-    val promedio: Double?,
-    val total: Int
+    @SerializedName("promedio")  val promedio: Double?,
+    @SerializedName("total")     val total: Int,
+    @SerializedName("resenas")   val reviews: List<Review>   // backend devuelve "resenas"
 )
 
 data class CreateReviewRequest(
-    val calificacion: Int,
-    val comentario: String
+    @SerializedName("calificacion") val calificacion: Int,
+    @SerializedName("comentario")   val comentario: String
 )
