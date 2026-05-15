@@ -56,18 +56,26 @@ docker compose down
 
 ## Estructura del proyecto
 ```
+
 AgroConecta-Docker/
 ├── docker-compose.yml
 ├── backend/
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── routes/
+│   │   └── config/
+│   ├── .env
 │   ├── Dockerfile
 │   ├── index.js
 │   ├── package.json
 │   └── sql/
 │       └── init.sql
+│
 └── frontend/
     ├── Dockerfile
-    ├── server.js
-    └── package.json
+    ├── package.json
+    └── server.js
 ```
 ## Despliegue en la Nube (Azure)
 

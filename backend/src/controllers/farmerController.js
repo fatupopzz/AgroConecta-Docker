@@ -1,5 +1,5 @@
 /**
- * @file controllers/farmer.controller.js
+ * @file controllers/farmerController.js
  * @description Controladores para el módulo de agricultores.
  */
 
