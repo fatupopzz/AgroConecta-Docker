@@ -23,9 +23,10 @@ const getResenasByProducto = async (req, res) => {
     );
 
     const total = result.rows.length;
-    const promedio = total > 0
-      ? result.rows.reduce((sum, r) => sum + r.calificacion, 0) / total
-      : 0;
+    const promedio =
+      total > 0
+        ? result.rows.reduce((sum, r) => sum + r.calificacion, 0) / total
+        : 0;
 
     return res.json({
       promedio: Number(promedio.toFixed(2)),
@@ -41,7 +42,7 @@ const getResenasByProducto = async (req, res) => {
 // POST /api/products/:id/reviews
 const createResena = async (req, res) => {
   const { id } = req.params;
-  const { id_pedido, calificacion, comentario } = req.body;
+  const { calificacion, comentario } = req.body;  // ya no necesitamos id_pedido
   const idUsuario = req.user?.id;
 
   if (!isPositiveInteger(id)) {
@@ -50,9 +51,6 @@ const createResena = async (req, res) => {
   if (!idUsuario) {
     return res.status(401).json({ error: "Usuario autenticado inválido" });
   }
-  if (!isPositiveInteger(id_pedido)) {
-    return res.status(400).json({ error: "id_pedido inválido" });
-  }
 
   const cal = Number(calificacion);
   if (!Number.isInteger(cal) || cal < 1 || cal > 5) {
@@ -60,6 +58,7 @@ const createResena = async (req, res) => {
   }
 
   try {
+    // Verificar que sea agricultor
     const agricultorResult = await pool.query(
       `SELECT id_agricultor FROM agricultor WHERE id_usuario = $1`,
       [Number(idUsuario)]
@@ -71,31 +70,15 @@ const createResena = async (req, res) => {
 
     const id_agricultor = agricultorResult.rows[0].id_agricultor;
 
-    const pedidoCheck = await pool.query(
-      `SELECT p.id_pedido
-       FROM pedido p
-       JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
-       JOIN inventario_distribuidor i ON dp.id_inventario = i.id_inventario
-       WHERE p.id_pedido = $1
-         AND p.id_agricultor = $2
-         AND i.id_producto = $3
-         AND p.estado = 'entregado'`,
-      [Number(id_pedido), id_agricultor, Number(id)]
-    );
-
-    if (pedidoCheck.rows.length === 0) {
-      return res.status(403).json({
-        error: "Solo puedes reseñar productos de pedidos entregados",
-      });
-    }
-
+    // Insertar reseña (sin id_pedido)
     const result = await pool.query(
-      `INSERT INTO resena (id_agricultor, id_producto, id_pedido, calificacion, comentario)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO resena (id_agricultor, id_producto, calificacion, comentario)
+       VALUES ($1, $2, $3, $4)
        RETURNING id_resena, calificacion, comentario, fecha_resena`,
-      [id_agricultor, Number(id), Number(id_pedido), cal, comentario?.trim() || null]
+      [id_agricultor, Number(id), cal, comentario?.trim() || null]
     );
 
+    // Actualizar promedio del producto
     await pool.query(
       `UPDATE producto
        SET calificacion_promedio = (
@@ -111,8 +94,8 @@ const createResena = async (req, res) => {
     });
   } catch (error) {
     if (error.code === "23505") {
-      return res.status(400).json({
-        error: "Ya existe una reseña para este producto en este pedido",
+      return res.status(409).json({
+        error: "Ya dejaste una reseña para este producto",
       });
     }
     console.error("Error en createResena:", error);
