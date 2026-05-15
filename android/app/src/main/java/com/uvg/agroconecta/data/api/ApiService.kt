@@ -71,4 +71,17 @@ interface ApiService {
         @Query("estado") estado: String? = null
     ): Response<OrdersByFarmerResponse>
 
+    @GET("products/{id}/reviews")
+    suspend fun getReviews(
+        @Path("id")    productoId: Int,
+        @Header("Authorization") token: String?
+    ): Response<ReviewsResponse>
+
+    @POST("products/{id}/reviews")
+    suspend fun createReview(
+        @Path("id")              productoId: Int,
+        @Header("Authorization") token: String,
+        @Body                    body: CreateReviewRequest
+    ): Response<Review>
+
 }
