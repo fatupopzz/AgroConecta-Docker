@@ -12,6 +12,7 @@ const farmerRoutes = require("./src/routes/farmer.routes");
 const userRoutes = require("./src/routes/userRoutes");
 const orderRoutes = require("./src/routes/orderRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
+const resenaRoutes = require("./src/routes/resenaRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -28,6 +29,7 @@ app.get("/api/protected", verifyToken, (req, res) => {
 });
 
 app.use("/api/products", productRoutes);
+app.use("/api/products/:id/reviews", resenaRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/agricultores", agricultorRoutes);
 app.use("/api/distribuidores", distribuidorRoutes);
