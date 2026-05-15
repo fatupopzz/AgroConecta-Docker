@@ -11,7 +11,7 @@ const verifyToken = require("../middleware/authMiddleware");
 const {
   upsertFarmerProfile,
   getFarmerProfile,
-} = require("../controllers/farmer.controller");
+} = require("../controllers/farmerController");
 
 /**
  * POST /api/farmers/profile
