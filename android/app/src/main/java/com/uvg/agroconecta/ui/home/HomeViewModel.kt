@@ -1,96 +1,187 @@
 package com.uvg.agroconecta.ui.home
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.Distributor
 import com.uvg.agroconecta.data.models.Product
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+data class HomeUiState(
+    val nombreAgricultor: String = "",
+
+    // Categorías
+    val categorias: List<Category> = emptyList(),
+    val categoriaSeleccionadaId: Int? = null,
+
+    // Productos
+    val productos: List<Product> = emptyList(),
+    val currentPage: Int = 1,
+    val hasMore: Boolean = true,
+
+    // Filtros
+    val searchQuery: String = "",
+    val filtroPrecioMin: Int? = null,
+    val filtroPrecioMax: Int? = null,
+    val filtroMarca: String = "",
+    val filtrosAbiertos: Boolean = false,
+
+    // Oferta del día
+    val ofertaDelDia: Product? = null,
+
+    // Distribuidores
+    val distribuidores: List<Distributor> = emptyList(),
+
+    // Loading / error
+    val isLoadingProductos: Boolean = false,
+    val isLoadingCategorias: Boolean = false,
+    val isLoadingDistribuidores: Boolean = false,
+    val errorMessage: String? = null
+)
 
 class HomeViewModel : ViewModel() {
 
-    private val _products = MutableLiveData<List<Product>>()
-    val products: LiveData<List<Product>> = _products
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private val _distributors = MutableLiveData<List<Distributor>>()
-    val distributors: LiveData<List<Distributor>> = _distributors
+    private val api = RetrofitClient.getService()
 
-    private val _isLoading = MutableLiveData<Boolean>()
-    val isLoading: LiveData<Boolean> = _isLoading
-
-    private val _error = MutableLiveData<String?>()
-    val error: LiveData<String?> = _error
-
-    fun loadData(token: String?) {
-        loadProducts(token)
-        loadDistributors()
+    init {
+        loadCategorias()
+        loadProductos(reset = true)
+        loadDistribuidores()
     }
 
-    fun loadProducts(token: String?, page: Int = 1) {
-        _isLoading.value = true
+    fun setNombreAgricultor(nombre: String) {
+        _uiState.update { it.copy(nombreAgricultor = nombre) }
+    }
+
+    fun loadCategorias() {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingCategorias = true) }
             try {
-                val api = RetrofitClient.getService(token)
-                val response = api.getProducts(page = page, limit = 10)
+                val response = api.getCategories()
                 if (response.isSuccessful) {
-                    _products.value = response.body()?.products ?: emptyList()
+                    _uiState.update {
+                        it.copy(
+                            categorias = response.body() ?: emptyList(),
+                            isLoadingCategorias = false
+                        )
+                    }
                 } else {
-                    _error.value = "Error al cargar productos"
+                    _uiState.update { it.copy(isLoadingCategorias = false) }
                 }
             } catch (e: Exception) {
-                _error.value = "Sin conexión: ${e.localizedMessage}"
-            } finally {
-                _isLoading.value = false
+                _uiState.update { it.copy(isLoadingCategorias = false, errorMessage = e.message) }
             }
         }
     }
 
-    fun loadProductsByCategory(token: String?, categoryId: Int) {
-        _isLoading.value = true
+    fun onCategoriaSelect(categoriaId: Int?) {
+        _uiState.update { it.copy(categoriaSeleccionadaId = categoriaId) }
+        loadProductos(reset = true)
+    }
+
+    fun loadProductos(reset: Boolean = false) {
+        val state = _uiState.value
+        if (state.isLoadingProductos) return
+        if (!reset && !state.hasMore) return
+
+        val page = if (reset) 1 else state.currentPage
+
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingProductos = true) }
             try {
-                val api = RetrofitClient.getService(token)
-                val response = api.getProducts(idCategoria = categoryId, limit = 20)
+                val response = api.getProducts(
+                    page = page,
+                    limit = 10,
+                    nombre = state.searchQuery.ifBlank { null },
+                    idCategoria = state.categoriaSeleccionadaId
+                )
                 if (response.isSuccessful) {
-                    _products.value = response.body()?.products ?: emptyList()
+                    val body = response.body()
+                    val nuevos = body?.products ?: emptyList()
+                    val lista = if (reset) nuevos else state.productos + nuevos
+                    val total = body?.total ?: 0
+                    _uiState.update {
+                        it.copy(
+                            productos = lista,
+                            currentPage = page + 1,
+                            hasMore = lista.size < total,
+                            isLoadingProductos = false,
+                            ofertaDelDia = if (reset) nuevos.firstOrNull() else it.ofertaDelDia
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(isLoadingProductos = false) }
                 }
             } catch (e: Exception) {
-                _error.value = e.localizedMessage
-            } finally {
-                _isLoading.value = false
+                _uiState.update { it.copy(isLoadingProductos = false, errorMessage = e.message) }
             }
         }
     }
 
-    fun searchProducts(token: String?, query: String) {
-        _isLoading.value = true
+    fun loadDistribuidores() {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingDistribuidores = true) }
             try {
-                val api = RetrofitClient.getService(token)
-                val response = api.getProducts(nombre = query, limit = 20)
+                val response = api.getVerifiedDistributors()
                 if (response.isSuccessful) {
-                    _products.value = response.body()?.products ?: emptyList()
+                    val verificados = (response.body() ?: emptyList())
+                        .filter { it.estadoVerificacion == "verificado" }
+                    _uiState.update {
+                        it.copy(
+                            distribuidores = verificados,
+                            isLoadingDistribuidores = false
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(isLoadingDistribuidores = false) }
                 }
             } catch (e: Exception) {
-                _error.value = e.localizedMessage
-            } finally {
-                _isLoading.value = false
+                _uiState.update { it.copy(isLoadingDistribuidores = false, errorMessage = e.message) }
             }
         }
     }
 
-    private fun loadDistributors() {
-        viewModelScope.launch {
-            try {
-                val response = RetrofitClient.getService().getVerifiedDistributors()
-                if (response.isSuccessful) {
-                    _distributors.value = response.body() ?: emptyList()
-                }
-            } catch (e: Exception) {
-                // Silently fail for distributors section
-            }
-        }
+    fun onSearchChange(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
     }
+
+    fun onSearchSubmit() { loadProductos(reset = true) }
+
+    fun abrirFiltros() { _uiState.update { it.copy(filtrosAbiertos = true) } }
+
+    fun cerrarFiltros() { _uiState.update { it.copy(filtrosAbiertos = false) } }
+
+    fun onFiltrosAplicados(precioMin: Int?, precioMax: Int?, marca: String) {
+        _uiState.update {
+            it.copy(
+                filtroPrecioMin = precioMin,
+                filtroPrecioMax = precioMax,
+                filtroMarca = marca,
+                filtrosAbiertos = false
+            )
+        }
+        loadProductos(reset = true)
+    }
+
+    fun onFiltrosLimpiados() {
+        _uiState.update {
+            it.copy(
+                filtroPrecioMin = null,
+                filtroPrecioMax = null,
+                filtroMarca = "",
+                filtrosAbiertos = false
+            )
+        }
+        loadProductos(reset = true)
+    }
+
+    fun clearError() { _uiState.update { it.copy(errorMessage = null) } }
 }
