@@ -3,6 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS usuario (
     id_usuario    SERIAL PRIMARY KEY,
     nombre        VARCHAR(100) NOT NULL,
+    apellido      VARCHAR(100),
     telefono      VARCHAR(20)  UNIQUE NOT NULL,
     email         VARCHAR(150) UNIQUE,
     contrasena_hash TEXT       NOT NULL,
@@ -52,16 +53,6 @@ CREATE TABLE IF NOT EXISTS producto (
     activo              BOOLEAN DEFAULT TRUE
 );
 
-CREATE TABLE IF NOT EXISTS inventario_distribuidor (
-    id_inventario       SERIAL PRIMARY KEY,
-    id_distribuidor     INT NOT NULL REFERENCES distribuidor(id_distribuidor),
-    id_producto         INT NOT NULL REFERENCES producto(id_producto),
-    precio              DECIMAL(10,2) NOT NULL,
-    stock_disponible    INT DEFAULT 0,
-    unidad_medida       VARCHAR(30),
-    ultima_actualizacion TIMESTAMP DEFAULT NOW(),
-    UNIQUE (id_distribuidor, id_producto)
-);
 
 CREATE TABLE IF NOT EXISTS direccion_entrega (
     id_direccion    SERIAL PRIMARY KEY,
@@ -90,6 +81,18 @@ CREATE TABLE IF NOT EXISTS pedido (
     notas               TEXT
 );
 
+CREATE TABLE IF NOT EXISTS inventario_distribuidor (
+    id_inventario       SERIAL PRIMARY KEY,
+    id_distribuidor     INT NOT NULL REFERENCES distribuidor(id_distribuidor),
+    id_producto         INT NOT NULL REFERENCES producto(id_producto),
+    precio              DECIMAL(10,2) NOT NULL,
+    stock_disponible    INT DEFAULT 0,
+    unidad_medida       VARCHAR(30),
+    tiempo_entrega_dias INT,  
+    ultima_actualizacion TIMESTAMP DEFAULT NOW(),
+    UNIQUE (id_distribuidor, id_producto)
+);
+
 CREATE TABLE IF NOT EXISTS detalle_pedido (
     id_detalle      SERIAL PRIMARY KEY,
     id_pedido       INT NOT NULL REFERENCES pedido(id_pedido),
@@ -104,9 +107,14 @@ CREATE TABLE IF NOT EXISTS pago (
     id_pedido           INT UNIQUE NOT NULL REFERENCES pedido(id_pedido),
     metodo_pago         VARCHAR(30) CHECK (metodo_pago IN ('contra_entrega', 'tigo_money', 'banrural_movil', 'tarjeta')),
     monto               DECIMAL(10,2) NOT NULL,
-    estado_pago         VARCHAR(20) DEFAULT 'pendiente' CHECK (estado_pago IN ('pendiente', 'completado', 'fallido', 'reembolsado')),
-    fecha_pago          TIMESTAMP,
-    referencia_transaccion VARCHAR(100)
+
+    estado              VARCHAR(20) DEFAULT 'pending'
+                        CHECK (estado IN ('pending', 'processing', 'success', 'failed')),
+
+    proveedor           VARCHAR(30),
+    created_at          TIMESTAMP DEFAULT NOW(),
+    referencia_transaccion VARCHAR(100),
+    fecha_confirmacion  TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS resena (
@@ -147,17 +155,7 @@ CREATE TABLE IF NOT EXISTS item_carrito (
   UNIQUE(id_carrito, id_inventario)
 );
 
-CREATE TABLE IF NOT EXISTS inventario_distribuidor (
-    id_inventario       SERIAL PRIMARY KEY,
-    id_distribuidor     INT NOT NULL REFERENCES distribuidor(id_distribuidor),
-    id_producto         INT NOT NULL REFERENCES producto(id_producto),
-    precio              DECIMAL(10,2) NOT NULL,
-    stock_disponible    INT DEFAULT 0,
-    unidad_medida       VARCHAR(30),
-    tiempo_entrega_dias INT,  
-    ultima_actualizacion TIMESTAMP DEFAULT NOW(),
-    UNIQUE (id_distribuidor, id_producto)
-);
+
 
 
 INSERT INTO categoria (nombre, descripcion) VALUES
@@ -172,3 +170,7 @@ INSERT INTO usuario (nombre, telefono, email, contrasena_hash, tipo_usuario) VAL
     ('Admin AgroConecta', '50200000000', 'admin@agroconecta.gt',
      crypt('admin123', gen_salt('bf', 10)), 'administrador')
 ON CONFLICT DO NOTHING;
+
+-- ─── Migraciones idempotentes para BDs existentes ───
+-- Estas sentencias usan IF NOT EXISTS para que sea seguro re-ejecutarlas.
+ALTER TABLE usuario ADD COLUMN IF NOT EXISTS apellido VARCHAR(100);
