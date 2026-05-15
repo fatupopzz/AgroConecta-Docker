@@ -6,7 +6,7 @@ data class Review(
     @SerializedName("id_resena")          val id: Int,
     @SerializedName("calificacion")       val calificacion: Int,
     @SerializedName("comentario")         val comentario: String?,
-    @SerializedName("fecha_resena")       val fechaCreacion: String,
+    @SerializedName("fecha_resena")       val fechaCreacion: String?,
     @SerializedName("agricultor_nombre")  val nombreAgricultor: String?
 )
 
