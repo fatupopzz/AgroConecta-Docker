@@ -14,11 +14,12 @@ const orderRoutes = require("./src/routes/orderRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
 const qualityReportRoutes = require("./src/routes/qualityReportRoutes");
 const paymentRoutes = require("./src/routes/paymentRoutes");
+const resenaRoutes = require("./src/routes/resenaRoutes");
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
-
 
 app.use("/api/auth", authRoutes);
 
@@ -29,8 +30,8 @@ app.get("/api/protected", verifyToken, (req, res) => {
   });
 });
 
-
 app.use("/api/payments", paymentRoutes);
+app.use("/api/products/:id/reviews", resenaRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/agricultores", agricultorRoutes);
@@ -41,6 +42,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api", qualityReportRoutes);
 app.use("/api/cart", verifyToken, cartRoutes);
+
 app.get("/", (req, res) => {
   res.json({ status: "AgroConecta Backend corriendo", version: "1.0.0" });
 });
