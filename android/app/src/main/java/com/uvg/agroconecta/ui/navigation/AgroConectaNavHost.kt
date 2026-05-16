@@ -16,6 +16,7 @@ import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
+import com.uvg.agroconecta.ui.publish.PublishProductScreen
 
 @Composable
 fun AgroConectaNavHost(
@@ -78,7 +79,8 @@ fun AgroConectaNavHost(
                 onVerMasProductos = { },
                 onVerTodasCategorias = { },
                 onCarritoClick = { },
-                onPerfilClick = { }
+                onPerfilClick = { },
+                onAgregarClick = { navController.navigate(Screen.PublishProduct.route) }
             )
         }
 
@@ -91,6 +93,12 @@ fun AgroConectaNavHost(
                 productId = productoId,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToCart = { }
+            )
+        }
+
+        composable(Screen.PublishProduct.route) {
+            PublishProductScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
