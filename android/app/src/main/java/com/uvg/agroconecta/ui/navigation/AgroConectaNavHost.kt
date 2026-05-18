@@ -16,6 +16,8 @@ import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
+import com.uvg.agroconecta.ui.cart.CartItemUI
+import com.uvg.agroconecta.ui.cart.CartScreen
 
 @Composable
 fun AgroConectaNavHost(
@@ -77,8 +79,34 @@ fun AgroConectaNavHost(
                 },
                 onVerMasProductos = { },
                 onVerTodasCategorias = { },
-                onCarritoClick = { },
+                onCarritoClick = {
+                    navController.navigate(Screen.Cart.route)
+                },
                 onPerfilClick = { }
+            )
+        }
+
+        composable(Screen.Cart.route) {
+            CartScreen(
+                items = listOf(
+                    CartItemUI(
+                        id = 1,
+                        nombre = "Fertilizante Premium",
+                        cantidad = 2,
+                        precio = 150.0
+                    ),
+                    CartItemUI(
+                        id = 2,
+                        nombre = "Semillas de Maíz",
+                        cantidad = 1,
+                        precio = 75.0
+                    )
+                ),
+                total = 375.0,
+                onIncreaseQuantity = { },
+                onDecreaseQuantity = { },
+                onRemoveItem = { },
+                onCheckout = { }
             )
         }
 
@@ -90,7 +118,9 @@ fun AgroConectaNavHost(
             ProductDetailScreen(
                 productId = productoId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToCart = { }
+                onNavigateToCart = {
+                    navController.navigate(Screen.Cart.route)
+                }
             )
         }
     }
