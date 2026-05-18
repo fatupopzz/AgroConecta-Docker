@@ -107,7 +107,10 @@ fun AgroConectaNavHost(
                 onRemoveItem = { idItem ->
                     cartViewModel.removeItem(idItem)
                 },
-                onCheckout = { }
+                onCheckout = { },
+                onGoToCatalog = {
+                    navController.navigate(Screen.Home.route)
+                }
             )
         }
 
