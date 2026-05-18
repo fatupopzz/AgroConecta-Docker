@@ -1,6 +1,7 @@
 package com.uvg.agroconecta.ui.navigation
 
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -16,8 +17,10 @@ import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
+import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
 import com.uvg.agroconecta.ui.cart.CartViewModel
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun AgroConectaNavHost(
@@ -87,12 +90,17 @@ fun AgroConectaNavHost(
         }
 
         composable(Screen.Cart.route) {
+            val context = LocalContext.current
             val cartViewModel: CartViewModel = viewModel()
             val cartItems by cartViewModel.cartItems.collectAsState()
             val total by cartViewModel.total.collectAsState()
 
             LaunchedEffect(Unit) {
-                cartViewModel.loadCart(idAgricultor = 1)
+                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+
+                if (farmerId != -1) {
+                    cartViewModel.loadCart(idAgricultor = farmerId)
+                }
             }
 
             CartScreen(
