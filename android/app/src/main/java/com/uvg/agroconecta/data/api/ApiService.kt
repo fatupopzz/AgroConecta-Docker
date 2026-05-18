@@ -84,4 +84,19 @@ interface ApiService {
         @Body                    body: CreateReviewRequest
     ): Response<Review>
 
+    // ── Inventory ─────────────────────────────────────────────────────────────
+    @POST("inventory")
+    suspend fun createInventory(
+        @Header("Authorization") token: String,
+        @Body request: CreateInventoryRequest
+    ): Response<Map<String, Any>>
+
+    // ── Products (distribuidor) ───────────────────────────────────────────────
+    @POST("products")
+    suspend fun createProduct(
+        @Header("Authorization") token: String,
+        @Body request: CreateProductRequest
+    ): Response<CreateProductResponse>
+
 }
+

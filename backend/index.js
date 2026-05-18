@@ -15,6 +15,7 @@ const adminRoutes = require("./src/routes/adminRoutes");
 const qualityReportRoutes = require("./src/routes/qualityReportRoutes");
 const paymentRoutes = require("./src/routes/paymentRoutes");
 const resenaRoutes = require("./src/routes/resenaRoutes");
+const inventoryRoutes = require("./src/routes/inventoryRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -30,18 +31,19 @@ app.get("/api/protected", verifyToken, (req, res) => {
   });
 });
 
-app.use("/api/payments", paymentRoutes);
+app.use("/api/payments",verifyToken, paymentRoutes);
 app.use("/api/products/:id/reviews", resenaRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
-app.use("/api/agricultores", agricultorRoutes);
-app.use("/api/distribuidores", distribuidorRoutes);
-app.use("/api/usuarios", userRoutes);
+app.use("/api/agricultores", verifyToken, agricultorRoutes);
+app.use("/api/distribuidores",verifyToken, distribuidorRoutes);
+app.use("/api/usuarios",verifyToken, userRoutes);
 app.use("/api/farmers", farmerRoutes);
-app.use("/api/orders", orderRoutes);
+app.use("/api/orders", verifyToken, orderRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api", qualityReportRoutes);
+app.use("/api", verifyToken, qualityReportRoutes);
 app.use("/api/cart", verifyToken, cartRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 app.get("/", (req, res) => {
   res.json({ status: "AgroConecta Backend corriendo", version: "1.0.0" });
