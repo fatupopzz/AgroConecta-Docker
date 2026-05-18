@@ -24,7 +24,8 @@ fun CartScreen(
     onIncreaseQuantity: (Int) -> Unit,
     onDecreaseQuantity: (Int) -> Unit,
     onRemoveItem: (Int) -> Unit,
-    onCheckout: () -> Unit
+    onCheckout: () -> Unit,
+    onGoToCatalog: () -> Unit
 ) {
 
     Column(
@@ -41,63 +42,86 @@ fun CartScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        if (items.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "Tu carrito está vacío",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
 
-            items(items) { item ->
+                Spacer(modifier = Modifier.height(8.dp))
 
-                Card(
-                    modifier = Modifier.fillMaxWidth()
+                Text("Agrega productos desde el catálogo para continuar.")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onGoToCatalog
                 ) {
-
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+                    Text("Ir al catálogo")
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(items) { item ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-
-                        Text(
-                            text = item.nombre,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text("Precio: Q${item.precio}")
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Column(
+                            modifier = Modifier.padding(16.dp)
                         ) {
+                            Text(
+                                text = item.nombre,
+                                fontWeight = FontWeight.Bold
+                            )
 
-                            Button(
-                                onClick = {
-                                    onDecreaseQuantity(item.id)
-                                }
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text("Precio: Q${item.precio}")
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("-")
-                            }
-
-                            Text("${item.cantidad}")
-
-                            Button(
-                                onClick = {
-                                    onIncreaseQuantity(item.id)
+                                Button(
+                                    onClick = {
+                                        onDecreaseQuantity(item.id)
+                                    }
+                                ) {
+                                    Text("-")
                                 }
-                            ) {
-                                Text("+")
-                            }
 
-                            Spacer(modifier = Modifier.weight(1f))
+                                Text("${item.cantidad}")
 
-                            TextButton(
-                                onClick = {
-                                    onRemoveItem(item.id)
+                                Button(
+                                    onClick = {
+                                        onIncreaseQuantity(item.id)
+                                    }
+                                ) {
+                                    Text("+")
                                 }
-                            ) {
-                                Text("Eliminar")
+
+                                Spacer(modifier = Modifier.weight(1f))
+
+                                TextButton(
+                                    onClick = {
+                                        onRemoveItem(item.id)
+                                    }
+                                ) {
+                                    Text("Eliminar")
+                                }
                             }
                         }
                     }
@@ -117,7 +141,8 @@ fun CartScreen(
 
         Button(
             onClick = onCheckout,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = items.isNotEmpty()
         ) {
             Text("Proceder al pago")
         }
