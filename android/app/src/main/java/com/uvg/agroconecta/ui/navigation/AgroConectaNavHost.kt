@@ -16,8 +16,8 @@ import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
-import com.uvg.agroconecta.ui.cart.CartItemUI
 import com.uvg.agroconecta.ui.cart.CartScreen
+import com.uvg.agroconecta.ui.cart.CartViewModel
 
 @Composable
 fun AgroConectaNavHost(
@@ -87,25 +87,26 @@ fun AgroConectaNavHost(
         }
 
         composable(Screen.Cart.route) {
+            val cartViewModel: CartViewModel = viewModel()
+            val cartItems by cartViewModel.cartItems.collectAsState()
+            val total by cartViewModel.total.collectAsState()
+
+            LaunchedEffect(Unit) {
+                cartViewModel.loadCart(idAgricultor = 1)
+            }
+
             CartScreen(
-                items = listOf(
-                    CartItemUI(
-                        id = 1,
-                        nombre = "Fertilizante Premium",
-                        cantidad = 2,
-                        precio = 150.0
-                    ),
-                    CartItemUI(
-                        id = 2,
-                        nombre = "Semillas de Maíz",
-                        cantidad = 1,
-                        precio = 75.0
-                    )
-                ),
-                total = 375.0,
-                onIncreaseQuantity = { },
-                onDecreaseQuantity = { },
-                onRemoveItem = { },
+                items = cartItems,
+                total = total,
+                onIncreaseQuantity = { idItem ->
+                    cartViewModel.increaseQuantity(idItem)
+                },
+                onDecreaseQuantity = { idItem ->
+                    cartViewModel.decreaseQuantity(idItem)
+                },
+                onRemoveItem = { idItem ->
+                    cartViewModel.removeItem(idItem)
+                },
                 onCheckout = { }
             )
         }
