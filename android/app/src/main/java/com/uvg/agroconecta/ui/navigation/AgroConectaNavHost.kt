@@ -94,6 +94,7 @@ fun AgroConectaNavHost(
             val cartViewModel: CartViewModel = viewModel()
             val cartItems by cartViewModel.cartItems.collectAsState()
             val total by cartViewModel.total.collectAsState()
+            val errorMessage by cartViewModel.errorMessage.collectAsState()
 
             LaunchedEffect(Unit) {
                 val farmerId = SessionManager.getFarmerId(context).first() ?: -1
@@ -106,6 +107,7 @@ fun AgroConectaNavHost(
             CartScreen(
                 items = cartItems,
                 total = total,
+                errorMessage = errorMessage,
                 onIncreaseQuantity = { idItem ->
                     cartViewModel.increaseQuantity(idItem)
                 },

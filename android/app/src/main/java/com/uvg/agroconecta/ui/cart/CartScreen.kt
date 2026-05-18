@@ -22,6 +22,7 @@ data class CartItemUI(
 fun CartScreen(
     items: List<CartItemUI>,
     total: Double,
+    errorMessage: String?,
     onIncreaseQuantity: (Int) -> Unit,
     onDecreaseQuantity: (Int) -> Unit,
     onRemoveItem: (Int) -> Unit,
@@ -42,6 +43,16 @@ fun CartScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        errorMessage?.let { message ->
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         if (items.isEmpty()) {
             Column(
