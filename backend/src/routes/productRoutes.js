@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const verifyToken = require("../middleware/authMiddleware");
 const {
   getProducts,
   getProductById,
@@ -14,8 +15,8 @@ router.get("/", getProducts);
 router.get("/compare", comparePrices);
 router.get("/:id/compare", getProductComparison);
 router.get("/:id", getProductById);
-router.post("/", createProduct);
-router.put("/:id", updateProduct);
-router.delete("/:id", deleteProduct);
+router.post("/", verifyToken, createProduct);
+router.put("/:id", verifyToken, updateProduct);
+router.delete("/:id", verifyToken, deleteProduct);
 
 module.exports = router;
