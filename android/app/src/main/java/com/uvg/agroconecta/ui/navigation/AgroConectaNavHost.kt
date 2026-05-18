@@ -117,7 +117,7 @@ fun AgroConectaNavHost(
                 },
                 onCheckout = { },
                 onGoToCatalog = {
-                    navController.navigate(Screen.Home.route)
+                    navController.popBackStack(Screen.Home.route, inclusive = false)
                 }
             )
         }
