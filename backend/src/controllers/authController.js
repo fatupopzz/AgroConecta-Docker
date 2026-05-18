@@ -19,10 +19,10 @@ const register = async (req, res) => {
     nit,
   } = req.body;
 
-  if (!nombre || !telefono || !email || !password || !tipo_usuario) {
+  if (!nombre || !apellido || !telefono || !email || !password || !tipo_usuario) {
     return res.status(400).json({
       error:
-        "Datos incompletos. Requeridos: nombre, telefono, email, password, tipo_usuario",
+        "Datos incompletos. Requeridos: nombre, apellido, telefono, email, password, tipo_usuario",
     });
   }
 

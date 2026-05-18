@@ -30,17 +30,17 @@ app.get("/api/protected", verifyToken, (req, res) => {
   });
 });
 
-app.use("/api/payments", paymentRoutes);
+app.use("/api/payments",verifyToken, paymentRoutes);
 app.use("/api/products/:id/reviews", resenaRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
-app.use("/api/agricultores", agricultorRoutes);
-app.use("/api/distribuidores", distribuidorRoutes);
-app.use("/api/usuarios", userRoutes);
+app.use("/api/agricultores", verifyToken, agricultorRoutes);
+app.use("/api/distribuidores",verifyToken, distribuidorRoutes);
+app.use("/api/usuarios",verifyToken, userRoutes);
 app.use("/api/farmers", farmerRoutes);
-app.use("/api/orders", orderRoutes);
+app.use("/api/orders", verifyToken, orderRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api", qualityReportRoutes);
+app.use("/api", verifyToken, qualityReportRoutes);
 app.use("/api/cart", verifyToken, cartRoutes);
 
 app.get("/", (req, res) => {
