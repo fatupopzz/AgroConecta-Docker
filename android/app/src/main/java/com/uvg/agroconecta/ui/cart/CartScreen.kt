@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 data class CartItemUI(
     val id: Int,
     val nombre: String,
+    val distribuidor: String,
     val cantidad: Int,
     val precio: Double
 )
@@ -84,6 +85,10 @@ fun CartScreen(
                                 text = item.nombre,
                                 fontWeight = FontWeight.Bold
                             )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text("Distribuidor: ${item.distribuidor}")
 
                             Spacer(modifier = Modifier.height(8.dp))
 

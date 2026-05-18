@@ -35,6 +35,7 @@ class CartViewModel : ViewModel() {
                         CartItemUI(
                             id = it.idItem,
                             nombre = it.producto,
+                            distribuidor = it.distribuidor,
                             cantidad = it.cantidad,
                             precio = it.precioUnitario
                         )
