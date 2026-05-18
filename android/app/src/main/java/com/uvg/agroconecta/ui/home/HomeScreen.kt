@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -27,7 +26,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.Distributor
 import com.uvg.agroconecta.data.models.Product
@@ -47,6 +45,7 @@ fun HomeScreen(
     onVerTodasCategorias: () -> Unit,
     onCarritoClick: () -> Unit,
     onPerfilClick: () -> Unit,
+    onAgregarClick: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -76,7 +75,7 @@ fun HomeScreen(
         bottomBar = {
             HomeBottomBar(
                 onHomeClick = { },
-                onAgregarClick = { },
+                onAgregarClick = onAgregarClick,
                 onPedidosClick = { },
                 onPerfilClick = onPerfilClick
             )

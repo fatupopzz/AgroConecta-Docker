@@ -201,3 +201,33 @@ data class OrderSummary(
     @SerializedName("distribuidor_nombre") val distribuidorNombre: String,
     @SerializedName("cantidad_productos") val cantidadProductos: Int
 )
+
+// ─── Publish Product (KAN-53) ─────────────────────────────────────────────
+
+data class CreateProductRequest(
+    val nombre: String,
+    val marca: String?,
+    val descripcion: String?,
+    @SerializedName("id_categoria") val idCategoria: Int,
+    val composicion: String?,
+    @SerializedName("dosis_recomendada") val dosis: String?,
+    @SerializedName("instrucciones_uso") val instrucciones: String?
+)
+
+data class CreateProductResponse(
+    val message: String,
+    @SerializedName("producto") val producto: ProductoCreado
+)
+
+data class ProductoCreado(
+    @SerializedName("id_producto") val idProducto: Int,
+    val nombre: String
+)
+
+data class CreateInventoryRequest(
+    @SerializedName("id_producto") val idProducto: Int,
+    val precio: Double,
+    @SerializedName("stock_disponible") val stock: Int,
+    @SerializedName("unidad_medida") val unidadMedida: String?,
+    @SerializedName("tiempo_entrega_dias") val tiempoEntrega: Int?
+)
