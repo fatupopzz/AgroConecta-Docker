@@ -108,11 +108,12 @@ CREATE TABLE IF NOT EXISTS pago (
     metodo_pago         VARCHAR(30) CHECK (metodo_pago IN ('contra_entrega', 'tigo_money', 'banrural_movil', 'tarjeta')),
     monto               DECIMAL(10,2) NOT NULL,
 
-    estado              VARCHAR(20) DEFAULT 'pending'
-                        CHECK (estado IN ('pending', 'processing', 'success', 'failed')),
+    estado_pago         VARCHAR(20) DEFAULT 'pendiente'
+                        CHECK (estado_pago IN ('pendiente', 'processing', 'completado', 'failed')),
 
     proveedor           VARCHAR(30),
     created_at          TIMESTAMP DEFAULT NOW(),
+    fecha_pago          TIMESTAMP,
     referencia_transaccion VARCHAR(100),
     fecha_confirmacion  TIMESTAMP
 );
