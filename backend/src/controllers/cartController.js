@@ -15,6 +15,7 @@ const getCart = async (req, res) => {
                 json_agg(json_build_object(
                   'id_item', ic.id_item,
                   'id_inventario', ic.id_inventario,
+                  'id_distribuidor', i.id_distribuidor,
                   'cantidad', ic.cantidad,
                   'precio_unitario', i.precio,
                   'subtotal', ic.cantidad * i.precio,
