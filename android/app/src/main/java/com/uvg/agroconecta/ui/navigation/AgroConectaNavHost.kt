@@ -20,6 +20,8 @@ import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
 import com.uvg.agroconecta.ui.cart.CartViewModel
+import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
+import com.uvg.agroconecta.ui.payment.PaymentMethodScreen
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import kotlinx.coroutines.flow.first
 
@@ -28,6 +30,9 @@ fun AgroConectaNavHost(
     navController: NavHostController,
     authViewModel: AuthViewModel = viewModel()
 ) {
+    var selectedPaymentMethod by remember { mutableStateOf<String?>(null) }
+    var deliveryAddress by remember { mutableStateOf("") }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Login.route
@@ -119,7 +124,9 @@ fun AgroConectaNavHost(
                 onRemoveItem = { idItem ->
                     cartViewModel.removeItem(idItem)
                 },
-                onCheckout = { },
+                onCheckout = {
+                    navController.navigate(Screen.PaymentMethod.route)
+                },
                 onGoToCatalog = {
                     navController.popBackStack(Screen.Home.route, inclusive = false)
                 }
@@ -136,6 +143,50 @@ fun AgroConectaNavHost(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToCart = {
                     navController.navigate(Screen.Cart.route)
+                }
+            )
+        }
+
+        composable(Screen.PaymentMethod.route) {
+            PaymentMethodScreen(
+                selectedMethod = selectedPaymentMethod,
+                onMethodSelected = { method ->
+                    selectedPaymentMethod = method
+                },
+                onContinue = {
+                    navController.navigate(Screen.OrderConfirmation.route)
+                },
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.OrderConfirmation.route) {
+            val context = LocalContext.current
+            val cartViewModel: CartViewModel = viewModel()
+            val cartItems by cartViewModel.cartItems.collectAsState()
+            val total by cartViewModel.total.collectAsState()
+
+            LaunchedEffect(Unit) {
+                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+
+                if (farmerId != -1) {
+                    cartViewModel.loadCart(idAgricultor = farmerId)
+                }
+            }
+
+            OrderConfirmationScreen(
+                items = cartItems,
+                total = total,
+                selectedPaymentMethod = selectedPaymentMethod ?: "efectivo",
+                deliveryAddress = deliveryAddress,
+                onDeliveryAddressChange = { address ->
+                    deliveryAddress = address
+                },
+                onConfirmOrder = { },
+                onBack = {
+                    navController.popBackStack()
                 }
             )
         }
