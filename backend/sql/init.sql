@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS resena (
     calificacion    INT NOT NULL CHECK (calificacion BETWEEN 1 AND 5),
     comentario      TEXT,
     fecha_resena    TIMESTAMP DEFAULT NOW(),
-    UNIQUE (id_agricultor, id_producto, id_pedido)
+    UNIQUE (id_agricultor, id_producto)
 );
 
 CREATE TABLE IF NOT EXISTS reporte_calidad (
