@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.RetrofitClient
 import com.uvg.agroconecta.data.models.CreateOrderRequest
 import com.uvg.agroconecta.data.models.OrderProduct
+import com.uvg.agroconecta.data.models.OrderSummary
 import com.uvg.agroconecta.ui.cart.CartItemUI
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,9 @@ class OrderViewModel : ViewModel() {
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
+
+    private val _orders = MutableStateFlow<List<OrderSummary>>(emptyList())
+    val orders: StateFlow<List<OrderSummary>> = _orders
 
     fun createCashOrder(
         idAgricultor: Int,
@@ -80,6 +84,27 @@ class OrderViewModel : ViewModel() {
 
                 _isLoading.value = false
 
+            }
+        }
+    }
+
+    fun loadOrdersByFarmer(idAgricultor: Int) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _errorMessage.value = null
+
+                val response = RetrofitClient.getService().getOrdersByFarmer(idAgricultor)
+
+                if (response.isSuccessful) {
+                    _orders.value = response.body()?.data ?: emptyList()
+                } else {
+                    _errorMessage.value = "No se pudo cargar el historial de pedidos"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error inesperado al cargar pedidos"
+            } finally {
+                _isLoading.value = false
             }
         }
     }
