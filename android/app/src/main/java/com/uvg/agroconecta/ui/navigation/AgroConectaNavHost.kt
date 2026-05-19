@@ -21,9 +21,12 @@ import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
 import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
+import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
+import com.uvg.agroconecta.ui.orders.OrderViewModel
 import com.uvg.agroconecta.ui.payment.PaymentMethodScreen
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @Composable
 fun AgroConectaNavHost(
@@ -164,15 +167,28 @@ fun AgroConectaNavHost(
 
         composable(Screen.OrderConfirmation.route) {
             val context = LocalContext.current
+            val scope = rememberCoroutineScope()
             val cartViewModel: CartViewModel = viewModel()
+            val orderViewModel: OrderViewModel = viewModel()
             val cartItems by cartViewModel.cartItems.collectAsState()
             val total by cartViewModel.total.collectAsState()
+            val successMessage by orderViewModel.successMessage.collectAsState()
 
             LaunchedEffect(Unit) {
                 val farmerId = SessionManager.getFarmerId(context).first() ?: -1
 
                 if (farmerId != -1) {
                     cartViewModel.loadCart(idAgricultor = farmerId)
+                }
+            }
+
+            LaunchedEffect(successMessage) {
+                if (successMessage != null) {
+                    deliveryAddress = ""
+                    selectedPaymentMethod = null
+                    navController.navigate(Screen.OrderHistory.route) {
+                        popUpTo(Screen.Cart.route) { inclusive = true }
+                    }
                 }
             }
 
@@ -184,9 +200,54 @@ fun AgroConectaNavHost(
                 onDeliveryAddressChange = { address ->
                     deliveryAddress = address
                 },
-                onConfirmOrder = { },
+                onConfirmOrder = {
+                    val currentPaymentMethod = selectedPaymentMethod ?: "efectivo"
+
+                    if (currentPaymentMethod == "efectivo") {
+                        val farmerIdFlow = SessionManager.getFarmerId(context)
+
+                        scope.launch {
+                            val farmerId = farmerIdFlow.first() ?: -1
+
+                            if (farmerId != -1) {
+                                orderViewModel.createCashOrder(
+                                    idAgricultor = farmerId,
+                                    items = cartItems,
+                                    direccionEntrega = deliveryAddress
+                                )
+                            }
+                        }
+                    }
+                },
                 onBack = {
                     navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.OrderHistory.route) {
+            val context = LocalContext.current
+            val orderViewModel: OrderViewModel = viewModel()
+            val orders by orderViewModel.orders.collectAsState()
+            val isLoading by orderViewModel.isLoading.collectAsState()
+            val errorMessage by orderViewModel.errorMessage.collectAsState()
+
+            LaunchedEffect(Unit) {
+                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+
+                if (farmerId != -1) {
+                    orderViewModel.loadOrdersByFarmer(farmerId)
+                }
+            }
+
+            OrderHistoryScreen(
+                orders = orders,
+                isLoading = isLoading,
+                errorMessage = errorMessage,
+                onBack = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = false }
+                    }
                 }
             )
         }
