@@ -328,7 +328,7 @@ private fun ReviewItem(review: Review) {
                 )
                 // Fecha formateada (tomar solo YYYY-MM-DD del ISO)
                 Text(
-                    text = review.fechaCreacion?.take(10) ?: "",
+                    text = review.fechaCreacion?.take(10) ?: "Sin fecha",
                     style = MaterialTheme.typography.labelSmall,
                     color = GrayMid
                 )

@@ -1,6 +1,7 @@
 package com.uvg.agroconecta.ui.navigation
 
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -16,7 +17,11 @@ import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
+import com.uvg.agroconecta.data.api.SessionManager
+import com.uvg.agroconecta.ui.cart.CartScreen
+import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun AgroConectaNavHost(
@@ -78,9 +83,46 @@ fun AgroConectaNavHost(
                 },
                 onVerMasProductos = { },
                 onVerTodasCategorias = { },
-                onCarritoClick = { },
+                onCarritoClick = {
+                    navController.navigate(Screen.Cart.route)
+                },
                 onPerfilClick = { },
                 onAgregarClick = { navController.navigate(Screen.PublishProduct.route) }
+            )
+        }
+
+        composable(Screen.Cart.route) {
+            val context = LocalContext.current
+            val cartViewModel: CartViewModel = viewModel()
+            val cartItems by cartViewModel.cartItems.collectAsState()
+            val total by cartViewModel.total.collectAsState()
+            val errorMessage by cartViewModel.errorMessage.collectAsState()
+
+            LaunchedEffect(Unit) {
+                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+
+                if (farmerId != -1) {
+                    cartViewModel.loadCart(idAgricultor = farmerId)
+                }
+            }
+
+            CartScreen(
+                items = cartItems,
+                total = total,
+                errorMessage = errorMessage,
+                onIncreaseQuantity = { idItem ->
+                    cartViewModel.increaseQuantity(idItem)
+                },
+                onDecreaseQuantity = { idItem ->
+                    cartViewModel.decreaseQuantity(idItem)
+                },
+                onRemoveItem = { idItem ->
+                    cartViewModel.removeItem(idItem)
+                },
+                onCheckout = { },
+                onGoToCatalog = {
+                    navController.popBackStack(Screen.Home.route, inclusive = false)
+                }
             )
         }
 
@@ -92,7 +134,9 @@ fun AgroConectaNavHost(
             ProductDetailScreen(
                 productId = productoId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToCart = { }
+                onNavigateToCart = {
+                    navController.navigate(Screen.Cart.route)
+                }
             )
         }
 
