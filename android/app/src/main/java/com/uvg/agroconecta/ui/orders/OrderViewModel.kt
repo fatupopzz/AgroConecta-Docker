@@ -41,6 +41,16 @@ class OrderViewModel : ViewModel() {
             return
         }
 
+        val idDistribuidor = items.first().idDistribuidor
+        val hasSingleDistributor = items.all { item ->
+            item.idDistribuidor == idDistribuidor
+        }
+
+        if (!hasSingleDistributor) {
+            _errorMessage.value = "Todos los productos del pedido deben pertenecer al mismo distribuidor"
+            return
+        }
+
         viewModelScope.launch {
 
             try {
@@ -50,7 +60,7 @@ class OrderViewModel : ViewModel() {
 
                 val request = CreateOrderRequest(
                     idAgricultor = idAgricultor,
-                    idDistribuidor = items.first().idDistribuidor,
+                    idDistribuidor = idDistribuidor,
                     direccionEntrega = direccionEntrega,
                     metodoPago = "efectivo",
                     productos = items.map {
