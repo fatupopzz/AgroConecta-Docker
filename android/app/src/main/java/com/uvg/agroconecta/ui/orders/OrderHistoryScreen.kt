@@ -72,8 +72,10 @@ fun OrderHistoryScreen(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            AssistChip(
+                            
+                            SuggestionChip(
                                 onClick = { },
+                                enabled = false,
                                 label = {
                                     Text("Pago contra entrega")
                                 }
