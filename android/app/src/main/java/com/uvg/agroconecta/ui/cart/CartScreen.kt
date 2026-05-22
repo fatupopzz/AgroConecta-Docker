@@ -12,6 +12,8 @@ import androidx.compose.ui.unit.dp
 
 data class CartItemUI(
     val id: Int,
+    val idInventario: Int,
+    val idDistribuidor: Int,
     val nombre: String,
     val distribuidor: String,
     val cantidad: Int,
