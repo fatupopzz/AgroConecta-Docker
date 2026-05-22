@@ -118,4 +118,8 @@ class OrderViewModel : ViewModel() {
             }
         }
     }
+
+    fun clearSuccessMessage() {
+        _successMessage.value = null
+    }
 }

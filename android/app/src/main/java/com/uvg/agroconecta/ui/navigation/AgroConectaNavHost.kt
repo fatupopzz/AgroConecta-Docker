@@ -189,6 +189,7 @@ fun AgroConectaNavHost(
                     navController.navigate(Screen.OrderHistory.route) {
                         popUpTo(Screen.Cart.route) { inclusive = true }
                     }
+                    orderViewModel.clearSuccessMessage()
                 }
             }
 
