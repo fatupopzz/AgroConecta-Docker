@@ -11,7 +11,8 @@ import androidx.compose.ui.unit.dp
 data class PaymentMethod(
     val id: String,
     val title: String,
-    val description: String
+    val description: String,
+    val isAvailable: Boolean
 )
 
 @Composable
@@ -25,17 +26,20 @@ fun PaymentMethodScreen(
         PaymentMethod(
             id = "efectivo",
             title = "Efectivo",
-            description = "Pago contra entrega"
+            description = "Pago contra entrega",
+            isAvailable = true
         ),
         PaymentMethod(
             id = "tigo_money",
             title = "Tigo Money",
-            description = "Pago desde billetera móvil"
+            description = "Pago desde billetera móvil",
+            isAvailable = false
         ),
         PaymentMethod(
             id = "banrural_movil",
             title = "Banrural Móvil",
-            description = "Pago desde banca móvil"
+            description = "Pago desde banca móvil",
+            isAvailable = false
         )
     )
 
@@ -61,7 +65,7 @@ fun PaymentMethodScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 12.dp)
-                    .clickable {
+                    .clickable(enabled = method.isAvailable) {
                         onMethodSelected(method.id)
                     },
                 colors = CardDefaults.cardColors(
@@ -84,6 +88,17 @@ fun PaymentMethodScreen(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(method.description)
+
+                    if (!method.isAvailable) {
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        AssistChip(
+                            onClick = { },
+                            label = {
+                                Text("Próximamente disponible")
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -102,7 +117,7 @@ fun PaymentMethodScreen(
         Button(
             onClick = onContinue,
             modifier = Modifier.fillMaxWidth(),
-            enabled = selectedMethod != null
+            enabled = selectedMethod == "efectivo"
         ) {
             Text("Continuar")
         }
