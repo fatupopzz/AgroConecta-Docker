@@ -1,6 +1,7 @@
 package com.uvg.agroconecta.ui.navigation
 
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
@@ -33,8 +34,8 @@ fun AgroConectaNavHost(
     navController: NavHostController,
     authViewModel: AuthViewModel = viewModel()
 ) {
-    var selectedPaymentMethod by remember { mutableStateOf<String?>(null) }
-    var deliveryAddress by remember { mutableStateOf("") }
+    var selectedPaymentMethod by rememberSaveable { mutableStateOf<String?>(null) }
+    var deliveryAddress by rememberSaveable { mutableStateOf("") }
 
     NavHost(
         navController = navController,
