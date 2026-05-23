@@ -77,7 +77,7 @@ class ProfileViewModel : ViewModel() {
 
                 when (tipoUsuario) {
                     "agricultor" -> {
-                        val response = RetrofitClient.getService(token)
+                        val response = RetrofitClient.getService()
                             .getFarmerProfile("Bearer $token", perfilId)
                         if (response.isSuccessful && response.body() != null) {
                             _uiState.value = ProfileUiState.Success(ProfileData.Farmer(response.body()!!))
