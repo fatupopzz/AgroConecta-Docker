@@ -169,11 +169,36 @@ const login = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    res.json({
-  message: "Login exitoso",
-  token,
-  nombre: user.nombre,
-});
+    let idPerfil = null;
+
+    if (user.tipo_usuario === "agricultor") {
+      const r = await pool.query(
+        "SELECT id_agricultor FROM agricultor WHERE id_usuario = $1",
+        [user.id_usuario]
+      );
+      if (r.rows.length === 0) {
+        return res.status(500).json({ error: "Perfil de agricultor no encontrado" });
+      }
+      idPerfil = r.rows[0].id_agricultor;
+    } else if (user.tipo_usuario === "distribuidor") {
+      const r = await pool.query(
+        "SELECT id_distribuidor FROM distribuidor WHERE id_usuario = $1",
+        [user.id_usuario]
+      );
+      if (r.rows.length === 0) {
+        return res.status(500).json({ error: "Perfil de distribuidor no encontrado" });
+      }
+      idPerfil = r.rows[0].id_distribuidor;
+    }
+
+    return res.json({
+      message: "Login exitoso",
+      token,
+      nombre: user.nombre,
+      tipoUsuario: user.tipo_usuario,
+      idPerfil,
+    });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error en servidor" });
