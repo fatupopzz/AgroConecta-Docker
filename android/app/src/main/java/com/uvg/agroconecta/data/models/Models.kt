@@ -138,6 +138,7 @@ data class CartResponse(
 data class CartItem(
     @SerializedName("id_item") val idItem: Int,
     @SerializedName("id_inventario") val idInventario: Int,
+    @SerializedName("id_distribuidor") val idDistribuidor: Int,
     val cantidad: Int,
     @SerializedName("precio_unitario") val precioUnitario: Double,
     val subtotal: Double,

@@ -34,6 +34,8 @@ class CartViewModel : ViewModel() {
                     _cartItems.value = cart?.items?.map {
                         CartItemUI(
                             id = it.idItem,
+                            idInventario = it.idInventario,
+                            idDistribuidor = it.idDistribuidor,
                             nombre = it.producto,
                             distribuidor = it.distribuidor,
                             cantidad = it.cantidad,

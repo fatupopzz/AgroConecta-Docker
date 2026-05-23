@@ -80,7 +80,7 @@ const getProducts = async (req, res) => {
        ${whereClause}
        GROUP BY p.id_producto, p.nombre, p.marca, p.descripcion,
                 p.calificacion_promedio, c.nombre
-       ORDER BY p.id_producto ASC
+       ORDER BY RANDOM()
        LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
       queryParams,
     );
