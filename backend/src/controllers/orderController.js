@@ -87,12 +87,13 @@ const getOrderDetailData = async (db, orderId) => {
 
 const createOrder = async (req, res) => {
   const {
-    id_agricultor,
     id_distribuidor,
     direccion_entrega,
     productos,
     metodo_pago,
   } = req.body;
+
+  const id_agricultor = req.agricultorId;
 
   if (!isPositiveInteger(id_agricultor)) {
     return res.status(400).json({ error: "id_agricultor inválido" });
@@ -287,7 +288,20 @@ const createOrder = async (req, res) => {
       console.error("Error al hacer rollback en createOrder:", rollbackError);
     }
 
-    console.error("Error en createOrder:", error);
+    console.error("Error en createOrder:", {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint,
+      table: error.table,
+    });
+
+    if (error.code === "23503") {
+      return res.status(400).json({
+        error: "No se pudo crear el pedido por una referencia inválida en la base de datos",
+      });
+    }
+
     return res.status(500).json({ error: "Error al crear el pedido" });
   } finally {
     client.release();
@@ -472,14 +486,11 @@ const getOrdersByDistributor = async (req, res) => {
 
 const updateOrderStatus = async (req, res) => {
   const { id } = req.params;
-  const { estado, id_distribuidor } = req.body;
+  const { estado } = req.body;
+  const distributorId = req.distributorId;
 
   if (!isPositiveInteger(id)) {
     return res.status(400).json({ error: "ID de pedido inválido" });
-  }
-
-  if (!isPositiveInteger(id_distribuidor)) {
-    return res.status(400).json({ error: "id_distribuidor inválido" });
   }
 
   if (typeof estado !== "string" || !ORDER_STATES_UPDATEABLE.includes(estado.trim())) {
@@ -490,7 +501,6 @@ const updateOrderStatus = async (req, res) => {
 
   const estadoNormalizado = estado.trim();
   const orderId = Number(id);
-  const distributorId = Number(id_distribuidor);
 
   const client = await pool.connect();
 

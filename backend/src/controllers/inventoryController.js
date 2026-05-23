@@ -64,8 +64,8 @@ const createInventory = async (req, res) => {
     // Upsert — si ya tiene ese producto en inventario, actualiza
     const result = await pool.query(
       `INSERT INTO inventario_distribuidor
-   (id_distribuidor, id_producto, precio, stock_disponible, unidad_medida)
- VALUES ($1, $2, $3, $4, $5)
+   (id_distribuidor, id_producto, precio, stock_disponible, unidad_medida,tiempo_entrega_dias)
+ VALUES ($1, $2, $3, $4, $5, $6)
  ON CONFLICT (id_distribuidor, id_producto)
  DO UPDATE SET
    precio = EXCLUDED.precio,
@@ -73,7 +73,7 @@ const createInventory = async (req, res) => {
    unidad_medida = COALESCE(EXCLUDED.unidad_medida, inventario_distribuidor.unidad_medida),
    ultima_actualizacion = NOW()
  RETURNING *`,
-[id_distribuidor, Number(id_producto), precioNum, stockNum, unidad_medida?.trim() || null]
+[id_distribuidor, Number(id_producto), precioNum, stockNum, unidad_medida?.trim() || null, tiempo_entrega_dias !== undefined ? Number(tiempo_entrega_dias) : null]
     );
 
     return res.status(201).json({

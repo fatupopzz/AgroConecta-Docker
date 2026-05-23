@@ -1,5 +1,9 @@
 const express = require("express");
 const router = express.Router();
+const {
+  canUpdateUserByRole,
+  canDeleteUserByRole,
+} = require("../middleware/userAuthorizationMiddleware");
 
 const {
   getUsers,
@@ -11,8 +15,8 @@ const {
 
 router.get("/", getUsers);
 router.get("/:id", getUserById);
-router.post("/", createUser);
-router.put("/:id", updateUser);
-router.delete("/:id", deleteUser);
+//router.post("/", createUser);
+router.put("/:id", canUpdateUserByRole, updateUser);
+router.delete("/:id", canDeleteUserByRole, deleteUser);
 
 module.exports = router;

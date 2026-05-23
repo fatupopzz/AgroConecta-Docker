@@ -1,5 +1,6 @@
 const express = require("express");
 const { shutdownPool } = require("./src/config/db");
+const { pool } = require("./src/config/db");
 
 const productRoutes = require("./src/routes/productRoutes");
 const categoryRoutes = require("./src/routes/categoryRoutes");
@@ -20,6 +21,28 @@ const inventoryRoutes = require("./src/routes/inventoryRoutes");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+const runStartupMigrations = async () => {
+  const statements = [
+    `ALTER TABLE pago
+     ADD COLUMN IF NOT EXISTS estado_pago VARCHAR(20) DEFAULT 'pendiente'
+       CHECK (estado_pago IN ('pendiente', 'processing', 'completado', 'failed'))`,
+    `ALTER TABLE pago
+     ADD COLUMN IF NOT EXISTS fecha_pago TIMESTAMP`,
+    `ALTER TABLE pago
+     ADD COLUMN IF NOT EXISTS referencia_transaccion VARCHAR(100)`,
+    `ALTER TABLE pago
+     ADD COLUMN IF NOT EXISTS proveedor VARCHAR(30)`,
+    `ALTER TABLE pago
+     ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`,
+    `ALTER TABLE pago
+     ADD COLUMN IF NOT EXISTS fecha_confirmacion TIMESTAMP`,
+  ];
+
+  for (const statement of statements) {
+    await pool.query(statement);
+  }
+};
+
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
@@ -39,7 +62,7 @@ app.use("/api/agricultores", verifyToken, agricultorRoutes);
 app.use("/api/distribuidores",verifyToken, distribuidorRoutes);
 app.use("/api/usuarios",verifyToken, userRoutes);
 app.use("/api/farmers", farmerRoutes);
-app.use("/api/orders", verifyToken, orderRoutes);
+app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api", verifyToken, qualityReportRoutes);
 app.use("/api/cart", verifyToken, cartRoutes);
@@ -49,9 +72,19 @@ app.get("/", (req, res) => {
   res.json({ status: "AgroConecta Backend corriendo", version: "1.0.0" });
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend AgroConecta escuchando en puerto ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await runStartupMigrations();
+    app.listen(PORT, () => {
+      console.log(`Backend AgroConecta escuchando en puerto ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Error al iniciar el backend:", error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 process.on("SIGTERM", async () => {
   await shutdownPool();
