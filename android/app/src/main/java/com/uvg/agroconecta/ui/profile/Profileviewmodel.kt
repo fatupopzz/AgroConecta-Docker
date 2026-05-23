@@ -106,9 +106,7 @@ class ProfileViewModel : ViewModel() {
 
     fun logout(context: Context, onLoggedOut: () -> Unit) {
         viewModelScope.launch {
-            _isLoggingOut.value = true
             SessionManager.clearSession(context)
-            _isLoggingOut.value = false
             onLoggedOut()
         }
     }

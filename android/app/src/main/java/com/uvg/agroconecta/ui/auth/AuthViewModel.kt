@@ -125,4 +125,8 @@ class AuthViewModel : ViewModel() {
             }
         }
     }
+    fun resetLogin() {
+        _loginState.value = AuthState.Idle
+        _nombreUsuario.value = ""
+    }
 }

@@ -20,17 +20,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-
-// ─── Brand colors (mismos que en el resto del proyecto) ──────────────────────
-
-private val Verde          = Color(0xFF2E7D32)
-private val VerdeDark      = Color(0xFF1B5E20)
-private val VerdeLight     = Color(0xFF4CAF50)
-private val VerdePale      = Color(0xFFC8E6C9)
-private val VerdeSurface   = Color(0xFFF1F8E9)
-private val GrisFondo      = Color(0xFFF5F5F5)
-private val GrisTexto      = Color(0xFF757575)
-private val GrisBorde      = Color(0xFFB0BEC5)
+import com.uvg.agroconecta.ui.theme.ErrorRed
+import com.uvg.agroconecta.ui.theme.GrayBorder
+import com.uvg.agroconecta.ui.theme.GrayLight
+import com.uvg.agroconecta.ui.theme.GrayMid
+import com.uvg.agroconecta.ui.theme.GreenPale
+import com.uvg.agroconecta.ui.theme.GreenPrimary
+import com.uvg.agroconecta.ui.theme.GreenPrimaryDark
+import com.uvg.agroconecta.ui.theme.GreenSurface
+import com.uvg.agroconecta.ui.theme.OrangeLight
+import com.uvg.agroconecta.ui.theme.OrangeAccent
+import com.uvg.agroconecta.ui.theme.VerifiedBlue
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -62,7 +62,7 @@ fun ProfileScreen(
     }
 
     Scaffold(
-        containerColor = GrisFondo,
+        containerColor = GrayLight,
         topBar = {
             TopAppBar(
                 title = { Text("Mi Perfil", fontWeight = FontWeight.Bold) },
@@ -72,7 +72,7 @@ fun ProfileScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Verde,
+                    containerColor = GreenPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -88,7 +88,7 @@ fun ProfileScreen(
                 is ProfileUiState.Loading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center),
-                        color = Verde
+                        color = GreenPrimary
                     )
                 }
 
@@ -121,10 +121,10 @@ fun ProfileScreen(
     }
 }
 
-// ─── Profile content ──────────────────────────────────────────────────────────
+// ─── Farmer profile ───────────────────────────────────────────────────────────
 
 @Composable
-private fun FarmerProfileContent(
+fun FarmerProfileContent(
     profile: FarmerProfile,
     onLogoutClick: () -> Unit
 ) {
@@ -135,42 +135,36 @@ private fun FarmerProfileContent(
             .padding(bottom = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ── Header con avatar ──
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Verde)
+                .background(GreenPrimary)
                 .padding(bottom = 32.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Spacer(Modifier.height(24.dp))
-
-                // Avatar con inicial del nombre
                 Box(
                     modifier = Modifier
                         .size(88.dp)
                         .clip(CircleShape)
-                        .background(VerdePale),
+                        .background(GreenPale),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = profile.nombre?.firstOrNull()?.uppercaseChar()?.toString() ?: "A",
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Bold,
-                        color = VerdeDark
+                        color = GreenPrimaryDark
                     )
                 }
-
                 Spacer(Modifier.height(12.dp))
-
                 Text(
                     text = profile.nombre ?: "Agricultor",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
-
                 if (!profile.email.isNullOrBlank()) {
                     Text(
                         text = profile.email,
@@ -178,14 +172,11 @@ private fun FarmerProfileContent(
                         color = Color.White.copy(alpha = 0.85f)
                     )
                 }
-
                 Spacer(Modifier.height(8.dp))
-
-                // Badge membresía
                 if (profile.tieneMembresia == true) {
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFFFFF3E0)
+                        color = OrangeLight
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -194,7 +185,7 @@ private fun FarmerProfileContent(
                             Icon(
                                 Icons.Default.Star,
                                 contentDescription = null,
-                                tint = Color(0xFFE65100),
+                                tint = OrangeAccent,
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(Modifier.width(4.dp))
@@ -202,7 +193,7 @@ private fun FarmerProfileContent(
                                 "Miembro Premium",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFFE65100)
+                                color = OrangeAccent
                             )
                         }
                     }
@@ -213,193 +204,44 @@ private fun FarmerProfileContent(
 
         Spacer(Modifier.height(16.dp))
 
-        // ── Sección: Información de contacto ──
         ProfileSection(title = "Información de contacto") {
-            ProfileInfoRow(
-                icon = Icons.Default.Phone,
-                label = "Teléfono",
-                value = profile.telefono ?: "—"
-            )
-            ProfileInfoRow(
-                icon = Icons.Default.Email,
-                label = "Correo electrónico",
-                value = profile.email ?: "—"
-            )
+            ProfileInfoRow(Icons.Default.Phone, "Teléfono", profile.telefono ?: "—")
+            ProfileInfoRow(Icons.Default.Email, "Correo electrónico", profile.email ?: "—")
         }
 
         Spacer(Modifier.height(12.dp))
 
-        // ── Sección: Ubicación ──
         ProfileSection(title = "Ubicación") {
-            ProfileInfoRow(
-                icon = Icons.Default.LocationOn,
-                label = "Departamento",
-                value = profile.departamento?.replaceFirstChar { it.uppercase() } ?: "—"
-            )
-            ProfileInfoRow(
-                icon = Icons.Default.Place,
-                label = "Municipio",
-                value = profile.municipio?.replaceFirstChar { it.uppercase() } ?: "—"
-            )
+            ProfileInfoRow(Icons.Default.LocationOn, "Departamento", profile.departamento?.replaceFirstChar { it.uppercase() } ?: "—")
+            ProfileInfoRow(Icons.Default.Place, "Municipio", profile.municipio?.replaceFirstChar { it.uppercase() } ?: "—")
         }
 
         Spacer(Modifier.height(12.dp))
 
-        // ── Sección: Datos agrícolas ──
         ProfileSection(title = "Datos agrícolas") {
             ProfileInfoRow(
-                icon = Icons.Default.Agriculture,
-                label = "Tipo de agricultor",
-                value = when (profile.tipoAgricultor) {
+                Icons.Default.Agriculture,
+                "Tipo de agricultor",
+                when (profile.tipoAgricultor) {
                     "pequena_escala" -> "Pequeña escala"
                     "mediana_escala" -> "Mediana escala"
                     "industrial"     -> "Industrial"
                     else             -> "—"
                 }
             )
-            ProfileInfoRow(
-                icon = Icons.Default.Landscape,
-                label = "Tamaño del terreno",
-                value = profile.tamanoTerrenoHa?.let { "${it} ha" } ?: "—"
-            )
-            ProfileInfoRow(
-                icon = Icons.Default.Grass,
-                label = "Cultivos principales",
-                value = profile.cultivosPrincipales ?: "—"
-            )
+            ProfileInfoRow(Icons.Default.Landscape, "Tamaño del terreno", profile.tamanoTerrenoHa?.let { "$it ha" } ?: "—")
+            ProfileInfoRow(Icons.Default.Grass, "Cultivos principales", profile.cultivosPrincipales ?: "—")
         }
 
         Spacer(Modifier.height(24.dp))
-
-        // ── Botón cerrar sesión ──
-        OutlinedButton(
-            onClick = onLogoutClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(48.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC62828))
-        ) {
-            Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Cerrar sesión", fontWeight = FontWeight.SemiBold)
-        }
+        LogoutButton(onClick = onLogoutClick)
     }
 }
 
-// ─── Componentes auxiliares ───────────────────────────────────────────────────
+// ─── Distributor profile ──────────────────────────────────────────────────────
 
 @Composable
-private fun ProfileSection(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = GrisTexto,
-                letterSpacing = 0.5.sp
-            )
-            Spacer(Modifier.height(10.dp))
-            content()
-        }
-    }
-}
-
-@Composable
-private fun ProfileInfoRow(
-    icon: ImageVector,
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(VerdeSurface),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Verde,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(label, fontSize = 11.sp, color = GrisTexto)
-            Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFF212121))
-        }
-    }
-    if (value != "—") HorizontalDivider(color = GrisBorde.copy(alpha = 0.5f))
-}
-
-@Composable
-private fun ErrorView(message: String, onRetry: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.Default.CloudOff,
-            contentDescription = null,
-            tint = GrisBorde,
-            modifier = Modifier.size(64.dp)
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(message, color = GrisTexto, fontSize = 14.sp)
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = onRetry,
-            colors = ButtonDefaults.buttonColors(containerColor = Verde)
-        ) {
-            Text("Reintentar")
-        }
-    }
-}
-
-@Composable
-private fun LogoutConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Logout, contentDescription = null, tint = Color(0xFFC62828)) },
-        title = { Text("¿Cerrar sesión?") },
-        text  = { Text("Deberás iniciar sesión nuevamente para acceder a tu cuenta.") },
-        confirmButton = {
-            TextButton(onClick = onConfirm, colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFC62828))) {
-                Text("Cerrar sesión", fontWeight = FontWeight.SemiBold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
-        }
-    )
-}
-
-@Composable
-private fun DistributorProfileContent(
+fun DistributorProfileContent(
     profile: DistributorProfile,
     onLogoutClick: () -> Unit
 ) {
@@ -413,7 +255,7 @@ private fun DistributorProfileContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Verde)
+                .background(GreenPrimary)
                 .padding(bottom = 32.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -423,14 +265,14 @@ private fun DistributorProfileContent(
                     modifier = Modifier
                         .size(88.dp)
                         .clip(CircleShape)
-                        .background(VerdePale),
+                        .background(GreenPale),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = profile.nombreNegocio.firstOrNull()?.uppercaseChar()?.toString() ?: "D",
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Bold,
-                        color = VerdeDark
+                        color = GreenPrimaryDark
                     )
                 }
                 Spacer(Modifier.height(12.dp))
@@ -445,9 +287,9 @@ private fun DistributorProfileContent(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            Icon(Icons.Default.Verified, null, tint = Color(0xFF1565C0), modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Verified, null, tint = VerifiedBlue, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Distribuidor Verificado", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1565C0))
+                            Text("Distribuidor Verificado", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = VerifiedBlue)
                         }
                     }
                     Spacer(Modifier.height(8.dp))
@@ -474,20 +316,136 @@ private fun DistributorProfileContent(
         }
 
         Spacer(Modifier.height(24.dp))
+        LogoutButton(onClick = onLogoutClick)
+    }
+}
 
-        OutlinedButton(
-            onClick = onLogoutClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(48.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC62828))
-        ) {
-            Icon(Icons.Default.Logout, null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Cerrar sesión", fontWeight = FontWeight.SemiBold)
+// ─── Componentes auxiliares ───────────────────────────────────────────────────
+
+@Composable
+fun ProfileSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = title,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = GrayMid,
+                letterSpacing = 0.5.sp
+            )
+            Spacer(Modifier.height(10.dp))
+            content()
         }
     }
+}
+
+@Composable
+fun ProfileInfoRow(
+    icon: ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(GreenSurface),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = GreenPrimary,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(label, fontSize = 11.sp, color = GrayMid)
+            Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFF212121))
+        }
+    }
+    if (value != "—") HorizontalDivider(color = GrayBorder.copy(alpha = 0.5f))
+}
+
+@Composable
+fun LogoutButton(onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(48.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
+        border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed)
+    ) {
+        Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Cerrar sesión", fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun ErrorView(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.Default.CloudOff,
+            contentDescription = null,
+            tint = GrayBorder,
+            modifier = Modifier.size(64.dp)
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(message, color = GrayMid, fontSize = 14.sp)
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = onRetry,
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+        ) {
+            Text("Reintentar")
+        }
+    }
+}
+
+@Composable
+fun LogoutConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Logout, contentDescription = null, tint = ErrorRed) },
+        title = { Text("¿Cerrar sesión?") },
+        text  = { Text("Deberás iniciar sesión nuevamente para acceder a tu cuenta.") },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(contentColor = ErrorRed)
+            ) {
+                Text("Cerrar sesión", fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
 }
