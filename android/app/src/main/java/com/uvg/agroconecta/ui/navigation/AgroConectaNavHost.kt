@@ -151,6 +151,7 @@ fun AgroConectaNavHost(
             ProfileScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onLogout = {
+                    authViewModel.resetLogin()
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
