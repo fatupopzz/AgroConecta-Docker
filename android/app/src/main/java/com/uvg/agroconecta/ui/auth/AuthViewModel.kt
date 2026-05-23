@@ -64,7 +64,15 @@ class AuthViewModel : ViewModel() {
 
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
-                    SessionManager.saveSession(context, body.token, email, -1, -1)
+                    SessionManager.saveSession(
+                        context     = context,
+                        token       = body.token,
+                        nombre      = body.nombre ?: email.substringBefore("@"),
+                        userId      = -1,
+                        farmerId    = if (body.tipoUsuario == "agricultor") body.idPerfil ?: -1 else -1,
+                        tipoUsuario = body.tipoUsuario ?: "",
+                        perfilId    = body.idPerfil ?: -1
+                    )
                     _nombreUsuario.value = body.nombre ?: email.substringBefore("@")
                     _loginState.value = AuthState.Success
                 } else {
@@ -116,5 +124,9 @@ class AuthViewModel : ViewModel() {
                 _registerState.value = AuthState.Error("Error de conexión: ${e.localizedMessage}")
             }
         }
+    }
+    fun resetLogin() {
+        _loginState.value = AuthState.Idle
+        _nombreUsuario.value = ""
     }
 }

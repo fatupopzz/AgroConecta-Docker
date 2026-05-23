@@ -12,9 +12,10 @@ data class LoginRequest(
 data class LoginResponse(
     val message: String,
     val token: String,
-    val nombre: String? = null
+    val nombre: String? = null,
+    @SerializedName("tipoUsuario") val tipoUsuario: String? = null,
+    @SerializedName("idPerfil")    val idPerfil: Int? = null
 )
-
 data class RegisterRequest(
     val nombre: String,
     val apellido: String?,
