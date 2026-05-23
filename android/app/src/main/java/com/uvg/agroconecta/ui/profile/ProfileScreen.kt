@@ -100,10 +100,10 @@ fun ProfileScreen(
                 }
 
                 is ProfileUiState.Success -> {
-                    ProfileContent(
-                        profile = state.profile,
-                        onLogoutClick = { showLogoutDialog = true }
-                    )
+                    when (val data = state.data) {
+                        is ProfileData.Farmer      -> FarmerProfileContent(data.profile, onLogoutClick = { showLogoutDialog = true })
+                        is ProfileData.Distributor -> DistributorProfileContent(data.profile, onLogoutClick = { showLogoutDialog = true })
+                    }
                 }
             }
 
@@ -124,7 +124,7 @@ fun ProfileScreen(
 // ─── Profile content ──────────────────────────────────────────────────────────
 
 @Composable
-private fun ProfileContent(
+private fun FarmerProfileContent(
     profile: FarmerProfile,
     onLogoutClick: () -> Unit
 ) {
@@ -396,4 +396,98 @@ private fun LogoutConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) { Text("Cancelar") }
         }
     )
+}
+
+@Composable
+private fun DistributorProfileContent(
+    profile: DistributorProfile,
+    onLogoutClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Verde)
+                .padding(bottom = 32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.height(24.dp))
+                Box(
+                    modifier = Modifier
+                        .size(88.dp)
+                        .clip(CircleShape)
+                        .background(VerdePale),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = profile.nombreNegocio.firstOrNull()?.uppercaseChar()?.toString() ?: "D",
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = VerdeDark
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(profile.nombreNegocio, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                profile.email?.let {
+                    Text(it, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
+                }
+                Spacer(Modifier.height(8.dp))
+                if (profile.estadoVerificacion == "verificado") {
+                    Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFE3F2FD)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Verified, null, tint = Color(0xFF1565C0), modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Distribuidor Verificado", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1565C0))
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        ProfileSection("Información de contacto") {
+            ProfileInfoRow(Icons.Default.Person, "Responsable", profile.nombre ?: "—")
+            ProfileInfoRow(Icons.Default.Phone, "Teléfono", profile.telefono ?: "—")
+            ProfileInfoRow(Icons.Default.Email, "Correo electrónico", profile.email ?: "—")
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        ProfileSection("Datos del negocio") {
+            ProfileInfoRow(Icons.Default.LocationOn, "Departamento", profile.departamento?.replaceFirstChar { it.uppercase() } ?: "—")
+            ProfileInfoRow(Icons.Default.Receipt, "NIT", profile.nit ?: "—")
+            profile.calificacionPromedio?.let {
+                ProfileInfoRow(Icons.Default.Star, "Calificación promedio", "%.1f / 5.0".format(it))
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        OutlinedButton(
+            onClick = onLogoutClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(48.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC62828))
+        ) {
+            Icon(Icons.Default.Logout, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Cerrar sesión", fontWeight = FontWeight.SemiBold)
+        }
+    }
 }

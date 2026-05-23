@@ -10,31 +10,45 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import retrofit2.http.GET
-import retrofit2.http.Header
-import retrofit2.http.Path
 
-// ─── Model ───────────────────────────────────────────────────────────────────
+// ─── Models ───────────────────────────────────────────────────────────────────
 
 data class FarmerProfile(
-    @SerializedName("id_agricultor")       val idAgricultor: Int,
+    @SerializedName("id_agricultor")        val idAgricultor: Int,
     val nombre: String?,
     val email: String?,
     val telefono: String?,
     val departamento: String?,
     val municipio: String?,
-    @SerializedName("tipo_agricultor")     val tipoAgricultor: String?,
-    @SerializedName("tamano_terreno_ha")   val tamanoTerrenoHa: Double?,
+    @SerializedName("tipo_agricultor")      val tipoAgricultor: String?,
+    @SerializedName("tamano_terreno_ha")    val tamanoTerrenoHa: Double?,
     @SerializedName("cultivos_principales") val cultivosPrincipales: String?,
-    @SerializedName("tiene_membresia")     val tieneMembresia: Boolean?,
-    @SerializedName("fecha_registro")      val fechaRegistro: String?
+    @SerializedName("tiene_membresia")      val tieneMembresia: Boolean?,
+    @SerializedName("fecha_registro")       val fechaRegistro: String?
+)
+
+data class DistributorProfile(
+    @SerializedName("id_distribuidor")       val idDistribuidor: Int,
+    @SerializedName("nombre_negocio")        val nombreNegocio: String,
+    val nombre: String?,
+    val email: String?,
+    val telefono: String?,
+    val departamento: String?,
+    val nit: String?,
+    @SerializedName("estado_verificacion")   val estadoVerificacion: String?,
+    @SerializedName("calificacion_promedio") val calificacionPromedio: Double?
 )
 
 // ─── UI State ─────────────────────────────────────────────────────────────────
 
+sealed class ProfileData {
+    data class Farmer(val profile: FarmerProfile) : ProfileData()
+    data class Distributor(val profile: DistributorProfile) : ProfileData()
+}
+
 sealed class ProfileUiState {
     data object Loading : ProfileUiState()
-    data class Success(val profile: FarmerProfile) : ProfileUiState()
+    data class Success(val data: ProfileData) : ProfileUiState()
     data class Error(val message: String) : ProfileUiState()
 }
 
@@ -52,27 +66,37 @@ class ProfileViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = ProfileUiState.Loading
             try {
-                val token    = SessionManager.getToken(context).first()
-                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                val token       = SessionManager.getToken(context).first()
+                val tipoUsuario = SessionManager.getTipoUsuario(context).first()
+                val perfilId    = SessionManager.getPerfilId(context).first() ?: -1
 
-                if (token.isNullOrBlank() || farmerId == -1) {
+                if (token.isNullOrBlank() || perfilId == -1) {
                     _uiState.value = ProfileUiState.Error("Sesión no válida. Vuelve a iniciar sesión.")
                     return@launch
                 }
 
-                val response = RetrofitClient.getService(token)
-                    .getFarmerProfile("Bearer $token", farmerId)
-
-                if (response.isSuccessful && response.body() != null) {
-                    _uiState.value = ProfileUiState.Success(response.body()!!)
-                } else {
-                    _uiState.value = ProfileUiState.Error(
-                        when (response.code()) {
-                            403  -> "No tienes permiso para ver este perfil."
-                            404  -> "Perfil no encontrado."
-                            else -> "Error al cargar perfil (${response.code()})"
+                when (tipoUsuario) {
+                    "agricultor" -> {
+                        val response = RetrofitClient.getService(token)
+                            .getFarmerProfile("Bearer $token", perfilId)
+                        if (response.isSuccessful && response.body() != null) {
+                            _uiState.value = ProfileUiState.Success(ProfileData.Farmer(response.body()!!))
+                        } else {
+                            _uiState.value = ProfileUiState.Error("Error al cargar perfil (${response.code()})")
                         }
-                    )
+                    }
+                    "distribuidor" -> {
+                        val response = RetrofitClient.getService(token)
+                            .getDistributorById(perfilId)
+                        if (response.isSuccessful && response.body() != null) {
+                            _uiState.value = ProfileUiState.Success(ProfileData.Distributor(response.body()!!))
+                        } else {
+                            _uiState.value = ProfileUiState.Error("Error al cargar perfil (${response.code()})")
+                        }
+                    }
+                    else -> {
+                        _uiState.value = ProfileUiState.Error("Tipo de usuario desconocido.")
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.value = ProfileUiState.Error("Error de conexión: ${e.localizedMessage}")
@@ -89,12 +113,3 @@ class ProfileViewModel : ViewModel() {
         }
     }
 }
-
-// ─── ApiService extension (agregar a ApiService.kt) ──────────────────────────
-// Añade este método a la interface ApiService existente:
-//
-//    @GET("farmers/profile/{id}")
-//    suspend fun getFarmerProfile(
-//        @Header("Authorization") token: String,
-//        @Path("id") farmerId: Int
-//    ): Response<FarmerProfile>

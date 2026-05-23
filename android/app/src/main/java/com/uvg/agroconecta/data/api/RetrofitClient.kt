@@ -27,13 +27,25 @@ object SessionManager {
     private val USER_NAME_KEY = stringPreferencesKey("user_name")
     private val USER_ID_KEY = intPreferencesKey("user_id")
     private val FARMER_ID_KEY = intPreferencesKey("farmer_id")
+    private val TIPO_USUARIO_KEY = stringPreferencesKey("tipo_usuario")
+    private val PERFIL_ID_KEY    = intPreferencesKey("perfil_id")
 
-    suspend fun saveSession(context: Context, token: String, nombre: String, userId: Int, farmerId: Int = -1) {
+    suspend fun saveSession(
+        context: Context,
+        token: String,
+        nombre: String,
+        userId: Int,
+        farmerId: Int = -1,
+        tipoUsuario: String = "",
+        perfilId: Int = -1
+    ) {
         context.dataStore.edit { prefs ->
-            prefs[TOKEN_KEY] = token
-            prefs[USER_NAME_KEY] = nombre
-            prefs[USER_ID_KEY] = userId
-            prefs[FARMER_ID_KEY] = farmerId
+            prefs[TOKEN_KEY]        = token
+            prefs[USER_NAME_KEY]    = nombre
+            prefs[USER_ID_KEY]      = userId
+            prefs[FARMER_ID_KEY]    = farmerId
+            prefs[TIPO_USUARIO_KEY] = tipoUsuario
+            prefs[PERFIL_ID_KEY]    = perfilId
         }
     }
 
@@ -52,6 +64,12 @@ object SessionManager {
 
     fun getFarmerId(context: Context): Flow<Int?> =
         context.dataStore.data.map { it[FARMER_ID_KEY] }
+
+    fun getTipoUsuario(context: Context): Flow<String?> =
+        context.dataStore.data.map { it[TIPO_USUARIO_KEY] }
+
+    fun getPerfilId(context: Context): Flow<Int?> =
+        context.dataStore.data.map { it[PERFIL_ID_KEY] }
 }
 
 // ─── Retrofit Client ─────────────────────────────────────────────────────────

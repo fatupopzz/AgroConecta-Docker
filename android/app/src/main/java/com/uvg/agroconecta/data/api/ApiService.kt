@@ -4,6 +4,8 @@ import com.uvg.agroconecta.data.models.*
 import retrofit2.Response
 import retrofit2.http.*
 import com.uvg.agroconecta.ui.profile.FarmerProfile
+import com.uvg.agroconecta.ui.profile.DistributorProfile
+
 
 interface ApiService {
 
@@ -99,11 +101,19 @@ interface ApiService {
         @Body request: CreateProductRequest
     ): Response<CreateProductResponse>
 
+
     @GET("farmers/profile/{id}")
     suspend fun getFarmerProfile(
         @Header("Authorization") token: String,
         @Path("id") farmerId: Int
     ): Response<FarmerProfile>
+
+
+    // ── Distributor by ID ─────────────────────────────────────────────────
+    @GET("distribuidores/{id}")
+    suspend fun getDistributorById(
+        @Path("id") id: Int
+    ): Response<DistributorProfile>
 
 
 }
