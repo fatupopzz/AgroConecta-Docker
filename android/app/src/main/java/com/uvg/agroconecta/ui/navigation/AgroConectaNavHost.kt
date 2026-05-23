@@ -22,6 +22,7 @@ import com.uvg.agroconecta.ui.cart.CartScreen
 import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import kotlinx.coroutines.flow.first
+import com.uvg.agroconecta.ui.profile.ProfileScreen
 
 @Composable
 fun AgroConectaNavHost(
@@ -86,7 +87,7 @@ fun AgroConectaNavHost(
                 onCarritoClick = {
                     navController.navigate(Screen.Cart.route)
                 },
-                onPerfilClick = { },
+                onPerfilClick = { navController.navigate(Screen.Profile.route) },
                 onAgregarClick = { navController.navigate(Screen.PublishProduct.route) }
             )
         }
@@ -143,6 +144,17 @@ fun AgroConectaNavHost(
         composable(Screen.PublishProduct.route) {
             PublishProductScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Profile.route) {
+            ProfileScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
             )
         }
     }
