@@ -75,12 +75,21 @@ fun LoginScreen(
     val loginState by viewModel.loginState.observeAsState(AuthState.Idle)
 
     // Reaccionar a cambios de estado del ViewModel
+    var navigated by remember { mutableStateOf(false) }
+
     LaunchedEffect(loginState) {
         when (val state = loginState) {
-            is AuthState.Success -> onLoginSuccess()
+            is AuthState.Success -> {
+                if (!navigated) {
+                    navigated = true
+                    onLoginSuccess()
+                }
+            }
             is AuthState.Error -> {
+                navigated = false
                 scope.launch { snackbarHostState.showSnackbar(state.message) }
             }
+            is AuthState.Idle -> navigated = false
             else -> Unit
         }
     }
