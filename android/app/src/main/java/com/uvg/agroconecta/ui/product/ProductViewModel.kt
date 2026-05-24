@@ -61,6 +61,15 @@ class ProductViewModel : ViewModel() {
     private val _selectedOffer = MutableLiveData<DistributorOffer?>()
     val selectedOffer: LiveData<DistributorOffer?> = _selectedOffer
 
+    private val _distributorRating = MutableLiveData<DistributorRatingResponse?>()
+    val distributorRating: LiveData<DistributorRatingResponse?> = _distributorRating
+
+    private val _distributorReviews = MutableLiveData<List<DistributorReview>>(emptyList())
+    val distributorReviews: LiveData<List<DistributorReview>> = _distributorReviews
+
+    private val _isLoadingDistributorRating = MutableLiveData(false)
+    val isLoadingDistributorRating: LiveData<Boolean> = _isLoadingDistributorRating
+
     private val _cartSuccess = MutableLiveData<String?>()
     val cartSuccess: LiveData<String?> = _cartSuccess
 
@@ -100,6 +109,34 @@ class ProductViewModel : ViewModel() {
 
     fun selectOffer(offer: DistributorOffer) {
         _selectedOffer.value = offer
+    }
+
+    fun loadDistributorRating(distributorId: Int, token: String?) {
+        _isLoadingDistributorRating.value = true
+        viewModelScope.launch {
+            try {
+                val service = RetrofitClient.getService(token)
+                val ratingResponse = service.getDistributorRating(distributorId)
+                val reviewsResponse = service.getDistributorReviews(distributorId, page = 1, limit = 5)
+
+                if (ratingResponse.isSuccessful) {
+                    _distributorRating.value = ratingResponse.body()
+                } else {
+                    _distributorRating.value = null
+                }
+
+                if (reviewsResponse.isSuccessful) {
+                    _distributorReviews.value = reviewsResponse.body()?.reviews ?: emptyList()
+                } else {
+                    _distributorReviews.value = emptyList()
+                }
+            } catch (e: Exception) {
+                _distributorRating.value = null
+                _distributorReviews.value = emptyList()
+            } finally {
+                _isLoadingDistributorRating.value = false
+            }
+        }
     }
 
     fun addToCart(idAgricultor: Int, token: String) {

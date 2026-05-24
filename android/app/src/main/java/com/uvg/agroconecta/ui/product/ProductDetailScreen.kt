@@ -31,6 +31,7 @@ import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.DistributorOffer
 import com.uvg.agroconecta.data.models.DistributorCompare
 import com.uvg.agroconecta.data.models.Review
+import com.uvg.agroconecta.ui.components.DistributorRatingCard
 import com.uvg.agroconecta.ui.theme.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -54,6 +55,8 @@ fun ProductDetailScreen(
     val selectedOffer by viewModel.selectedOffer.observeAsState()
     val cartSuccess   by viewModel.cartSuccess.observeAsState()
     val isAddingToCart by viewModel.isAddingToCart.observeAsState(false)
+    val distributorRating by viewModel.distributorRating.observeAsState()
+    val isLoadingDistributorRating by viewModel.isLoadingDistributorRating.observeAsState(false)
     val error         by viewModel.error.observeAsState()
 
     // ── Observables de reseñas (NUEVO) ───────────────────────────────────────
@@ -70,6 +73,12 @@ fun ProductDetailScreen(
         viewModel.loadProduct(productId, token)
         viewModel.loadComparison(productId, token)
         viewModel.loadReviews(productId, token)   // NUEVO
+    }
+
+    LaunchedEffect(selectedOffer?.idDistribuidor) {
+        val distributorId = selectedOffer?.idDistribuidor ?: return@LaunchedEffect
+        val token = SessionManager.getToken(context).first()
+        viewModel.loadDistributorRating(distributorId, token)
     }
 
     // ── Snackbars ─────────────────────────────────────────────────────────────
@@ -215,7 +224,13 @@ fun ProductDetailScreen(
                         Text("No hay distribuidores disponibles.", style = MaterialTheme.typography.bodyMedium, color = GrayMid)
                     } else {
                         p.ofertas.forEach { offer ->
-                            OfertaItem(offer = offer, isSelected = selectedOffer?.idInventario == offer.idInventario, onClick = { viewModel.selectOffer(offer) })
+                            OfertaItem(
+                                offer = offer,
+                                isSelected = selectedOffer?.idInventario == offer.idInventario,
+                                distributorRating = if (selectedOffer?.idInventario == offer.idInventario) distributorRating else null,
+                                isLoadingRating = selectedOffer?.idInventario == offer.idInventario && isLoadingDistributorRating,
+                                onClick = { viewModel.selectOffer(offer) }
+                            )
                             if (offer != p.ofertas.last()) HorizontalDivider(color = GrayLight, modifier = Modifier.padding(vertical = 8.dp))
                         }
                     }
@@ -323,7 +338,13 @@ private fun FichaRow(label: String, value: String) {
 }
 
 @Composable
-private fun OfertaItem(offer: DistributorOffer, isSelected: Boolean, onClick: () -> Unit) {
+private fun OfertaItem(
+    offer: DistributorOffer,
+    isSelected: Boolean,
+    distributorRating: com.uvg.agroconecta.data.models.DistributorRatingResponse?,
+    isLoadingRating: Boolean,
+    onClick: () -> Unit
+) {
     val esVerificado = offer.estadoVerificacion == "verificado"
     Row(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
@@ -349,6 +370,39 @@ private fun OfertaItem(offer: DistributorOffer, isSelected: Boolean, onClick: ()
             }
             Spacer(Modifier.height(2.dp))
             Text("Stock: ${offer.stock} ${offer.unidadMedida ?: "unidades"}", style = MaterialTheme.typography.bodySmall, color = GrayMid)
+            if (isSelected) {
+                Spacer(Modifier.height(8.dp))
+                when {
+                    isLoadingRating -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                color = GreenPrimary,
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Cargando rating del distribuidor...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GrayMid
+                            )
+                        }
+                    }
+                    distributorRating != null && distributorRating.totalResenas > 0 -> {
+                        DistributorRatingCard(
+                            rating = distributorRating.calificacionPromedio,
+                            totalReviews = distributorRating.totalResenas
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = "Aún no hay reseñas de este distribuidor",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GrayMid
+                        )
+                    }
+                }
+            }
         }
         Text("Q${"%.2f".format(offer.precio)}", style = MaterialTheme.typography.titleMedium, color = GreenPrimary, fontWeight = FontWeight.Bold)
     }
