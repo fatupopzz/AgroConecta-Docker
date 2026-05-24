@@ -2,6 +2,58 @@ const { pool } = require("../config/db");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
+const getDistributorInventory = async (req, res) => {
+  const idUsuario = req.user?.id;
+  const tipoUsuario = req.user?.tipo;
+
+  if (tipoUsuario !== "distribuidor") {
+    return res.status(403).json({ error: "Solo distribuidores pueden ver su inventario" });
+  }
+
+  try {
+    const distResult = await pool.query(
+      `SELECT id_distribuidor FROM distribuidor WHERE id_usuario = $1`,
+      [Number(idUsuario)]
+    );
+
+    if (distResult.rows.length === 0) {
+      return res.status(404).json({ error: "Perfil de distribuidor no encontrado" });
+    }
+
+    const { id_distribuidor } = distResult.rows[0];
+
+    const result = await pool.query(
+      `SELECT i.id_inventario,
+              i.id_producto,
+              p.nombre AS producto,
+              p.marca,
+              c.nombre AS categoria,
+              i.precio,
+              i.stock_disponible,
+              i.unidad_medida,
+              i.tiempo_entrega_dias,
+              i.ultima_actualizacion
+       FROM inventario_distribuidor i
+       JOIN producto p ON i.id_producto = p.id_producto
+       LEFT JOIN categoria c ON p.id_categoria = c.id_categoria
+       WHERE i.id_distribuidor = $1
+       ORDER BY i.ultima_actualizacion DESC, p.nombre ASC`,
+      [id_distribuidor]
+    );
+
+    return res.json({
+      distribuidor: {
+        id_distribuidor: Number(id_distribuidor),
+        id_usuario: Number(idUsuario),
+      },
+      inventario: result.rows,
+    });
+  } catch (error) {
+    console.error("Error en getDistributorInventory:", error);
+    return res.status(500).json({ error: "Error al obtener inventario" });
+  }
+};
+
 // POST /api/inventory
 // Requiere token de distribuidor verificado
 const createInventory = async (req, res) => {
@@ -64,8 +116,8 @@ const createInventory = async (req, res) => {
     // Upsert — si ya tiene ese producto en inventario, actualiza
     const result = await pool.query(
       `INSERT INTO inventario_distribuidor
-   (id_distribuidor, id_producto, precio, stock_disponible, unidad_medida)
- VALUES ($1, $2, $3, $4, $5)
+   (id_distribuidor, id_producto, precio, stock_disponible, unidad_medida,tiempo_entrega_dias)
+ VALUES ($1, $2, $3, $4, $5, $6)
  ON CONFLICT (id_distribuidor, id_producto)
  DO UPDATE SET
    precio = EXCLUDED.precio,
@@ -73,7 +125,7 @@ const createInventory = async (req, res) => {
    unidad_medida = COALESCE(EXCLUDED.unidad_medida, inventario_distribuidor.unidad_medida),
    ultima_actualizacion = NOW()
  RETURNING *`,
-[id_distribuidor, Number(id_producto), precioNum, stockNum, unidad_medida?.trim() || null]
+[id_distribuidor, Number(id_producto), precioNum, stockNum, unidad_medida?.trim() || null, tiempo_entrega_dias !== undefined ? Number(tiempo_entrega_dias) : null]
     );
 
     return res.status(201).json({
@@ -86,4 +138,4 @@ const createInventory = async (req, res) => {
   }
 };
 
-module.exports = { createInventory };
+module.exports = { getDistributorInventory, createInventory };

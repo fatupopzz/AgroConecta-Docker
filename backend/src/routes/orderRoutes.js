@@ -3,6 +3,11 @@ const router = express.Router();
 
 const verifyToken = require("../middleware/authMiddleware");
 const {
+  canCreateOrder,
+  canManageOrderStatus,
+  canViewDistributorOrders,
+} = require("../middleware/orderAuthorizationMiddleware");
+const {
   createOrder,
   getOrderById,
   getOrdersByFarmer,
@@ -11,11 +16,11 @@ const {
   receiveOrder,
 } = require("../controllers/orderController");
 
-router.post("/", createOrder);
+router.post("/", verifyToken, canCreateOrder, createOrder);
 router.get("/farmer/:id", verifyToken, getOrdersByFarmer);
-router.get("/distributor/:id", getOrdersByDistributor);
-router.patch("/:id/status", updateOrderStatus);
+router.get("/distributor/:id", verifyToken, canViewDistributorOrders, getOrdersByDistributor);
+router.patch("/:id/status", verifyToken, canManageOrderStatus, updateOrderStatus);
 router.patch("/:id/receive", verifyToken, receiveOrder);
-router.get("/:id", getOrderById);
+router.get("/:id", verifyToken, getOrderById);
 
 module.exports = router;

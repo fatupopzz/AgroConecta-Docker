@@ -28,8 +28,9 @@ const createMobilePayment = async (req, res) => {
 
 
     const result = await pool.query(
-      `INSERT INTO pago (id_pedido, metodo_pago, monto, estado, proveedor)
-       VALUES ($1, $2, $3, 'pending', $4)
+      `UPDATE pago
+       SET metodo_pago = $2, monto = $3, estado_pago = 'pendiente', proveedor = $4
+       WHERE id_pedido = $1
        RETURNING *`,
       [id_pedido, proveedor, monto, proveedor]
     );
@@ -39,16 +40,16 @@ const createMobilePayment = async (req, res) => {
     setTimeout(async () => {
       try {
         await pool.query(
-          `UPDATE pago SET estado = 'processing' WHERE id_pago = $1`,
+          `UPDATE pago SET estado_pago = 'processing' WHERE id_pago = $1`,
           [pago.id_pago]
         );
 
         setTimeout(async () => {
-          const estadoFinal = Math.random() > 0.5 ? "success" : "failed";
+          const estadoFinal = Math.random() > 0.5 ? "completado" : "failed";
 
           await pool.query(
             `UPDATE pago
-             SET estado = $1,
+             SET estado_pago = $1,
                  referencia_transaccion = $2,
                  fecha_confirmacion = NOW()
              WHERE id_pago = $3`,
@@ -87,7 +88,7 @@ const paymentWebhook = async (req, res) => {
       });
     }
 
-    const estadosValidos = ["success", "failed"];
+    const estadosValidos = ["completado", "failed"];
 
     if (!estadosValidos.includes(estado)) {
       return res.status(400).json({
@@ -97,7 +98,7 @@ const paymentWebhook = async (req, res) => {
 
     const result = await pool.query(
       `UPDATE pago
-       SET estado = $1,
+       SET estado_pago = $1,
            referencia_transaccion = $2,
            fecha_confirmacion = NOW()
        WHERE id_pago = $3
