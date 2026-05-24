@@ -187,9 +187,10 @@ const getDistributorRating = async (req, res) => {
          COUNT(r.id_resena) FILTER (WHERE r.calificacion = 3)::int AS tres_estrellas,
          COUNT(r.id_resena) FILTER (WHERE r.calificacion = 2)::int AS dos_estrellas,
          COUNT(r.id_resena) FILTER (WHERE r.calificacion = 1)::int AS una_estrella
-       FROM producto p
+       FROM inventario_distribuidor i
+       JOIN producto p ON i.id_producto = p.id_producto
        LEFT JOIN resena r ON r.id_producto = p.id_producto
-       WHERE p.id_distribuidor = $1`,
+       WHERE i.id_distribuidor = $1`,
       [Number(id)]
     );
 
@@ -252,9 +253,10 @@ const getDistributorReviews = async (req, res) => {
               u.nombre AS agricultor_nombre
        FROM resena r
        JOIN producto p ON r.id_producto = p.id_producto
+       JOIN inventario_distribuidor i ON i.id_producto = p.id_producto
        JOIN agricultor a ON r.id_agricultor = a.id_agricultor
        JOIN usuario u ON a.id_usuario = u.id_usuario
-       WHERE p.id_distribuidor = $1
+       WHERE i.id_distribuidor = $1
        ORDER BY r.fecha_resena DESC
        LIMIT $2 OFFSET $3`,
       [Number(id), limit, offset]
@@ -264,7 +266,8 @@ const getDistributorReviews = async (req, res) => {
       `SELECT COUNT(r.id_resena)::int AS total
        FROM resena r
        JOIN producto p ON r.id_producto = p.id_producto
-       WHERE p.id_distribuidor = $1`,
+       JOIN inventario_distribuidor i ON i.id_producto = p.id_producto
+       WHERE i.id_distribuidor = $1`,
       [Number(id)]
     );
 
