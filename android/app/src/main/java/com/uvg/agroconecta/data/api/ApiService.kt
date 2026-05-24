@@ -109,6 +109,18 @@ interface ApiService {
     ): Response<FarmerProfile>
 
 
+    @GET("distribuidores/{id}/rating")
+    suspend fun getDistributorRating(
+        @Path("id") id: Int
+    ): Response<DistributorRatingResponse>
+
+    @GET("distribuidores/{id}/reviews")
+    suspend fun getDistributorReviews(
+        @Path("id") id: Int,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10
+    ): Response<DistributorReviewsResponse>
+
     // ── Distributor by ID ─────────────────────────────────────────────────
     @GET("distribuidores/{id}")
     suspend fun getDistributorById(

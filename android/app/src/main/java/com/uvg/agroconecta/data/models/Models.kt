@@ -127,6 +127,40 @@ data class Distributor(
     val telefono: String?
 )
 
+
+data class DistributorRatingResponse(
+    @SerializedName("id_distribuidor") val idDistribuidor: Int,
+    @SerializedName("calificacion_promedio") val calificacionPromedio: Double,
+    @SerializedName("total_resenas") val totalResenas: Int,
+    val distribucion: RatingDistribution
+)
+
+data class RatingDistribution(
+    @SerializedName("5") val cinco: Int,
+    @SerializedName("4") val cuatro: Int,
+    @SerializedName("3") val tres: Int,
+    @SerializedName("2") val dos: Int,
+    @SerializedName("1") val una: Int
+)
+
+data class DistributorReviewsResponse(
+    val page: Int,
+    val limit: Int,
+    val total: Int,
+    @SerializedName("total_pages") val totalPages: Int,
+    val reviews: List<DistributorReview>
+)
+
+data class DistributorReview(
+    @SerializedName("id_resena") val idResena: Int,
+    val calificacion: Int,
+    val comentario: String?,
+    @SerializedName("fecha_resena") val fechaResena: String?,
+    @SerializedName("id_producto") val idProducto: Int,
+    @SerializedName("producto_nombre") val productoNombre: String?,
+    @SerializedName("agricultor_nombre") val agricultorNombre: String?
+)
+
 // ─── Cart ────────────────────────────────────────────────────────────────────
 
 data class CartResponse(

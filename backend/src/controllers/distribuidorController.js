@@ -161,10 +161,138 @@ const deleteDistributor = async (req, res) => {
   }
 };
 
+const getDistributorRating = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({ error: "ID inválido" });
+  }
+
+  try {
+    const distributorExists = await pool.query(
+      "SELECT id_distribuidor FROM distribuidor WHERE id_distribuidor = $1",
+      [Number(id)]
+    );
+
+    if (distributorExists.rows.length === 0) {
+      return res.status(404).json({ error: "Distribuidor no encontrado" });
+    }
+
+    const result = await pool.query(
+      `SELECT
+         COALESCE(ROUND(AVG(r.calificacion)::numeric, 1), 0) AS calificacion_promedio,
+         COUNT(r.id_resena)::int AS total_resenas,
+         COUNT(r.id_resena) FILTER (WHERE r.calificacion = 5)::int AS cinco_estrellas,
+         COUNT(r.id_resena) FILTER (WHERE r.calificacion = 4)::int AS cuatro_estrellas,
+         COUNT(r.id_resena) FILTER (WHERE r.calificacion = 3)::int AS tres_estrellas,
+         COUNT(r.id_resena) FILTER (WHERE r.calificacion = 2)::int AS dos_estrellas,
+         COUNT(r.id_resena) FILTER (WHERE r.calificacion = 1)::int AS una_estrella
+       FROM inventario_distribuidor i
+       JOIN producto p ON i.id_producto = p.id_producto
+       LEFT JOIN resena r ON r.id_producto = p.id_producto
+       WHERE i.id_distribuidor = $1`,
+      [Number(id)]
+    );
+
+    await pool.query(
+      `UPDATE distribuidor
+       SET calificacion_promedio = $2
+       WHERE id_distribuidor = $1
+         AND calificacion_promedio IS DISTINCT FROM $2`,
+      [Number(id), result.rows[0].calificacion_promedio]
+    );
+
+    return res.json({
+      id_distribuidor: Number(id),
+      calificacion_promedio: Number(result.rows[0].calificacion_promedio),
+      total_resenas: Number(result.rows[0].total_resenas),
+      distribucion: {
+        5: Number(result.rows[0].cinco_estrellas),
+        4: Number(result.rows[0].cuatro_estrellas),
+        3: Number(result.rows[0].tres_estrellas),
+        2: Number(result.rows[0].dos_estrellas),
+        1: Number(result.rows[0].una_estrella),
+      },
+    });
+  } catch (error) {
+    console.error("Error en getDistributorRating:", error);
+    return res.status(500).json({ error: "Error al obtener rating del distribuidor" });
+  }
+};
+
+const getDistributorReviews = async (req, res) => {
+  const { id } = req.params;
+  const page = req.query.page === undefined ? 1 : Number(req.query.page);
+  const limit = req.query.limit === undefined ? 10 : Number(req.query.limit);
+  const offset = (page - 1) * limit;
+
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({ error: "ID inválido" });
+  }
+
+  if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 50) {
+    return res.status(400).json({ error: "Parámetros de paginación inválidos" });
+  }
+
+  try {
+    const distributorExists = await pool.query(
+      "SELECT id_distribuidor FROM distribuidor WHERE id_distribuidor = $1",
+      [Number(id)]
+    );
+
+    if (distributorExists.rows.length === 0) {
+      return res.status(404).json({ error: "Distribuidor no encontrado" });
+    }
+
+    const reviewsResult = await pool.query(
+      `SELECT r.id_resena,
+              r.calificacion,
+              r.comentario,
+              r.fecha_resena,
+              p.id_producto,
+              p.nombre AS producto_nombre,
+              u.nombre AS agricultor_nombre
+       FROM resena r
+       JOIN producto p ON r.id_producto = p.id_producto
+       JOIN inventario_distribuidor i ON i.id_producto = p.id_producto
+       JOIN agricultor a ON r.id_agricultor = a.id_agricultor
+       JOIN usuario u ON a.id_usuario = u.id_usuario
+       WHERE i.id_distribuidor = $1
+       ORDER BY r.fecha_resena DESC
+       LIMIT $2 OFFSET $3`,
+      [Number(id), limit, offset]
+    );
+
+    const countResult = await pool.query(
+      `SELECT COUNT(r.id_resena)::int AS total
+       FROM resena r
+       JOIN producto p ON r.id_producto = p.id_producto
+       JOIN inventario_distribuidor i ON i.id_producto = p.id_producto
+       WHERE i.id_distribuidor = $1`,
+      [Number(id)]
+    );
+
+    const total = Number(countResult.rows[0].total);
+
+    return res.json({
+      page,
+      limit,
+      total,
+      total_pages: Math.ceil(total / limit),
+      reviews: reviewsResult.rows,
+    });
+  } catch (error) {
+    console.error("Error en getDistributorReviews:", error);
+    return res.status(500).json({ error: "Error al obtener reseñas del distribuidor" });
+  }
+};
+
 module.exports = {
   getDistributors,
   getDistributorById,
   createDistributor,
   updateDistributor,
   deleteDistributor,
+  getDistributorRating,
+  getDistributorReviews,
 };
