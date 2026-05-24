@@ -23,6 +23,8 @@ const PORT = process.env.PORT || 8080;
 
 const runStartupMigrations = async () => {
   const statements = [
+    `ALTER TABLE reporte_calidad
+     ADD COLUMN IF NOT EXISTS fecha_resolucion TIMESTAMP`,
     `ALTER TABLE pago
      ADD COLUMN IF NOT EXISTS estado_pago VARCHAR(20) DEFAULT 'pendiente'
        CHECK (estado_pago IN ('pendiente', 'processing', 'completado', 'failed'))`,
