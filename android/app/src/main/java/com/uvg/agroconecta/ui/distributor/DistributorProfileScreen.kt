@@ -65,7 +65,7 @@ fun DistributorProfileScreen(
                     )
                 }
 
-                rating != null -> {
+                rating != null && rating.totalResenas > 0 -> {
 
                     DistributorRatingCard(
                         rating = rating.calificacionPromedio,
