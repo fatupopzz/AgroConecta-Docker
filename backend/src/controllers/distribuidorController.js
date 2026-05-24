@@ -197,7 +197,8 @@ const getDistributorRating = async (req, res) => {
     await pool.query(
       `UPDATE distribuidor
        SET calificacion_promedio = $2
-       WHERE id_distribuidor = $1`,
+       WHERE id_distribuidor = $1
+         AND calificacion_promedio IS DISTINCT FROM $2`,
       [Number(id), result.rows[0].calificacion_promedio]
     );
 
