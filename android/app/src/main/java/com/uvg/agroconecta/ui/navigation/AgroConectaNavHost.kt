@@ -1,6 +1,12 @@
 package com.uvg.agroconecta.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
@@ -19,11 +25,15 @@ import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
+import com.uvg.agroconecta.ui.cart.CartItemUI
 import com.uvg.agroconecta.ui.cart.CartViewModel
-import com.uvg.agroconecta.ui.publish.PublishProductScreen
-import kotlinx.coroutines.flow.first
-import com.uvg.agroconecta.ui.profile.ProfileScreen
 import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
+import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
+import com.uvg.agroconecta.ui.orders.OrderViewModel
+import com.uvg.agroconecta.ui.publish.PublishProductScreen
+import com.uvg.agroconecta.ui.profile.ProfileScreen
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @Composable
 fun AgroConectaNavHost(
@@ -91,15 +101,12 @@ fun AgroConectaNavHost(
                 },
                 onVerMasProductos = { },
                 onVerTodasCategorias = { },
-                onCarritoClick = {
-                    navController.navigate(Screen.Cart.route)
-                },
+                onCarritoClick = { navController.navigate(Screen.Cart.route) },
                 onPerfilClick = { navController.navigate(Screen.Profile.route) },
                 onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
-                onDistribuidorClick = { distribuidorId ->        // ← nuevo
+                onDistribuidorClick = { distribuidorId ->
                     navController.navigate("distributor_profile/$distribuidorId")
                 }
-
             )
         }
 
@@ -125,12 +132,87 @@ fun AgroConectaNavHost(
                 onIncreaseQuantity = { cartViewModel.increaseQuantity(it) },
                 onDecreaseQuantity = { cartViewModel.decreaseQuantity(it) },
                 onRemoveItem = { cartViewModel.removeItem(it) },
-                onCheckout = { },
+                onCheckout = {
+                    navController.currentBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("cart_items", ArrayList(cartItems))
+                    navController.currentBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("cart_total", total)
+                    navController.navigate(Screen.OrderConfirmation.route)
+                },
                 onGoToCatalog = {
                     navController.popBackStack(Screen.Home.route, inclusive = false)
                 },
                 onNavigateBack = { navController.popBackStack() }
             )
+        }
+
+        composable(Screen.OrderConfirmation.route) {
+            val context = LocalContext.current
+            val scope = rememberCoroutineScope()
+            val orderViewModel: OrderViewModel = viewModel()
+            val isLoading by orderViewModel.isLoading.collectAsState()
+            val successMessage by orderViewModel.successMessage.collectAsState()
+            val errorMessage by orderViewModel.errorMessage.collectAsState()
+            val snackbarHostState = remember { SnackbarHostState() }
+
+            val previousEntry = navController.previousBackStackEntry
+            val cartItems: List<CartItemUI> = remember {
+                @Suppress("UNCHECKED_CAST")
+                previousEntry?.savedStateHandle
+                    ?.get<ArrayList<CartItemUI>>("cart_items")
+                    ?.toList() ?: emptyList()
+            }
+            val total: Double = remember {
+                previousEntry?.savedStateHandle?.get<Double>("cart_total") ?: 0.0
+            }
+
+            var deliveryAddress by remember { mutableStateOf("") }
+
+            LaunchedEffect(successMessage) {
+                successMessage?.let {
+                    snackbarHostState.showSnackbar("¡Pedido creado exitosamente!")
+                    orderViewModel.clearSuccessMessage()
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = true }
+                    }
+                }
+            }
+
+            LaunchedEffect(errorMessage) {
+                errorMessage?.let {
+                    snackbarHostState.showSnackbar(it)
+                }
+            }
+
+            Scaffold(
+                snackbarHost = { SnackbarHost(snackbarHostState) }
+            ) { padding ->
+                Box(modifier = Modifier.padding(padding)) {
+                    OrderConfirmationScreen(
+                        items = cartItems,
+                        total = total,
+                        selectedPaymentMethod = "efectivo",
+                        deliveryAddress = deliveryAddress,
+                        onDeliveryAddressChange = { deliveryAddress = it },
+                        onConfirmOrder = {
+                            scope.launch {
+                                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                                val token = SessionManager.getToken(context).first() ?: return@launch
+                                if (farmerId == -1) return@launch
+                                orderViewModel.createCashOrder(
+                                    idAgricultor = farmerId,
+                                    items = cartItems,
+                                    direccionEntrega = deliveryAddress,
+                                    token = token
+                                )
+                            }
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
         }
 
         composable(
@@ -141,8 +223,20 @@ fun AgroConectaNavHost(
             ProductDetailScreen(
                 productId = productoId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToCart = {
-                    navController.navigate(Screen.Cart.route)
+                onNavigateToCart = { navController.navigate(Screen.Cart.route) }
+            )
+        }
+
+        composable(
+            route = "distributor_profile/{distribuidorId}",
+            arguments = listOf(navArgument("distribuidorId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val distribuidorId = backStackEntry.arguments?.getInt("distribuidorId") ?: return@composable
+            DistributorProfileScreen(
+                distributorId = distribuidorId,
+                onNavigateBack = { navController.popBackStack() },
+                onProductoClick = { productoId ->
+                    navController.navigate("product_detail/$productoId")
                 }
             )
         }
@@ -164,20 +258,6 @@ fun AgroConectaNavHost(
                 }
             )
         }
-
-        composable(
-            route = "distributor_profile/{distribuidorId}",
-            arguments = listOf(navArgument("distribuidorId") { type = NavType.IntType })
-        ) { backStackEntry ->
-            val distribuidorId = backStackEntry.arguments?.getInt("distribuidorId") ?: return@composable
-            DistributorProfileScreen(
-                distributorId = distribuidorId,
-                onNavigateBack = { navController.popBackStack() },
-                onProductoClick = { productoId ->
-                    navController.navigate("product_detail/$productoId")
-                }
-            )
-        }
     }
 }
 
@@ -190,5 +270,3 @@ private fun NavBackStackEntry.sharedAuthViewModel(
     }
     return viewModel(viewModelStoreOwner = parentEntry)
 }
-
-

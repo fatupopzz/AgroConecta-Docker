@@ -23,7 +23,7 @@ data class CartItemUI(
     val distribuidor: String,
     val cantidad: Int,
     val precio: Double
-)
+) : java.io.Serializable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -187,7 +187,11 @@ fun CartScreen(
                                                 containerColor = Color(0xFFECEFF1)
                                             )
                                         ) {
-                                            Text("-", fontWeight = FontWeight.Bold, color = Color(0xFF37474F))
+                                            Text(
+                                                "-",
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF37474F)
+                                            )
                                         }
                                         Text(
                                             text = "${item.cantidad}",
@@ -201,7 +205,11 @@ fun CartScreen(
                                                 containerColor = GreenPrimary
                                             )
                                         ) {
-                                            Text("+", fontWeight = FontWeight.Bold, color = Color.White)
+                                            Text(
+                                                "+",
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
                                         }
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
