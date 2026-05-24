@@ -1,197 +1,509 @@
 package com.uvg.agroconecta.ui.distributor
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.uvg.agroconecta.data.models.DistributorRatingResponse
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.DistributorReview
-import com.uvg.agroconecta.ui.components.DistributorRatingCard
+import com.uvg.agroconecta.data.models.DistributorRatingResponse
+import com.uvg.agroconecta.data.models.Product
+import com.uvg.agroconecta.ui.theme.*
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DistributorProfileScreen(
-    distributorName: String,
-    rating: DistributorRatingResponse?,
-    reviews: List<DistributorReview>,
-    isLoading: Boolean
+    distributorId: Int,
+    onNavigateBack: () -> Unit,
+    onProductoClick: (Int) -> Unit,
+    viewModel: DistributorViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFF8F8F8))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    val uiState by viewModel.uiState.collectAsState()
 
-        item {
+    LaunchedEffect(distributorId) {
+        val token = SessionManager.getToken(context).first()
+        viewModel.loadAll(distributorId, token)
+    }
 
-            Text(
-                text = distributorName,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+    LaunchedEffect(uiState.reviewSubmitSuccess) {
+        if (uiState.reviewSubmitSuccess) {
+            snackbarHostState.showSnackbar("¡Reseña enviada!")
+            viewModel.clearReviewMessages()
+        }
+    }
+
+    LaunchedEffect(uiState.reviewSubmitError) {
+        uiState.reviewSubmitError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearReviewMessages()
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = uiState.distributorName.ifBlank { "Distribuidor" },
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = GreenPrimary)
             )
+        }
+    ) { padding ->
 
-            Spacer(modifier = Modifier.height(12.dp))
+        if (uiState.isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = GreenPrimary)
+            }
+            return@Scaffold
+        }
 
-            when {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
 
-                isLoading -> {
-
+            // ── Header distribuidor ───────────────────────────────────────
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(GreenSurface)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(GreenPale),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = uiState.distributorName.firstOrNull()?.uppercaseChar()?.toString() ?: "D",
+                            fontSize = 30.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GreenPrimaryDark
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
                     Text(
-                        text = "Cargando información...",
-                        style = MaterialTheme.typography.bodyMedium
+                        text = uiState.distributorName,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = GrayDark,
+                        fontWeight = FontWeight.Bold
                     )
+                    if (uiState.isVerified) {
+                        Spacer(Modifier.height(6.dp))
+                        Surface(
+                            color = GreenPrimary,
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Verified,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "Distribuidor Verificado",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                    // Rating resumen
+                    uiState.rating?.let { r ->
+                        if (r.totalResenas > 0) {
+                            Spacer(Modifier.height(12.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFC107),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "%.1f".format(r.calificacionPromedio),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GrayDark
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "(${r.totalResenas} reseñas)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = GrayMid
+                                )
+                            }
+                        }
+                    }
                 }
+            }
 
-                rating != null && rating.totalResenas > 0 -> {
+            // ── Productos que vende ───────────────────────────────────────
+            item {
+                SectionHeader(title = "Productos disponibles")
+            }
 
-                    DistributorRatingCard(
-                        rating = rating.calificacionPromedio,
-                        totalReviews = rating.totalResenas
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    RatingBar("5 estrellas", rating.distribucion.cinco, rating.totalResenas)
-                    RatingBar("4 estrellas", rating.distribucion.cuatro, rating.totalResenas)
-                    RatingBar("3 estrellas", rating.distribucion.tres, rating.totalResenas)
-                    RatingBar("2 estrellas", rating.distribucion.dos, rating.totalResenas)
-                    RatingBar("1 estrella", rating.distribucion.una, rating.totalResenas)
-                }
-
-                else -> {
-
+            if (uiState.productos.isEmpty()) {
+                item {
                     Text(
-                        text = "Aún no hay reseñas de este distribuidor",
+                        text = "Este distribuidor no tiene productos publicados.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
+                        color = GrayMid,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            } else {
+                items(uiState.productos) { producto ->
+                    ProductoDistribuidorCard(
+                        producto = producto,
+                        onClick = { onProductoClick(producto.id) }
                     )
                 }
             }
-        }
 
-        if (reviews.isNotEmpty()) {
-
+            // ── Dejar reseña ──────────────────────────────────────────────
             item {
-
-                Text(
-                    text = "Reseñas recientes",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                SectionHeader(title = "Dejar reseña")
+                ReviewFormCard(
+                    isSubmitting = uiState.isSubmittingReview,
+                    onSubmit = { calificacion, comentario ->
+                        scope.launch {
+                            val token = SessionManager.getToken(context).first()
+                            viewModel.submitReview(distributorId, calificacion, comentario, token)
+                        }
+                    }
                 )
             }
 
-            items(reviews) { review ->
+            // ── Reseñas existentes ────────────────────────────────────────
+            item {
+                SectionHeader(title = "Reseñas (${uiState.reviews.size})")
+            }
 
-                ReviewCard(review)
+            if (uiState.reviews.isEmpty()) {
+                item {
+                    Text(
+                        text = "Aún no hay reseñas. ¡Sé el primero!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = GrayMid,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            } else {
+                items(uiState.reviews) { review ->
+                    ReviewCard(review = review)
+                }
+            }
+        }
+    }
+}
+
+// ── Componentes privados ──────────────────────────────────────────────────────
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = GrayDark,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+    )
+}
+
+@Composable
+private fun ProductoDistribuidorCard(
+    producto: Product,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(GreenSurface),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Eco,
+                    contentDescription = null,
+                    tint = GreenPrimary,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = producto.nombre,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                producto.categoria?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrayMid
+                    )
+                }
+            }
+            producto.precioDesde?.let { precio ->
+                Text(
+                    text = "Q${"%.2f".format(precio)}",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = GreenPrimary
+                )
             }
         }
     }
 }
 
 @Composable
-private fun RatingBar(
-    label: String,
-    value: Int,
-    total: Int
+private fun ReviewFormCard(
+    isSubmitting: Boolean,
+    onSubmit: (calificacion: Int, comentario: String) -> Unit
 ) {
+    var selectedStars by remember { mutableIntStateOf(0) }
+    var comentario by remember { mutableStateOf("") }
 
-    val progress = if (total > 0) value.toFloat() / total.toFloat() else 0f
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Estrellas
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (i in 1..5) {
+                    Icon(
+                        imageVector = if (i <= selectedStars) Icons.Default.Star else Icons.Outlined.StarOutline,
+                        contentDescription = "Estrella $i",
+                        tint = if (i <= selectedStars) Color(0xFFFFC107) else GrayLight,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clickable { selectedStars = i }
+                    )
+                }
+                if (selectedStars > 0) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = when (selectedStars) {
+                            1 -> "Muy malo"
+                            2 -> "Malo"
+                            3 -> "Regular"
+                            4 -> "Bueno"
+                            5 -> "Excelente"
+                            else -> ""
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GreenPrimary,
+                        modifier = Modifier.align(Alignment.CenterVertically)
+                    )
+                }
+            }
 
-    Column {
+            Spacer(Modifier.height(10.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+            OutlinedTextField(
+                value = comentario,
+                onValueChange = { if (it.length <= 300) comentario = it },
+                placeholder = {
+                    Text(
+                        "¿Cómo fue tu experiencia con este distribuidor?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrayMid
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 80.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = GreenPrimary,
+                    unfocusedBorderColor = GrayLight,
+                    cursorColor = GreenPrimary
+                ),
+                maxLines = 5,
+                supportingText = {
+                    Text(
+                        "${comentario.length}/300",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = GrayMid
+                    )
+                }
+            )
 
-            Text(label)
-            Text("$value")
+            Spacer(Modifier.height(10.dp))
+
+            Button(
+                onClick = {
+                    if (selectedStars > 0) {
+                        onSubmit(selectedStars, comentario.trim())
+                        selectedStars = 0
+                        comentario = ""
+                    }
+                },
+                enabled = selectedStars > 0 && !isSubmitting,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Enviar reseña", style = MaterialTheme.typography.labelLarge)
+                }
+            }
         }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        LinearProgressIndicator(
-            progress = { progress },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(10.dp),
-        )
     }
 }
 
 @Composable
 private fun ReviewCard(review: DistributorReview) {
-
     Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-
-        Column(
-            modifier = Modifier.padding(14.dp)
-        ) {
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+        Row(modifier = Modifier.padding(14.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(GreenSurface),
+                contentAlignment = Alignment.Center
             ) {
-
                 Text(
-                    text = review.agricultorNombre ?: "Usuario",
+                    text = review.agricultorNombre?.firstOrNull()?.uppercaseChar()?.toString() ?: "A",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = GreenPrimary,
                     fontWeight = FontWeight.Bold
                 )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFFFFF3CD)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-
                     Text(
-                        text = "⭐ ${review.calificacion}",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        text = review.agricultorNombre ?: "Agricultor",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GrayDark
+                    )
+                    Text(
+                        text = review.fechaResena?.take(10) ?: "",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = GrayMid
+                    )
+                }
+                Spacer(Modifier.height(3.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    for (i in 1..5) {
+                        Icon(
+                            imageVector = if (i <= review.calificacion) Icons.Default.Star else Icons.Outlined.StarOutline,
+                            contentDescription = null,
+                            tint = if (i <= review.calificacion) Color(0xFFFFC107) else GrayLight,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+                review.comentario?.takeIf { it.isNotBlank() }?.let { com ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = com,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrayDark
+                    )
+                }
+                review.productoNombre?.let { prod ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Producto: $prod",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = GrayMid
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = review.productoNombre ?: "Producto",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = review.comentario ?: "Sin comentario",
-                style = MaterialTheme.typography.bodyMedium
-            )
         }
     }
 }

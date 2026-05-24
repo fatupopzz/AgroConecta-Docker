@@ -23,6 +23,7 @@ import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import kotlinx.coroutines.flow.first
 import com.uvg.agroconecta.ui.profile.ProfileScreen
+import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
 
 @Composable
 fun AgroConectaNavHost(
@@ -68,8 +69,14 @@ fun AgroConectaNavHost(
         }
 
         composable(Screen.Home.route) {
+            val context = LocalContext.current
             val homeViewModel: HomeViewModel = viewModel()
             val nombre by authViewModel.nombreUsuario.observeAsState("")
+
+            LaunchedEffect(Unit) {
+                val token = SessionManager.getToken(context).first()
+                homeViewModel.init(token)
+            }
 
             LaunchedEffect(nombre) {
                 if (nombre.isNotBlank()) {
@@ -88,7 +95,11 @@ fun AgroConectaNavHost(
                     navController.navigate(Screen.Cart.route)
                 },
                 onPerfilClick = { navController.navigate(Screen.Profile.route) },
-                onAgregarClick = { navController.navigate(Screen.PublishProduct.route) }
+                onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
+                onDistribuidorClick = { distribuidorId ->        // ← nuevo
+                    navController.navigate("distributor_profile/$distribuidorId")
+                }
+
             )
         }
 
@@ -101,9 +112,9 @@ fun AgroConectaNavHost(
 
             LaunchedEffect(Unit) {
                 val farmerId = SessionManager.getFarmerId(context).first() ?: -1
-
+                val token = SessionManager.getToken(context).first() ?: return@LaunchedEffect
                 if (farmerId != -1) {
-                    cartViewModel.loadCart(idAgricultor = farmerId)
+                    cartViewModel.loadCart(idAgricultor = farmerId, token = token)
                 }
             }
 
@@ -111,19 +122,14 @@ fun AgroConectaNavHost(
                 items = cartItems,
                 total = total,
                 errorMessage = errorMessage,
-                onIncreaseQuantity = { idItem ->
-                    cartViewModel.increaseQuantity(idItem)
-                },
-                onDecreaseQuantity = { idItem ->
-                    cartViewModel.decreaseQuantity(idItem)
-                },
-                onRemoveItem = { idItem ->
-                    cartViewModel.removeItem(idItem)
-                },
+                onIncreaseQuantity = { cartViewModel.increaseQuantity(it) },
+                onDecreaseQuantity = { cartViewModel.decreaseQuantity(it) },
+                onRemoveItem = { cartViewModel.removeItem(it) },
                 onCheckout = { },
                 onGoToCatalog = {
                     navController.popBackStack(Screen.Home.route, inclusive = false)
-                }
+                },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -158,6 +164,20 @@ fun AgroConectaNavHost(
                 }
             )
         }
+
+        composable(
+            route = "distributor_profile/{distribuidorId}",
+            arguments = listOf(navArgument("distribuidorId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val distribuidorId = backStackEntry.arguments?.getInt("distribuidorId") ?: return@composable
+            DistributorProfileScreen(
+                distributorId = distribuidorId,
+                onNavigateBack = { navController.popBackStack() },
+                onProductoClick = { productoId ->
+                    navController.navigate("product_detail/$productoId")
+                }
+            )
+        }
     }
 }
 
@@ -170,3 +190,5 @@ private fun NavBackStackEntry.sharedAuthViewModel(
     }
     return viewModel(viewModelStoreOwner = parentEntry)
 }
+
+

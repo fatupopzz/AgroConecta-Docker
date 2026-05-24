@@ -46,6 +46,7 @@ fun HomeScreen(
     onCarritoClick: () -> Unit,
     onPerfilClick: () -> Unit,
     onAgregarClick: () -> Unit,
+    onDistribuidorClick: (Int) -> Unit,  // ← agregado
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -124,7 +125,8 @@ fun HomeScreen(
             item {
                 SeccionDistribuidores(
                     distribuidores = uiState.distribuidores,
-                    isLoading = uiState.isLoadingDistribuidores
+                    isLoading = uiState.isLoadingDistribuidores,
+                    onDistribuidorClick = onDistribuidorClick  // ← agregado
                 )
             }
         }
@@ -244,8 +246,12 @@ private fun SeccionCategorias(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Categorías", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-            Text("Ver todas...", color = VerdeClaro, fontSize = 14.sp,
-                modifier = Modifier.clickable { onVerTodas() })
+            Text(
+                "Ver todas...",
+                color = VerdeClaro,
+                fontSize = 14.sp,
+                modifier = Modifier.clickable { onVerTodas() }
+            )
         }
         Spacer(modifier = Modifier.height(12.dp))
         Row(
@@ -293,12 +299,19 @@ private fun SeccionProductosDestacados(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Productos destacados", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-            Text("Ver más", color = VerdeClaro, fontSize = 14.sp,
-                modifier = Modifier.clickable { onVerMas() })
+            Text(
+                "Ver más",
+                color = VerdeClaro,
+                fontSize = 14.sp,
+                modifier = Modifier.clickable { onVerMas() }
+            )
         }
         Spacer(modifier = Modifier.height(12.dp))
         if (isLoading && productos.isEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator(color = VerdeAgroConecta)
             }
         } else {
@@ -408,7 +421,11 @@ fun ProductCard(
                             contentColor = Color.White,
                             modifier = Modifier.size(32.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Ver", modifier = Modifier.size(18.dp))
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Ver",
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
@@ -439,9 +456,18 @@ private fun OfertaBanner(producto: Product, onClick: () -> Unit) {
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text("15% de descuento · Solo hoy", color = NaranjaOferta.copy(alpha = 0.85f), fontSize = 13.sp)
+            Text(
+                "15% de descuento · Solo hoy",
+                color = NaranjaOferta.copy(alpha = 0.85f),
+                fontSize = 13.sp
+            )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(producto.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NaranjaOferta)
+            Text(
+                producto.nombre,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = NaranjaOferta
+            )
         }
     }
 }
@@ -449,7 +475,8 @@ private fun OfertaBanner(producto: Product, onClick: () -> Unit) {
 @Composable
 private fun SeccionDistribuidores(
     distribuidores: List<Distributor>,
-    isLoading: Boolean
+    isLoading: Boolean,
+    onDistribuidorClick: (Int) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
         Text(
@@ -460,7 +487,9 @@ private fun SeccionDistribuidores(
         )
         if (isLoading && distribuidores.isEmpty()) {
             CircularProgressIndicator(
-                modifier = Modifier.size(32.dp).align(Alignment.CenterHorizontally),
+                modifier = Modifier
+                    .size(32.dp)
+                    .align(Alignment.CenterHorizontally),
                 color = VerdeAgroConecta
             )
         } else if (distribuidores.isEmpty()) {
@@ -479,7 +508,10 @@ private fun SeccionDistribuidores(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 distribuidores.forEach { dist ->
-                    DistribuidorCard(distribuidor = dist)
+                    DistribuidorCard(
+                        distribuidor = dist,
+                        onClick = { onDistribuidorClick(dist.id) }
+                    )
                 }
             }
         }
@@ -487,9 +519,14 @@ private fun SeccionDistribuidores(
 }
 
 @Composable
-private fun DistribuidorCard(distribuidor: Distributor) {
+private fun DistribuidorCard(
+    distribuidor: Distributor,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = Modifier.width(180.dp),
+        modifier = Modifier
+            .width(180.dp)
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
