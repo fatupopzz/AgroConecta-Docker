@@ -112,12 +112,17 @@ class ProductViewModel : ViewModel() {
     }
 
     fun loadDistributorRating(distributorId: Int, token: String?) {
+        val requestedDistributorId = distributorId
         _isLoadingDistributorRating.value = true
         viewModelScope.launch {
             try {
                 val service = RetrofitClient.getService(token)
-                val ratingResponse = service.getDistributorRating(distributorId)
-                val reviewsResponse = service.getDistributorReviews(distributorId, page = 1, limit = 5)
+                val ratingResponse = service.getDistributorRating(requestedDistributorId)
+                val reviewsResponse = service.getDistributorReviews(requestedDistributorId, page = 1, limit = 5)
+
+                if (_selectedOffer.value?.idDistribuidor != requestedDistributorId) {
+                    return@launch
+                }
 
                 if (ratingResponse.isSuccessful) {
                     _distributorRating.value = ratingResponse.body()
@@ -131,10 +136,14 @@ class ProductViewModel : ViewModel() {
                     _distributorReviews.value = emptyList()
                 }
             } catch (e: Exception) {
-                _distributorRating.value = null
-                _distributorReviews.value = emptyList()
+                if (_selectedOffer.value?.idDistribuidor == requestedDistributorId) {
+                    _distributorRating.value = null
+                    _distributorReviews.value = emptyList()
+                }
             } finally {
-                _isLoadingDistributorRating.value = false
+                if (_selectedOffer.value?.idDistribuidor == requestedDistributorId) {
+                    _isLoadingDistributorRating.value = false
+                }
             }
         }
     }
