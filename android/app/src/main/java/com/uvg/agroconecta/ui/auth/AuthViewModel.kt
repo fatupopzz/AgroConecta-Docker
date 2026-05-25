@@ -64,14 +64,37 @@ class AuthViewModel : ViewModel() {
 
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
+                    val meResponse = RetrofitClient.getService()
+                        .getMe("Bearer ${body.token}")
+
+                    val farmerId: Int
+                    val perfilId: Int
+                    val userId: Int
+
+                    if (meResponse.isSuccessful && meResponse.body() != null) {
+                        val me = meResponse.body()!!
+                        val tipoUsuario = body.tipoUsuario ?: me.user.tipoUsuario
+                        farmerId = me.perfil?.idAgricultor ?: -1
+                        perfilId = when (tipoUsuario) {
+                            "agricultor" -> me.perfil?.idAgricultor ?: -1
+                            "distribuidor" -> me.perfil?.idDistribuidor ?: -1
+                            else -> -1
+                        }
+                        userId = me.user.idUsuario
+                    } else {
+                        farmerId = if (body.tipoUsuario == "agricultor") body.idPerfil ?: -1 else -1
+                        perfilId = body.idPerfil ?: -1
+                        userId = -1
+                    }
+
                     SessionManager.saveSession(
                         context     = context,
                         token       = body.token,
                         nombre      = body.nombre ?: email.substringBefore("@"),
-                        userId      = -1,
-                        farmerId    = if (body.tipoUsuario == "agricultor") body.idPerfil ?: -1 else -1,
+                        userId      = userId,
+                        farmerId    = farmerId,
                         tipoUsuario = body.tipoUsuario ?: "",
-                        perfilId    = body.idPerfil ?: -1
+                        perfilId    = perfilId
                     )
                     _nombreUsuario.value = body.nombre ?: email.substringBefore("@")
                     _loginState.value = AuthState.Success
