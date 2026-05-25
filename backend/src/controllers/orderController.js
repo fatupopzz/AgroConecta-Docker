@@ -499,7 +499,11 @@ const getOrdersByFarmer = async (req, res) => {
     const result = await pool.query(
       `SELECT
           p.id_pedido          AS id,
-          p.estado,
+          CASE
+            WHEN p.estado = '${LEGACY_ORDER_STATES.PENDING}' THEN '${ORDER_STATES.CONFIRMED}'
+            WHEN p.estado = '${LEGACY_ORDER_STATES.IN_TRANSIT}' THEN '${ORDER_STATES.IN_ROUTE}'
+            ELSE p.estado
+          END AS estado,
           p.fecha_pedido,
           p.total_pedido,
           d.nombre_negocio     AS distribuidor_nombre,
@@ -551,7 +555,11 @@ const getOrdersByDistributor = async (req, res) => {
       `SELECT
           p.id_pedido,
           p.fecha_pedido,
-          p.estado,
+          CASE
+            WHEN p.estado = '${LEGACY_ORDER_STATES.PENDING}' THEN '${ORDER_STATES.CONFIRMED}'
+            WHEN p.estado = '${LEGACY_ORDER_STATES.IN_TRANSIT}' THEN '${ORDER_STATES.IN_ROUTE}'
+            ELSE p.estado
+          END AS estado,
           p.direccion_entrega,
           p.total_pedido,
           p.costo_envio,
@@ -582,7 +590,7 @@ const getOrdersByDistributor = async (req, res) => {
 
 const updateOrderStatus = async (req, res) => {
   const { id } = req.params;
-  const { estado } = req.body;
+  const { estado, notas } = req.body;
   const distributorId = req.distributorId;
 
   if (!isPositiveInteger(id)) {
@@ -596,6 +604,8 @@ const updateOrderStatus = async (req, res) => {
   }
 
   const estadoNormalizado = estado.trim();
+  const notasTracking =
+    typeof notas === "string" && notas.trim().length > 0 ? notas.trim() : null;
   const orderId = Number(id);
 
   const client = await pool.connect();
@@ -617,7 +627,7 @@ const updateOrderStatus = async (req, res) => {
 
     const order = orderResult.rows[0];
 
-    if (Number(order.id_distribuidor) !== distributorId) {
+    if (distributorId && Number(order.id_distribuidor) !== distributorId) {
       await client.query("ROLLBACK");
       return res.status(403).json({
         error: "El distribuidor no tiene permiso para actualizar este pedido",
@@ -626,11 +636,19 @@ const updateOrderStatus = async (req, res) => {
 
     const updatedOrderResult = await client.query(
       `UPDATE pedido
-       SET estado = $1
+       SET estado = $1,
+           fecha_entrega_real = CASE
+             WHEN $1 = $3 THEN COALESCE(fecha_entrega_real, NOW())
+             ELSE fecha_entrega_real
+           END
        WHERE id_pedido = $2
        RETURNING *`,
-      [estadoNormalizado, orderId]
+      [estadoNormalizado, orderId, ORDER_STATES.DELIVERED]
     );
+
+    if (normalizeOrderState(order.estado) !== estadoNormalizado) {
+      await insertOrderTracking(client, orderId, estadoNormalizado, notasTracking);
+    }
 
     if (estadoNormalizado === "entregado") {
       await client.query(
@@ -667,6 +685,29 @@ const updateOrderStatus = async (req, res) => {
     });
   } finally {
     client.release();
+  }
+};
+
+const getOrderTracking = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isPositiveInteger(id)) {
+      return res.status(400).json({ error: "ID de pedido inválido" });
+    }
+
+    const tracking = await getOrderTrackingData(pool, Number(id));
+
+    if (!tracking) {
+      return res.status(404).json({ error: "Pedido no encontrado" });
+    }
+
+    return res.json(tracking);
+  } catch (error) {
+    console.error("Error en getOrderTracking:", error);
+    return res.status(500).json({
+      error: "Error al obtener seguimiento del pedido",
+    });
   }
 };
 
@@ -716,10 +757,10 @@ const receiveOrder = async (req, res) => {
       });
     }
 
-    if (order.estado !== ORDER_STATES.IN_TRANSIT) {
+    if (normalizeOrderState(order.estado) !== ORDER_STATES.IN_ROUTE) {
       await client.query("ROLLBACK");
       return res.status(400).json({
-        error: "Solo se puede confirmar recepción de pedidos en estado en_camino",
+        error: "Solo se puede confirmar recepción de pedidos en estado en_ruta",
       });
     }
 
@@ -728,15 +769,20 @@ const receiveOrder = async (req, res) => {
        SET estado = $1,
            fecha_entrega_real = NOW()
        WHERE id_pedido = $2
-         AND estado = $3
+         AND estado IN ($3, $4)
        RETURNING *`,
-      [ORDER_STATES.DELIVERED, orderId, ORDER_STATES.IN_TRANSIT]
+      [
+        ORDER_STATES.DELIVERED,
+        orderId,
+        ORDER_STATES.IN_ROUTE,
+        LEGACY_ORDER_STATES.IN_TRANSIT,
+      ]
     );
 
     if (updatedOrderResult.rowCount === 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({
-        error: "El pedido ya no está en estado en_camino",
+        error: "El pedido ya no está en estado en_ruta",
       });
     }
 
@@ -747,6 +793,13 @@ const receiveOrder = async (req, res) => {
        WHERE id_pedido = $1
          AND metodo_pago = 'contra_entrega'`,
       [orderId]
+    );
+
+    await insertOrderTracking(
+      client,
+      orderId,
+      ORDER_STATES.DELIVERED,
+      "Recepción confirmada por el agricultor"
     );
 
     await client.query("COMMIT");
@@ -778,6 +831,7 @@ module.exports = {
   getOrderById,
   getOrdersByFarmer,
   getOrdersByDistributor,
+  getOrderTracking,
   updateOrderStatus,
   receiveOrder,
 };
