@@ -6,6 +6,7 @@ import com.uvg.agroconecta.data.api.RetrofitClient
 import com.uvg.agroconecta.data.models.CreateOrderRequest
 import com.uvg.agroconecta.data.models.OrderProduct
 import com.uvg.agroconecta.data.models.OrderSummary
+import com.uvg.agroconecta.data.models.OrderTrackingResponse
 import com.uvg.agroconecta.ui.cart.CartItemUI
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,9 @@ class OrderViewModel : ViewModel() {
 
     private val _orders = MutableStateFlow<List<OrderSummary>>(emptyList())
     val orders: StateFlow<List<OrderSummary>> = _orders
+
+    private val _tracking = MutableStateFlow<OrderTrackingResponse?>(null)
+    val tracking: StateFlow<OrderTrackingResponse?> = _tracking
 
     fun createCashOrder(
         idAgricultor: Int,
@@ -113,6 +117,28 @@ class OrderViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Error inesperado al cargar pedidos"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadOrderTracking(orderId: Int) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _errorMessage.value = null
+                _tracking.value = null
+
+                val response = RetrofitClient.getService().getOrderTracking(orderId)
+
+                if (response.isSuccessful) {
+                    _tracking.value = response.body()
+                } else {
+                    _errorMessage.value = "No se pudo cargar el seguimiento del pedido"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error inesperado al cargar seguimiento"
             } finally {
                 _isLoading.value = false
             }
