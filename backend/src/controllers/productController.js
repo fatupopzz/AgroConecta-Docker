@@ -120,10 +120,12 @@ const getProductById = async (req, res) => {
     const ofertas = await pool.query(
       `SELECT i.id_inventario, i.precio, i.stock_disponible, i.unidad_medida,
               d.id_distribuidor, d.nombre_negocio AS distribuidor,
-              d.calificacion_promedio AS calificacion_distribuidor
+              d.calificacion_promedio AS calificacion_distribuidor,
+              d.estado_verificacion
        FROM inventario_distribuidor i
        JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
        WHERE i.id_producto = $1
+         AND i.stock_disponible > 0
        ORDER BY i.precio ASC`,
       [id],
     );

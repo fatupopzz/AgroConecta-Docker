@@ -16,6 +16,11 @@ interface ApiService {
     @POST("auth/register")
     suspend fun register(@Body request: RegisterRequest): Response<Map<String, Any>>
 
+    @GET("auth/me")
+    suspend fun getMe(
+        @Header("Authorization") token: String
+    ): Response<MeResponse>
+
     // ── Products ─────────────────────────────────────────────────────────
     @GET("products")
     suspend fun getProducts(

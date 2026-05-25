@@ -29,6 +29,27 @@ data class RegisterRequest(
     val nit: String?
 )
 
+data class MeResponse(
+    val user: UserInfo,
+    val perfil: PerfilInfo?
+)
+
+data class UserInfo(
+    @SerializedName("id_usuario") val idUsuario: Int,
+    val nombre: String?,
+    val email: String?,
+    val telefono: String?,
+    @SerializedName("tipo_usuario") val tipoUsuario: String?
+)
+
+data class PerfilInfo(
+    @SerializedName("id_agricultor") val idAgricultor: Int? = null,
+    @SerializedName("id_distribuidor") val idDistribuidor: Int? = null,
+    @SerializedName("nombre_negocio") val nombreNegocio: String? = null,
+    @SerializedName("estado_verificacion") val estadoVerificacion: String? = null,
+    @SerializedName("calificacion_promedio") val calificacionPromedio: Double? = null
+)
+
 enum class TipoCuenta(val apiValue: String, val displayName: String) {
     AGRICULTOR("agricultor", "Agricultor"),
     DISTRIBUIDOR("distribuidor", "Distribuidor")
