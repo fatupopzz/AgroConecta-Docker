@@ -253,6 +253,7 @@ fun AgroConectaNavHost(
                 onHomeClick = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Home.route) { inclusive = false }
+                        launchSingleTop = true
                     }
                 },
                 onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
