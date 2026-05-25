@@ -326,11 +326,12 @@ const createOrder = async (req, res) => {
     const orderResult = await client.query(
       `INSERT INTO pedido
        (id_agricultor, id_distribuidor, estado, tipo_entrega, direccion_entrega, es_urgente, total_pedido, costo_envio, notas)
-       VALUES ($1, $2, 'pendiente', 'domicilio', $3, false, $4, 0, NULL)
+       VALUES ($1, $2, $3, 'domicilio', $4, false, $5, 0, NULL)
        RETURNING *`,
       [
         Number(id_agricultor),
         Number(id_distribuidor),
+        ORDER_STATES.CONFIRMED,
         direccion_entrega.trim(),
         totalPedido,
       ]
@@ -359,6 +360,13 @@ const createOrder = async (req, res) => {
        (id_pedido, metodo_pago, monto, estado_pago, fecha_pago, referencia_transaccion)
        VALUES ($1, $2, $3, 'pendiente', NULL, NULL)`,
       [createdOrder.id_pedido, paymentMethod, totalPedido]
+    );
+
+    await insertOrderTracking(
+      client,
+      createdOrder.id_pedido,
+      ORDER_STATES.CONFIRMED,
+      "Pedido confirmado"
     );
 
     await client.query("COMMIT");
