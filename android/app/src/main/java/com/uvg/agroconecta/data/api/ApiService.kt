@@ -16,6 +16,11 @@ interface ApiService {
     @POST("auth/register")
     suspend fun register(@Body request: RegisterRequest): Response<Map<String, Any>>
 
+    @GET("auth/me")
+    suspend fun getMe(
+        @Header("Authorization") token: String
+    ): Response<MeResponse>
+
     // ── Products ─────────────────────────────────────────────────────────
     @GET("products")
     suspend fun getProducts(
@@ -73,6 +78,11 @@ interface ApiService {
         @Query("limit") limit: Int = 10,
         @Query("estado") estado: String? = null
     ): Response<OrdersByFarmerResponse>
+
+    @GET("orders/{id}/tracking")
+    suspend fun getOrderTracking(
+        @Path("id") orderId: Int
+    ): Response<OrderTrackingResponse>
 
     @GET("products/{id}/reviews")
     suspend fun getReviews(

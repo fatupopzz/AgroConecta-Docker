@@ -3,6 +3,8 @@ package com.uvg.agroconecta.ui.orders
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -15,6 +17,7 @@ fun OrderHistoryScreen(
     orders: List<OrderSummary>,
     isLoading: Boolean,
     errorMessage: String?,
+    onTrackOrder: (Int) -> Unit,
     onBack: () -> Unit
 ) {
     Column(
@@ -73,13 +76,32 @@ fun OrderHistoryScreen(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             
-                            SuggestionChip(
-                                onClick = { },
-                                enabled = false,
-                                label = {
-                                    Text("Pago contra entrega")
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                SuggestionChip(
+                                    onClick = { },
+                                    enabled = false,
+                                    label = {
+                                        Text("Pago contra entrega")
+                                    }
+                                )
+
+                                Spacer(modifier = Modifier.weight(1f))
+
+                                TextButton(
+                                    onClick = { onTrackOrder(order.id) }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocalShipping,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Seguimiento")
                                 }
-                            )
+                            }
                         }
                     }
                 }

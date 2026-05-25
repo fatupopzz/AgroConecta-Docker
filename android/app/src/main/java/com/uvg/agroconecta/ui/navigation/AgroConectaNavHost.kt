@@ -29,6 +29,8 @@ import com.uvg.agroconecta.ui.cart.CartItemUI
 import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
 import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
+import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
+import com.uvg.agroconecta.ui.orders.OrderTrackingScreen
 import com.uvg.agroconecta.ui.orders.OrderViewModel
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import com.uvg.agroconecta.ui.profile.ProfileScreen
@@ -38,7 +40,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun AgroConectaNavHost(
     navController: NavHostController,
-    authViewModel: AuthViewModel = viewModel()
+    authViewModel: AuthViewModel = viewModel(),
+    initialTrackingOrderId: Int? = null
 ) {
     NavHost(
         navController = navController,
@@ -47,7 +50,11 @@ fun AgroConectaNavHost(
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {
-                    navController.navigate(Screen.Home.route) {
+                    val destination = initialTrackingOrderId?.let {
+                        Screen.OrderTracking.createRoute(it)
+                    } ?: Screen.Home.route
+
+                    navController.navigate(destination) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
@@ -213,6 +220,59 @@ fun AgroConectaNavHost(
                     )
                 }
             }
+        composable(Screen.OrderHistory.route) {
+            val context = LocalContext.current
+            val orderViewModel: OrderViewModel = viewModel()
+            val orders by orderViewModel.orders.collectAsState()
+            val isLoading by orderViewModel.isLoading.collectAsState()
+            val errorMessage by orderViewModel.errorMessage.collectAsState()
+
+            LaunchedEffect(Unit) {
+                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                val token = SessionManager.getToken(context).first()
+
+                if (farmerId != -1) {
+                    orderViewModel.loadOrdersByFarmer(farmerId, token)
+                }
+            }
+
+            OrderHistoryScreen(
+                orders = orders,
+                isLoading = isLoading,
+                errorMessage = errorMessage,
+                onTrackOrder = { orderId ->
+                    navController.navigate(Screen.OrderTracking.createRoute(orderId))
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.OrderTracking.route,
+            arguments = listOf(navArgument("orderId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val context = LocalContext.current
+            val orderId = backStackEntry.arguments?.getInt("orderId") ?: return@composable
+            val orderViewModel: OrderViewModel = viewModel()
+            val tracking by orderViewModel.tracking.collectAsState()
+            val isLoading by orderViewModel.isLoading.collectAsState()
+            val errorMessage by orderViewModel.errorMessage.collectAsState()
+            var token by remember { mutableStateOf<String?>(null) }
+
+            LaunchedEffect(orderId) {
+                token = SessionManager.getToken(context).first()
+                orderViewModel.loadOrderTracking(orderId, token)
+            }
+
+            OrderTrackingScreen(
+                tracking = tracking,
+                isLoading = isLoading,
+                errorMessage = errorMessage,
+                onBack = { navController.popBackStack() },
+                onRetry = {
+                    orderViewModel.loadOrderTracking(orderId, token)
+                }
+            )
         }
 
         composable(

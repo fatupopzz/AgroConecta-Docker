@@ -1,5 +1,6 @@
 package com.uvg.agroconecta
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,13 +17,26 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        val initialTrackingOrderId = intent.getTrackingOrderId()
+
         setContent {
             AgroConectaTheme(darkTheme = false) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
-                    AgroConectaNavHost(navController = navController)
+                    AgroConectaNavHost(
+                        navController = navController,
+                        initialTrackingOrderId = initialTrackingOrderId
+                    )
                 }
             }
         }
+    }
+
+    private fun Intent.getTrackingOrderId(): Int? {
+        val extraOrderId = getIntExtra("orderId", -1)
+            .takeIf { it > 0 }
+            ?: getIntExtra("order_id", -1).takeIf { it > 0 }
+
+        return extraOrderId ?: data?.lastPathSegment?.toIntOrNull()
     }
 }

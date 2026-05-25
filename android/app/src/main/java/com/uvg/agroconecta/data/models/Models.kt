@@ -29,6 +29,27 @@ data class RegisterRequest(
     val nit: String?
 )
 
+data class MeResponse(
+    val user: UserInfo,
+    val perfil: PerfilInfo?
+)
+
+data class UserInfo(
+    @SerializedName("id_usuario") val idUsuario: Int,
+    val nombre: String?,
+    val email: String?,
+    val telefono: String?,
+    @SerializedName("tipo_usuario") val tipoUsuario: String?
+)
+
+data class PerfilInfo(
+    @SerializedName("id_agricultor") val idAgricultor: Int? = null,
+    @SerializedName("id_distribuidor") val idDistribuidor: Int? = null,
+    @SerializedName("nombre_negocio") val nombreNegocio: String? = null,
+    @SerializedName("estado_verificacion") val estadoVerificacion: String? = null,
+    @SerializedName("calificacion_promedio") val calificacionPromedio: Double? = null
+)
+
 enum class TipoCuenta(val apiValue: String, val displayName: String) {
     AGRICULTOR("agricultor", "Agricultor"),
     DISTRIBUIDOR("distribuidor", "Distribuidor")
@@ -236,6 +257,21 @@ data class OrderSummary(
     @SerializedName("total_pedido") val totalPedido: Double,
     @SerializedName("distribuidor_nombre") val distribuidorNombre: String,
     @SerializedName("cantidad_productos") val cantidadProductos: Int
+)
+
+// ─── Order Tracking ─────────────────────────────────────────────────────────
+
+data class OrderTrackingResponse(
+    @SerializedName("id_pedido") val idPedido: Int,
+    @SerializedName("estado_actual") val estadoActual: String,
+    val cambios: List<OrderTrackingChange>,
+    @SerializedName("tiempo_estimado_entrega") val tiempoEstimadoEntrega: String?
+)
+
+data class OrderTrackingChange(
+    val estado: String,
+    val timestamp: String,
+    val notas: String?
 )
 
 // ─── Publish Product (KAN-53) ─────────────────────────────────────────────

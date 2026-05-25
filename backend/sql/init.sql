@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS pedido (
     id_distribuidor     INT NOT NULL REFERENCES distribuidor(id_distribuidor),
     fecha_pedido        TIMESTAMP DEFAULT NOW(),
     fecha_entrega_real  TIMESTAMP,
-    estado              VARCHAR(30) DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'confirmado', 'en_camino', 'entregado', 'cancelado')),
+    estado              VARCHAR(30) DEFAULT 'confirmado' CHECK (estado IN ('confirmado', 'preparando', 'en_ruta', 'entregado', 'cancelado')),
     tipo_entrega        VARCHAR(20) CHECK (tipo_entrega IN ('domicilio', 'punto_recogida')),
     direccion_entrega   TEXT,
     es_urgente          BOOLEAN DEFAULT FALSE,
@@ -80,6 +80,17 @@ CREATE TABLE IF NOT EXISTS pedido (
     costo_envio         DECIMAL(10,2) DEFAULT 0.0,
     notas               TEXT
 );
+
+CREATE TABLE IF NOT EXISTS pedido_tracking (
+    id_tracking SERIAL PRIMARY KEY,
+    id_pedido   INT NOT NULL REFERENCES pedido(id_pedido) ON DELETE CASCADE,
+    estado      VARCHAR(30) NOT NULL CHECK (estado IN ('confirmado', 'preparando', 'en_ruta', 'entregado', 'cancelado')),
+    "timestamp" TIMESTAMP DEFAULT NOW(),
+    notas       TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_pedido_tracking_id_pedido_timestamp
+    ON pedido_tracking (id_pedido, "timestamp");
 
 CREATE TABLE IF NOT EXISTS inventario_distribuidor (
     id_inventario       SERIAL PRIMARY KEY,

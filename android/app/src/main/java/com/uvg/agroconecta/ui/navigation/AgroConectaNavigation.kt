@@ -12,6 +12,9 @@ sealed class Screen(val route: String) {
     data object PaymentMethod : Screen("payment_method")
     data object OrderConfirmation : Screen("order_confirmation")
     data object OrderHistory : Screen("order_history")
+    data object OrderTracking : Screen("order_tracking/{orderId}") {
+        fun createRoute(orderId: Int) = "order_tracking/$orderId"
+    }
     data object Profile : Screen("profile")
     data object PublishProduct : Screen("publish_product")
 
@@ -38,4 +41,6 @@ sealed class Screen(val route: String) {
                 "&price=${android.net.Uri.encode(price)}" +
                 "&distributorName=${android.net.Uri.encode(distributorName)}"
     }
+}
+    data object PublishProduct : Screen("publish_product")
 }

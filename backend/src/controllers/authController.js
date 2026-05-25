@@ -205,4 +205,46 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, login };
+const getMe = async (req, res) => {
+  try {
+    const { id, tipo } = req.user;
+
+    const userResult = await pool.query(
+      `SELECT id_usuario, nombre, apellido, telefono, email, tipo_usuario, fecha_registro
+       FROM usuario WHERE id_usuario = $1`,
+      [Number(id)]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const user = userResult.rows[0];
+    let perfil = null;
+
+    if (tipo === "agricultor") {
+      const r = await pool.query(
+        `SELECT id_agricultor, departamento, municipio, tipo_agricultor,
+                tamano_terreno_ha, cultivos_principales, tiene_membresia
+         FROM agricultor WHERE id_usuario = $1`,
+        [Number(id)]
+      );
+      perfil = r.rows[0] ?? null;
+    } else if (tipo === "distribuidor") {
+      const r = await pool.query(
+        `SELECT id_distribuidor, nombre_negocio, nit, departamento,
+                estado_verificacion, calificacion_promedio
+         FROM distribuidor WHERE id_usuario = $1`,
+        [Number(id)]
+      );
+      perfil = r.rows[0] ?? null;
+    }
+
+    return res.json({ user, perfil });
+  } catch (error) {
+    console.error("Error en getMe:", error);
+    return res.status(500).json({ error: "Error en servidor" });
+  }
+};
+
+module.exports = { register, login, getMe };

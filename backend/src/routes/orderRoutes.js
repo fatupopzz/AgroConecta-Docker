@@ -12,6 +12,7 @@ const {
   getOrderById,
   getOrdersByFarmer,
   getOrdersByDistributor,
+  getOrderTracking,
   updateOrderStatus,
   receiveOrder,
 } = require("../controllers/orderController");
@@ -21,6 +22,7 @@ router.get("/farmer/:id", verifyToken, getOrdersByFarmer);
 router.get("/distributor/:id", verifyToken, canViewDistributorOrders, getOrdersByDistributor);
 router.patch("/:id/status", verifyToken, canManageOrderStatus, updateOrderStatus);
 router.patch("/:id/receive", verifyToken, receiveOrder);
+router.get("/:id/tracking", verifyToken, getOrderTracking);
 router.get("/:id", verifyToken, getOrderById);
 
 module.exports = router;

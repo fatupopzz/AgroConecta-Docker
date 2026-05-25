@@ -1,5 +1,11 @@
 const { pool } = require("../config/db");
-const { ORDER_STATES, ORDER_STATES_FILTERABLE, ORDER_STATES_UPDATEABLE } = require("../constants/orderStates");
+const {
+  LEGACY_ORDER_STATES,
+  ORDER_STATES,
+  ORDER_STATES_FILTERABLE,
+  ORDER_STATES_UPDATEABLE,
+  normalizeOrderState,
+} = require("../constants/orderStates");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
@@ -19,6 +25,14 @@ const normalizeCashPaymentMethod = (value) => {
   }
 
   return null;
+};
+
+const insertOrderTracking = async (db, orderId, estado, notas = null) => {
+  await db.query(
+    `INSERT INTO pedido_tracking (id_pedido, estado, notas)
+     VALUES ($1, $2, $3)`,
+    [orderId, estado, notas]
+  );
 };
 
 const getOrderDetailData = async (db, orderId) => {
@@ -60,6 +74,9 @@ const getOrderDetailData = async (db, orderId) => {
     return null;
   }
 
+  const order = orderResult.rows[0];
+  order.estado = normalizeOrderState(order.estado);
+
   const itemsResult = await db.query(
     `SELECT
         dp.id_detalle,
@@ -80,8 +97,79 @@ const getOrderDetailData = async (db, orderId) => {
   );
 
   return {
-    ...orderResult.rows[0],
+    ...order,
     productos: itemsResult.rows,
+  };
+};
+
+const getOrderTrackingData = async (db, orderId) => {
+  const orderResult = await db.query(
+    `SELECT
+        p.id_pedido,
+        CASE
+          WHEN p.estado = $2 THEN $3
+          WHEN p.estado = $4 THEN $5
+          ELSE p.estado
+        END AS estado_actual,
+        p.fecha_pedido,
+        CASE
+          WHEN p.estado = $6 THEN p.fecha_entrega_real
+          WHEN p.estado = $7 THEN NULL
+          ELSE p.fecha_pedido + (COALESCE(MAX(i.tiempo_entrega_dias), 2)::int * INTERVAL '1 day')
+        END AS tiempo_estimado_entrega
+     FROM pedido p
+     LEFT JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
+     LEFT JOIN inventario_distribuidor i ON dp.id_inventario = i.id_inventario
+     WHERE p.id_pedido = $1
+     GROUP BY p.id_pedido`,
+    [
+      orderId,
+      LEGACY_ORDER_STATES.PENDING,
+      ORDER_STATES.CONFIRMED,
+      LEGACY_ORDER_STATES.IN_TRANSIT,
+      ORDER_STATES.IN_ROUTE,
+      ORDER_STATES.DELIVERED,
+      ORDER_STATES.CANCELED,
+    ]
+  );
+
+  if (orderResult.rows.length === 0) {
+    return null;
+  }
+
+  const order = orderResult.rows[0];
+
+  const trackingResult = await db.query(
+    `SELECT
+        id_tracking,
+        estado,
+        "timestamp",
+        notas
+     FROM pedido_tracking
+     WHERE id_pedido = $1
+     ORDER BY "timestamp" ASC, id_tracking ASC`,
+    [orderId]
+  );
+
+  const cambios = trackingResult.rows.map((row) => ({
+    estado: normalizeOrderState(row.estado),
+    timestamp: row.timestamp,
+    notas: row.notas,
+  }));
+
+  if (cambios.length === 0) {
+    cambios.push({
+      estado: normalizeOrderState(order.estado_actual),
+      timestamp: order.fecha_pedido,
+      notas: "Estado inicial del pedido",
+    });
+  }
+
+  return {
+    id_pedido: order.id_pedido,
+    estado_actual: normalizeOrderState(order.estado_actual),
+    cambios,
+    tiempo_estimado_entrega: order.tiempo_estimado_entrega,
   };
 };
 
@@ -238,11 +326,12 @@ const createOrder = async (req, res) => {
     const orderResult = await client.query(
       `INSERT INTO pedido
        (id_agricultor, id_distribuidor, estado, tipo_entrega, direccion_entrega, es_urgente, total_pedido, costo_envio, notas)
-       VALUES ($1, $2, 'pendiente', 'domicilio', $3, false, $4, 0, NULL)
+       VALUES ($1, $2, $3, 'domicilio', $4, false, $5, 0, NULL)
        RETURNING *`,
       [
         Number(id_agricultor),
         Number(id_distribuidor),
+        ORDER_STATES.CONFIRMED,
         direccion_entrega.trim(),
         totalPedido,
       ]
@@ -271,6 +360,13 @@ const createOrder = async (req, res) => {
        (id_pedido, metodo_pago, monto, estado_pago, fecha_pago, referencia_transaccion)
        VALUES ($1, $2, $3, 'pendiente', NULL, NULL)`,
       [createdOrder.id_pedido, paymentMethod, totalPedido]
+    );
+
+    await insertOrderTracking(
+      client,
+      createdOrder.id_pedido,
+      ORDER_STATES.CONFIRMED,
+      "Pedido confirmado"
     );
 
     await client.query("COMMIT");
@@ -403,7 +499,11 @@ const getOrdersByFarmer = async (req, res) => {
     const result = await pool.query(
       `SELECT
           p.id_pedido          AS id,
-          p.estado,
+          CASE
+            WHEN p.estado = '${LEGACY_ORDER_STATES.PENDING}' THEN '${ORDER_STATES.CONFIRMED}'
+            WHEN p.estado = '${LEGACY_ORDER_STATES.IN_TRANSIT}' THEN '${ORDER_STATES.IN_ROUTE}'
+            ELSE p.estado
+          END AS estado,
           p.fecha_pedido,
           p.total_pedido,
           d.nombre_negocio     AS distribuidor_nombre,
@@ -455,7 +555,11 @@ const getOrdersByDistributor = async (req, res) => {
       `SELECT
           p.id_pedido,
           p.fecha_pedido,
-          p.estado,
+          CASE
+            WHEN p.estado = '${LEGACY_ORDER_STATES.PENDING}' THEN '${ORDER_STATES.CONFIRMED}'
+            WHEN p.estado = '${LEGACY_ORDER_STATES.IN_TRANSIT}' THEN '${ORDER_STATES.IN_ROUTE}'
+            ELSE p.estado
+          END AS estado,
           p.direccion_entrega,
           p.total_pedido,
           p.costo_envio,
@@ -486,7 +590,7 @@ const getOrdersByDistributor = async (req, res) => {
 
 const updateOrderStatus = async (req, res) => {
   const { id } = req.params;
-  const { estado } = req.body;
+  const { estado, notas } = req.body;
   const distributorId = req.distributorId;
 
   if (!isPositiveInteger(id)) {
@@ -500,6 +604,8 @@ const updateOrderStatus = async (req, res) => {
   }
 
   const estadoNormalizado = estado.trim();
+  const notasTracking =
+    typeof notas === "string" && notas.trim().length > 0 ? notas.trim() : null;
   const orderId = Number(id);
 
   const client = await pool.connect();
@@ -521,7 +627,7 @@ const updateOrderStatus = async (req, res) => {
 
     const order = orderResult.rows[0];
 
-    if (Number(order.id_distribuidor) !== distributorId) {
+    if (distributorId && Number(order.id_distribuidor) !== distributorId) {
       await client.query("ROLLBACK");
       return res.status(403).json({
         error: "El distribuidor no tiene permiso para actualizar este pedido",
@@ -530,11 +636,19 @@ const updateOrderStatus = async (req, res) => {
 
     const updatedOrderResult = await client.query(
       `UPDATE pedido
-       SET estado = $1
+       SET estado = $1,
+           fecha_entrega_real = CASE
+             WHEN $1 = $3 THEN COALESCE(fecha_entrega_real, NOW())
+             ELSE fecha_entrega_real
+           END
        WHERE id_pedido = $2
        RETURNING *`,
-      [estadoNormalizado, orderId]
+      [estadoNormalizado, orderId, ORDER_STATES.DELIVERED]
     );
+
+    if (normalizeOrderState(order.estado) !== estadoNormalizado) {
+      await insertOrderTracking(client, orderId, estadoNormalizado, notasTracking);
+    }
 
     if (estadoNormalizado === "entregado") {
       await client.query(
@@ -571,6 +685,64 @@ const updateOrderStatus = async (req, res) => {
     });
   } finally {
     client.release();
+  }
+};
+
+const getOrderTracking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const requesterId = req.user ? Number(req.user.id) : null;
+    const requesterTipo = req.user ? req.user.tipo : null;
+
+    if (!isPositiveInteger(id)) {
+      return res.status(400).json({ error: "ID de pedido inválido" });
+    }
+
+    if (!requesterId || !requesterTipo) {
+      return res.status(401).json({ error: "Usuario no autenticado" });
+    }
+
+    const orderId = Number(id);
+
+    const permissionResult = await pool.query(
+      `SELECT
+          a.id_usuario AS agricultor_usuario_id,
+          d.id_usuario AS distribuidor_usuario_id
+       FROM pedido p
+       JOIN agricultor a ON p.id_agricultor = a.id_agricultor
+       JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
+       WHERE p.id_pedido = $1`,
+      [orderId]
+    );
+
+    if (permissionResult.rows.length === 0) {
+      return res.status(404).json({ error: "Pedido no encontrado" });
+    }
+
+    const orderPermission = permissionResult.rows[0];
+    const canView =
+      requesterTipo === "administrador" ||
+      Number(orderPermission.agricultor_usuario_id) === requesterId ||
+      Number(orderPermission.distribuidor_usuario_id) === requesterId;
+
+    if (!canView) {
+      return res.status(403).json({
+        error: "No tienes permiso para ver el seguimiento de este pedido",
+      });
+    }
+
+    const tracking = await getOrderTrackingData(pool, orderId);
+
+    if (!tracking) {
+      return res.status(404).json({ error: "Pedido no encontrado" });
+    }
+
+    return res.json(tracking);
+  } catch (error) {
+    console.error("Error en getOrderTracking:", error);
+    return res.status(500).json({
+      error: "Error al obtener seguimiento del pedido",
+    });
   }
 };
 
@@ -620,10 +792,10 @@ const receiveOrder = async (req, res) => {
       });
     }
 
-    if (order.estado !== ORDER_STATES.IN_TRANSIT) {
+    if (normalizeOrderState(order.estado) !== ORDER_STATES.IN_ROUTE) {
       await client.query("ROLLBACK");
       return res.status(400).json({
-        error: "Solo se puede confirmar recepción de pedidos en estado en_camino",
+        error: "Solo se puede confirmar recepción de pedidos en estado en_ruta",
       });
     }
 
@@ -632,15 +804,20 @@ const receiveOrder = async (req, res) => {
        SET estado = $1,
            fecha_entrega_real = NOW()
        WHERE id_pedido = $2
-         AND estado = $3
+         AND estado IN ($3, $4)
        RETURNING *`,
-      [ORDER_STATES.DELIVERED, orderId, ORDER_STATES.IN_TRANSIT]
+      [
+        ORDER_STATES.DELIVERED,
+        orderId,
+        ORDER_STATES.IN_ROUTE,
+        LEGACY_ORDER_STATES.IN_TRANSIT,
+      ]
     );
 
     if (updatedOrderResult.rowCount === 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({
-        error: "El pedido ya no está en estado en_camino",
+        error: "El pedido ya no está en estado en_ruta",
       });
     }
 
@@ -651,6 +828,13 @@ const receiveOrder = async (req, res) => {
        WHERE id_pedido = $1
          AND metodo_pago = 'contra_entrega'`,
       [orderId]
+    );
+
+    await insertOrderTracking(
+      client,
+      orderId,
+      ORDER_STATES.DELIVERED,
+      "Recepción confirmada por el agricultor"
     );
 
     await client.query("COMMIT");
@@ -682,6 +866,7 @@ module.exports = {
   getOrderById,
   getOrdersByFarmer,
   getOrdersByDistributor,
+  getOrderTracking,
   updateOrderStatus,
   receiveOrder,
 };
