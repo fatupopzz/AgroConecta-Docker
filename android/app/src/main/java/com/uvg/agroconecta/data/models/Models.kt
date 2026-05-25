@@ -238,6 +238,21 @@ data class OrderSummary(
     @SerializedName("cantidad_productos") val cantidadProductos: Int
 )
 
+// ─── Order Tracking ─────────────────────────────────────────────────────────
+
+data class OrderTrackingResponse(
+    @SerializedName("id_pedido") val idPedido: Int,
+    @SerializedName("estado_actual") val estadoActual: String,
+    val cambios: List<OrderTrackingChange>,
+    @SerializedName("tiempo_estimado_entrega") val tiempoEstimadoEntrega: String?
+)
+
+data class OrderTrackingChange(
+    val estado: String,
+    val timestamp: String,
+    val notas: String?
+)
+
 // ─── Publish Product (KAN-53) ─────────────────────────────────────────────
 
 data class CreateProductRequest(

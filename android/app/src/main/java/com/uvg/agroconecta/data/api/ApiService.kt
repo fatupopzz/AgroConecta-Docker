@@ -74,6 +74,11 @@ interface ApiService {
         @Query("estado") estado: String? = null
     ): Response<OrdersByFarmerResponse>
 
+    @GET("orders/{id}/tracking")
+    suspend fun getOrderTracking(
+        @Path("id") orderId: Int
+    ): Response<OrderTrackingResponse>
+
     @GET("products/{id}/reviews")
     suspend fun getReviews(
         @Path("id")    productoId: Int,
