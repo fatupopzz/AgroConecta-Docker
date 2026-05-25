@@ -102,13 +102,13 @@ class OrderViewModel : ViewModel() {
         }
     }
 
-    fun loadOrdersByFarmer(idAgricultor: Int) {
+    fun loadOrdersByFarmer(idAgricultor: Int, token: String? = null) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
                 _errorMessage.value = null
 
-                val response = RetrofitClient.getService().getOrdersByFarmer(idAgricultor)
+                val response = RetrofitClient.getService(token).getOrdersByFarmer(idAgricultor)
 
                 if (response.isSuccessful) {
                     _orders.value = response.body()?.data ?: emptyList()
@@ -123,14 +123,14 @@ class OrderViewModel : ViewModel() {
         }
     }
 
-    fun loadOrderTracking(orderId: Int) {
+    fun loadOrderTracking(orderId: Int, token: String? = null) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
                 _errorMessage.value = null
                 _tracking.value = null
 
-                val response = RetrofitClient.getService().getOrderTracking(orderId)
+                val response = RetrofitClient.getService(token).getOrderTracking(orderId)
 
                 if (response.isSuccessful) {
                     _tracking.value = response.body()
