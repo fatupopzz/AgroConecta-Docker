@@ -220,6 +220,8 @@ fun AgroConectaNavHost(
                     )
                 }
             }
+        }  // ← este cierre faltaba
+
         composable(Screen.OrderHistory.route) {
             val context = LocalContext.current
             val orderViewModel: OrderViewModel = viewModel()
@@ -230,7 +232,6 @@ fun AgroConectaNavHost(
             LaunchedEffect(Unit) {
                 val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                 val token = SessionManager.getToken(context).first()
-
                 if (farmerId != -1) {
                     orderViewModel.loadOrdersByFarmer(farmerId, token)
                 }
@@ -317,7 +318,7 @@ fun AgroConectaNavHost(
                     }
                 },
                 onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
-                onPedidosClick = { },
+                onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
                 onLogout = {
                     authViewModel.resetLogin()
                     navController.navigate(Screen.Login.route) {

@@ -42,5 +42,3 @@ sealed class Screen(val route: String) {
                 "&distributorName=${android.net.Uri.encode(distributorName)}"
     }
 }
-    data object PublishProduct : Screen("publish_product")
-}

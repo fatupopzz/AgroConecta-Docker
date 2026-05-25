@@ -55,19 +55,23 @@ class DistributorViewModel : ViewModel() {
                 // Reseñas
                 reloadReviews(distributorId)
 
-                // Productos — loop con detalle para filtrar por distribuidor
+                // Productos — loop con for para poder usar suspend dentro de corrutina
                 val productosResponse = RetrofitClient.getService().getProducts(limit = 100)
                 if (productosResponse.isSuccessful) {
                     val todosProductos = productosResponse.body()?.products ?: emptyList()
+                    val productosDelDist = mutableListOf<Product>()
 
-                    val productosDelDist = todosProductos.filter { producto ->
+                    for (producto in todosProductos) {
                         try {
                             val detalle = api.getProductById(producto.id)
-                            detalle.isSuccessful &&
+                            val perteneceAlDistribuidor = detalle.isSuccessful &&
                                     detalle.body()?.ofertas
                                         ?.any { it.idDistribuidor == distributorId } == true
+                            if (perteneceAlDistribuidor) {
+                                productosDelDist.add(producto)
+                            }
                         } catch (_: Exception) {
-                            false
+                            // Si falla el detalle de un producto, se omite
                         }
                     }
 
