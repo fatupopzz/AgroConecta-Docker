@@ -55,21 +55,12 @@ class DistributorViewModel : ViewModel() {
                 // Reseñas
                 reloadReviews(distributorId)
 
-                // Productos — reutiliza api en el loop
+                // Productos — filtra directamente desde el listado para evitar patrón N+1
                 val productosResponse = RetrofitClient.getService().getProducts(limit = 100)
                 if (productosResponse.isSuccessful) {
                     val todosProductos = productosResponse.body()?.products ?: emptyList()
-                    val productosDelDist = mutableListOf<Product>()
-
-                    for (producto in todosProductos) {
-                        try {
-                            val detalle = api.getProductById(producto.id)  // ← reutiliza api
-                            if (detalle.isSuccessful) {
-                                val tieneOferta = detalle.body()?.ofertas
-                                    ?.any { it.idDistribuidor == distributorId } == true
-                                if (tieneOferta) productosDelDist.add(producto)
-                            }
-                        } catch (_: Exception) { }
+                    val productosDelDist = todosProductos.filter { producto ->
+                        producto.ofertas?.any { it.idDistribuidor == distributorId } == true
                     }
 
                     _uiState.update { it.copy(productos = productosDelDist) }
