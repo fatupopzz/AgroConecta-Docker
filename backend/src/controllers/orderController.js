@@ -1,5 +1,11 @@
 const { pool } = require("../config/db");
-const { ORDER_STATES, ORDER_STATES_FILTERABLE, ORDER_STATES_UPDATEABLE } = require("../constants/orderStates");
+const {
+  LEGACY_ORDER_STATES,
+  ORDER_STATES,
+  ORDER_STATES_FILTERABLE,
+  ORDER_STATES_UPDATEABLE,
+  normalizeOrderState,
+} = require("../constants/orderStates");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
@@ -19,6 +25,14 @@ const normalizeCashPaymentMethod = (value) => {
   }
 
   return null;
+};
+
+const insertOrderTracking = async (db, orderId, estado, notas = null) => {
+  await db.query(
+    `INSERT INTO pedido_tracking (id_pedido, estado, notas)
+     VALUES ($1, $2, $3)`,
+    [orderId, estado, notas]
+  );
 };
 
 const getOrderDetailData = async (db, orderId) => {
@@ -60,6 +74,9 @@ const getOrderDetailData = async (db, orderId) => {
     return null;
   }
 
+  const order = orderResult.rows[0];
+  order.estado = normalizeOrderState(order.estado);
+
   const itemsResult = await db.query(
     `SELECT
         dp.id_detalle,
@@ -80,8 +97,79 @@ const getOrderDetailData = async (db, orderId) => {
   );
 
   return {
-    ...orderResult.rows[0],
+    ...order,
     productos: itemsResult.rows,
+  };
+};
+
+const getOrderTrackingData = async (db, orderId) => {
+  const orderResult = await db.query(
+    `SELECT
+        p.id_pedido,
+        CASE
+          WHEN p.estado = $2 THEN $3
+          WHEN p.estado = $4 THEN $5
+          ELSE p.estado
+        END AS estado_actual,
+        p.fecha_pedido,
+        CASE
+          WHEN p.estado = $6 THEN p.fecha_entrega_real
+          WHEN p.estado = $7 THEN NULL
+          ELSE p.fecha_pedido + (COALESCE(MAX(i.tiempo_entrega_dias), 2)::int * INTERVAL '1 day')
+        END AS tiempo_estimado_entrega
+     FROM pedido p
+     LEFT JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
+     LEFT JOIN inventario_distribuidor i ON dp.id_inventario = i.id_inventario
+     WHERE p.id_pedido = $1
+     GROUP BY p.id_pedido`,
+    [
+      orderId,
+      LEGACY_ORDER_STATES.PENDING,
+      ORDER_STATES.CONFIRMED,
+      LEGACY_ORDER_STATES.IN_TRANSIT,
+      ORDER_STATES.IN_ROUTE,
+      ORDER_STATES.DELIVERED,
+      ORDER_STATES.CANCELED,
+    ]
+  );
+
+  if (orderResult.rows.length === 0) {
+    return null;
+  }
+
+  const order = orderResult.rows[0];
+
+  const trackingResult = await db.query(
+    `SELECT
+        id_tracking,
+        estado,
+        "timestamp",
+        notas
+     FROM pedido_tracking
+     WHERE id_pedido = $1
+     ORDER BY "timestamp" ASC, id_tracking ASC`,
+    [orderId]
+  );
+
+  const cambios = trackingResult.rows.map((row) => ({
+    estado: normalizeOrderState(row.estado),
+    timestamp: row.timestamp,
+    notas: row.notas,
+  }));
+
+  if (cambios.length === 0) {
+    cambios.push({
+      estado: normalizeOrderState(order.estado_actual),
+      timestamp: order.fecha_pedido,
+      notas: "Estado inicial del pedido",
+    });
+  }
+
+  return {
+    id_pedido: order.id_pedido,
+    estado_actual: normalizeOrderState(order.estado_actual),
+    cambios,
+    tiempo_estimado_entrega: order.tiempo_estimado_entrega,
   };
 };
 
