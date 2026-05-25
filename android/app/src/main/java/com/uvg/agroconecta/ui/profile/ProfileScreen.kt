@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.uvg.agroconecta.ui.components.AppBottomBar
+import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.ErrorRed
 import com.uvg.agroconecta.ui.theme.GrayBorder
 import com.uvg.agroconecta.ui.theme.GrayLight
@@ -28,17 +30,18 @@ import com.uvg.agroconecta.ui.theme.GreenPale
 import com.uvg.agroconecta.ui.theme.GreenPrimary
 import com.uvg.agroconecta.ui.theme.GreenPrimaryDark
 import com.uvg.agroconecta.ui.theme.GreenSurface
-import com.uvg.agroconecta.ui.theme.OrangeLight
 import com.uvg.agroconecta.ui.theme.OrangeAccent
+import com.uvg.agroconecta.ui.theme.OrangeLight
 import com.uvg.agroconecta.ui.theme.VerifiedBlue
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit,
+    onHomeClick: () -> Unit,
+    onAgregarClick: () -> Unit,
+    onPedidosClick: () -> Unit,
     viewModel: ProfileViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -77,6 +80,15 @@ fun ProfileScreen(
                     navigationIconContentColor = Color.White
                 )
             )
+        },
+        bottomBar = {
+            AppBottomBar(
+                selectedTab = BottomNavTab.PERFIL,
+                onHomeClick = onHomeClick,
+                onAgregarClick = onAgregarClick,
+                onPedidosClick = onPedidosClick,
+                onPerfilClick = { }
+            )
         }
     ) { padding ->
         Box(
@@ -101,8 +113,14 @@ fun ProfileScreen(
 
                 is ProfileUiState.Success -> {
                     when (val data = state.data) {
-                        is ProfileData.Farmer      -> FarmerProfileContent(data.profile, onLogoutClick = { showLogoutDialog = true })
-                        is ProfileData.Distributor -> DistributorProfileContent(data.profile, onLogoutClick = { showLogoutDialog = true })
+                        is ProfileData.Farmer -> FarmerProfileContent(
+                            data.profile,
+                            onLogoutClick = { showLogoutDialog = true }
+                        )
+                        is ProfileData.Distributor -> DistributorProfileContent(
+                            data.profile,
+                            onLogoutClick = { showLogoutDialog = true }
+                        )
                     }
                 }
             }
@@ -120,8 +138,6 @@ fun ProfileScreen(
         }
     }
 }
-
-// ─── Farmer profile ───────────────────────────────────────────────────────────
 
 @Composable
 fun FarmerProfileContent(
@@ -212,8 +228,16 @@ fun FarmerProfileContent(
         Spacer(Modifier.height(12.dp))
 
         ProfileSection(title = "Ubicación") {
-            ProfileInfoRow(Icons.Default.LocationOn, "Departamento", profile.departamento?.replaceFirstChar { it.uppercase() } ?: "—")
-            ProfileInfoRow(Icons.Default.Place, "Municipio", profile.municipio?.replaceFirstChar { it.uppercase() } ?: "—")
+            ProfileInfoRow(
+                Icons.Default.LocationOn,
+                "Departamento",
+                profile.departamento?.replaceFirstChar { it.uppercase() } ?: "—"
+            )
+            ProfileInfoRow(
+                Icons.Default.Place,
+                "Municipio",
+                profile.municipio?.replaceFirstChar { it.uppercase() } ?: "—"
+            )
         }
 
         Spacer(Modifier.height(12.dp))
@@ -229,16 +253,22 @@ fun FarmerProfileContent(
                     else             -> "—"
                 }
             )
-            ProfileInfoRow(Icons.Default.Landscape, "Tamaño del terreno", profile.tamanoTerrenoHa?.let { "$it ha" } ?: "—")
-            ProfileInfoRow(Icons.Default.Grass, "Cultivos principales", profile.cultivosPrincipales ?: "—")
+            ProfileInfoRow(
+                Icons.Default.Landscape,
+                "Tamaño del terreno",
+                profile.tamanoTerrenoHa?.let { "$it ha" } ?: "—"
+            )
+            ProfileInfoRow(
+                Icons.Default.Grass,
+                "Cultivos principales",
+                profile.cultivosPrincipales ?: "—"
+            )
         }
 
         Spacer(Modifier.height(24.dp))
         LogoutButton(onClick = onLogoutClick)
     }
 }
-
-// ─── Distributor profile ──────────────────────────────────────────────────────
 
 @Composable
 fun DistributorProfileContent(
@@ -276,20 +306,38 @@ fun DistributorProfileContent(
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                Text(profile.nombreNegocio, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(
+                    profile.nombreNegocio,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
                 profile.email?.let {
                     Text(it, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
                 }
                 Spacer(Modifier.height(8.dp))
                 if (profile.estadoVerificacion == "verificado") {
-                    Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFE3F2FD)) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFFE3F2FD)
+                    ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            Icon(Icons.Default.Verified, null, tint = VerifiedBlue, modifier = Modifier.size(14.dp))
+                            Icon(
+                                Icons.Default.Verified,
+                                null,
+                                tint = VerifiedBlue,
+                                modifier = Modifier.size(14.dp)
+                            )
                             Spacer(Modifier.width(4.dp))
-                            Text("Distribuidor Verificado", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = VerifiedBlue)
+                            Text(
+                                "Distribuidor Verificado",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = VerifiedBlue
+                            )
                         }
                     }
                     Spacer(Modifier.height(8.dp))
@@ -308,7 +356,11 @@ fun DistributorProfileContent(
         Spacer(Modifier.height(12.dp))
 
         ProfileSection("Datos del negocio") {
-            ProfileInfoRow(Icons.Default.LocationOn, "Departamento", profile.departamento?.replaceFirstChar { it.uppercase() } ?: "—")
+            ProfileInfoRow(
+                Icons.Default.LocationOn,
+                "Departamento",
+                profile.departamento?.replaceFirstChar { it.uppercase() } ?: "—"
+            )
             ProfileInfoRow(Icons.Default.Receipt, "NIT", profile.nit ?: "—")
             profile.calificacionPromedio?.let {
                 ProfileInfoRow(Icons.Default.Star, "Calificación promedio", "%.1f / 5.0".format(it))
@@ -319,8 +371,6 @@ fun DistributorProfileContent(
         LogoutButton(onClick = onLogoutClick)
     }
 }
-
-// ─── Componentes auxiliares ───────────────────────────────────────────────────
 
 @Composable
 fun ProfileSection(
@@ -435,7 +485,7 @@ fun LogoutConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Default.Logout, contentDescription = null, tint = ErrorRed) },
         title = { Text("¿Cerrar sesión?") },
-        text  = { Text("Deberás iniciar sesión nuevamente para acceder a tu cuenta.") },
+        text = { Text("Deberás iniciar sesión nuevamente para acceder a tu cuenta.") },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,

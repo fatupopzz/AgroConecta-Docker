@@ -29,6 +29,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.Distributor
 import com.uvg.agroconecta.data.models.Product
+import com.uvg.agroconecta.ui.components.AppBottomBar
+import com.uvg.agroconecta.ui.components.BottomNavTab
 
 private val VerdeAgroConecta = Color(0xFF2D6A1F)
 private val VerdeClaro = Color(0xFF4CAF50)
@@ -46,7 +48,7 @@ fun HomeScreen(
     onCarritoClick: () -> Unit,
     onPerfilClick: () -> Unit,
     onAgregarClick: () -> Unit,
-    onDistribuidorClick: (Int) -> Unit,  // ← agregado
+    onDistribuidorClick: (Int) -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -74,7 +76,8 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = GrisFondo,
         bottomBar = {
-            HomeBottomBar(
+            AppBottomBar(
+                selectedTab = BottomNavTab.HOME,
                 onHomeClick = { },
                 onAgregarClick = onAgregarClick,
                 onPedidosClick = { },
@@ -95,7 +98,8 @@ fun HomeScreen(
                     onSearchChange = { viewModel.onSearchChange(it) },
                     onSearchSubmit = { viewModel.onSearchSubmit() },
                     onFiltrosClick = { viewModel.abrirFiltros() },
-                    onCarritoClick = onCarritoClick
+                    onCarritoClick = onCarritoClick,
+                    onPerfilClick = onPerfilClick
                 )
             }
             item {
@@ -126,7 +130,7 @@ fun HomeScreen(
                 SeccionDistribuidores(
                     distribuidores = uiState.distribuidores,
                     isLoading = uiState.isLoadingDistribuidores,
-                    onDistribuidorClick = onDistribuidorClick  // ← agregado
+                    onDistribuidorClick = onDistribuidorClick
                 )
             }
         }
@@ -140,7 +144,8 @@ private fun HomeHeader(
     onSearchChange: (String) -> Unit,
     onSearchSubmit: () -> Unit,
     onFiltrosClick: () -> Unit,
-    onCarritoClick: () -> Unit
+    onCarritoClick: () -> Unit,
+    onPerfilClick: () -> Unit
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -175,7 +180,8 @@ private fun HomeHeader(
                     modifier = Modifier
                         .size(46.dp)
                         .clip(CircleShape)
-                        .background(VerdeClaro),
+                        .background(VerdeClaro)
+                        .clickable { onPerfilClick() },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -569,56 +575,12 @@ private fun DistribuidorCard(
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = null,
-                        tint = if (i <= distribuidor.calificacion) Color(0xFFFFC107) else Color(0xFFDDDDDD),
+                        tint = if (i <= distribuidor.calificacion) Color(0xFFFFC107)
+                        else Color(0xFFDDDDDD),
                         modifier = Modifier.size(16.dp)
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun HomeBottomBar(
-    onHomeClick: () -> Unit,
-    onAgregarClick: () -> Unit,
-    onPedidosClick: () -> Unit,
-    onPerfilClick: () -> Unit
-) {
-    NavigationBar(containerColor = Color.White, tonalElevation = 4.dp) {
-        NavigationBarItem(
-            selected = true,
-            onClick = onHomeClick,
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(VerdeClaro.copy(alpha = 0.2f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Home, contentDescription = "Home", tint = VerdeAgroConecta)
-                }
-            },
-            label = null,
-            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = onAgregarClick,
-            icon = { Icon(Icons.Default.AddCircleOutline, contentDescription = "Agregar") },
-            label = null
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = onPedidosClick,
-            icon = { Icon(Icons.Default.List, contentDescription = "Pedidos") },
-            label = null
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = onPerfilClick,
-            icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") },
-            label = null
-        )
     }
 }

@@ -18,11 +18,13 @@ data class DistributorUiState(
     val isVerified: Boolean = false,
     val rating: DistributorRatingResponse? = null,
     val reviews: List<DistributorReview> = emptyList(),
+    val promedio: Double? = null,
     val productos: List<Product> = emptyList(),
     val isLoading: Boolean = false,
     val isSubmittingReview: Boolean = false,
     val reviewSubmitSuccess: Boolean = false,
-    val reviewSubmitError: String? = null
+    val reviewSubmitError: String? = null,
+    val errorMessage: String? = null
 )
 
 class DistributorViewModel : ViewModel() {
@@ -32,50 +34,36 @@ class DistributorViewModel : ViewModel() {
 
     fun loadAll(distributorId: Int, token: String?) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
                 val api = RetrofitClient.getService(token)
 
-                // Datos del distribuidor
+                // Datos del distribuidor — safe body
                 val distResponse = api.getDistributorById(distributorId)
                 if (distResponse.isSuccessful) {
-                    val dist = distResponse.body()!!
-                    _uiState.update {
-                        it.copy(
-                            distributorName = dist.nombreNegocio,
-                            isVerified = dist.estadoVerificacion == "verificado"
-                        )
+                    val dist = distResponse.body()
+                    if (dist != null) {
+                        _uiState.update {
+                            it.copy(
+                                distributorName = dist.nombreNegocio,
+                                isVerified = dist.estadoVerificacion == "verificado"
+                            )
+                        }
                     }
-                }
-
-                // Rating
-                val ratingResponse = RetrofitClient.getService().getDistributorRating(distributorId)
-                if (ratingResponse.isSuccessful) {
-                    _uiState.update { it.copy(rating = ratingResponse.body()) }
                 }
 
                 // Reseñas
-                val reviewsResponse = RetrofitClient.getService().getDistributorReviews(
-                    distributorId,
-                    page = 1,
-                    limit = 20
-                )
-                if (reviewsResponse.isSuccessful) {
-                    _uiState.update {
-                        it.copy(reviews = reviewsResponse.body()?.reviews ?: emptyList())
-                    }
-                }
+                reloadReviews(distributorId)
 
-                // Productos del distribuidor — filtramos del catálogo general
+                // Productos — reutiliza api en el loop
                 val productosResponse = RetrofitClient.getService().getProducts(limit = 100)
                 if (productosResponse.isSuccessful) {
-                    // Traemos detalle de cada producto para ver si tiene oferta de este distribuidor
                     val todosProductos = productosResponse.body()?.products ?: emptyList()
                     val productosDelDist = mutableListOf<Product>()
 
                     for (producto in todosProductos) {
                         try {
-                            val detalle = RetrofitClient.getService(token).getProductById(producto.id)
+                            val detalle = api.getProductById(producto.id)  // ← reutiliza api
                             if (detalle.isSuccessful) {
                                 val tieneOferta = detalle.body()?.ofertas
                                     ?.any { it.idDistribuidor == distributorId } == true
@@ -88,11 +76,25 @@ class DistributorViewModel : ViewModel() {
                 }
 
             } catch (e: Exception) {
-                // loading termina igual
+                _uiState.update {
+                    it.copy(errorMessage = "Error al cargar el perfil del distribuidor")
+                }
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
             }
         }
+    }
+
+    private suspend fun reloadReviews(distributorId: Int) {
+        try {
+            val reviewsResponse = RetrofitClient.getService()
+                .getDistributorReviews(distributorId, page = 1, limit = 20)
+            if (reviewsResponse.isSuccessful) {
+                _uiState.update {
+                    it.copy(reviews = reviewsResponse.body()?.reviews ?: emptyList())
+                }
+            }
+        } catch (_: Exception) { }
     }
 
     fun submitReview(
@@ -106,8 +108,6 @@ class DistributorViewModel : ViewModel() {
             return
         }
 
-        // Las reseñas de distribuidores van por producto, no directamente por distribuidor.
-        // Necesitamos al menos un producto del distribuidor para dejar la reseña.
         val primerProducto = _uiState.value.productos.firstOrNull()
         if (primerProducto == null) {
             _uiState.update {
@@ -129,15 +129,7 @@ class DistributorViewModel : ViewModel() {
                 )
                 if (response.isSuccessful) {
                     _uiState.update { it.copy(reviewSubmitSuccess = true) }
-                    // Recargar reseñas
-                    val reviewsResponse = RetrofitClient.getService().getDistributorReviews(
-                        distributorId, page = 1, limit = 20
-                    )
-                    if (reviewsResponse.isSuccessful) {
-                        _uiState.update {
-                            it.copy(reviews = reviewsResponse.body()?.reviews ?: emptyList())
-                        }
-                    }
+                    reloadReviews(distributorId)
                 } else {
                     val msg = when (response.code()) {
                         409 -> "Ya dejaste una reseña para este distribuidor"

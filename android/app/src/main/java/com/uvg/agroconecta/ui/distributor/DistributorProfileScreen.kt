@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.DistributorReview
-import com.uvg.agroconecta.data.models.DistributorRatingResponse
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.ui.theme.*
 import kotlinx.coroutines.flow.first
@@ -44,6 +43,7 @@ fun DistributorProfileScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val uiState by viewModel.uiState.collectAsState()
+    var mostrarTodosProductos by remember { mutableStateOf(false) }
 
     LaunchedEffect(distributorId) {
         val token = SessionManager.getToken(context).first()
@@ -91,7 +91,9 @@ fun DistributorProfileScreen(
 
         if (uiState.isLoading) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = GreenPrimary)
@@ -100,7 +102,9 @@ fun DistributorProfileScreen(
         }
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
 
@@ -121,7 +125,10 @@ fun DistributorProfileScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = uiState.distributorName.firstOrNull()?.uppercaseChar()?.toString() ?: "D",
+                            text = uiState.distributorName
+                                .firstOrNull()
+                                ?.uppercaseChar()
+                                ?.toString() ?: "D",
                             fontSize = 30.sp,
                             fontWeight = FontWeight.Bold,
                             color = GreenPrimaryDark
@@ -141,7 +148,10 @@ fun DistributorProfileScreen(
                             shape = RoundedCornerShape(20.dp)
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.padding(
+                                    horizontal = 10.dp,
+                                    vertical = 4.dp
+                                ),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
@@ -159,37 +169,35 @@ fun DistributorProfileScreen(
                             }
                         }
                     }
-                    // Rating resumen
-                    uiState.rating?.let { r ->
-                        if (r.totalResenas > 0) {
-                            Spacer(Modifier.height(12.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Star,
-                                    contentDescription = null,
-                                    tint = Color(0xFFFFC107),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = "%.1f".format(r.calificacionPromedio),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = GrayDark
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = "(${r.totalResenas} reseñas)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = GrayMid
-                                )
-                            }
+                    uiState.reviews.takeIf { it.isNotEmpty() }?.let {
+                        val promedio = it.map { r -> r.calificacion }.average()
+                        Spacer(Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Star,
+                                contentDescription = null,
+                                tint = Color(0xFFFFC107),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "%.1f".format(promedio),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = GrayDark
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "(${it.size} reseñas)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GrayMid
+                            )
                         }
                     }
                 }
             }
 
-            // ── Productos que vende ───────────────────────────────────────
+            // ── Productos disponibles ─────────────────────────────────────
             item {
                 SectionHeader(title = "Productos disponibles")
             }
@@ -204,11 +212,47 @@ fun DistributorProfileScreen(
                     )
                 }
             } else {
-                items(uiState.productos) { producto ->
+                val productosAMostrar = if (mostrarTodosProductos) {
+                    uiState.productos
+                } else {
+                    uiState.productos.take(5)
+                }
+
+                items(productosAMostrar) { producto ->
                     ProductoDistribuidorCard(
                         producto = producto,
                         onClick = { onProductoClick(producto.id) }
                     )
+                }
+
+                if (uiState.productos.size > 5) {
+                    item {
+                        TextButton(
+                            onClick = { mostrarTodosProductos = !mostrarTodosProductos },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (mostrarTodosProductos)
+                                    Icons.Default.ExpandLess
+                                else
+                                    Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = GreenPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = if (mostrarTodosProductos)
+                                    "Ver menos"
+                                else
+                                    "Ver más (${uiState.productos.size - 5} productos más)",
+                                color = GreenPrimary,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                    }
                 }
             }
 
@@ -220,7 +264,12 @@ fun DistributorProfileScreen(
                     onSubmit = { calificacion, comentario ->
                         scope.launch {
                             val token = SessionManager.getToken(context).first()
-                            viewModel.submitReview(distributorId, calificacion, comentario, token)
+                            viewModel.submitReview(
+                                distributorId,
+                                calificacion,
+                                comentario,
+                                token
+                            )
                         }
                     }
                 )
@@ -340,11 +389,11 @@ private fun ReviewFormCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Estrellas
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (i in 1..5) {
                     Icon(
-                        imageVector = if (i <= selectedStars) Icons.Default.Star else Icons.Outlined.StarOutline,
+                        imageVector = if (i <= selectedStars) Icons.Default.Star
+                        else Icons.Outlined.StarOutline,
                         contentDescription = "Estrella $i",
                         tint = if (i <= selectedStars) Color(0xFFFFC107) else GrayLight,
                         modifier = Modifier
@@ -423,7 +472,11 @@ private fun ReviewFormCard(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.Default.Send,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(Modifier.width(6.dp))
                     Text("Enviar reseña", style = MaterialTheme.typography.labelLarge)
                 }
@@ -451,7 +504,10 @@ private fun ReviewCard(review: DistributorReview) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = review.agricultorNombre?.firstOrNull()?.uppercaseChar()?.toString() ?: "A",
+                    text = review.agricultorNombre
+                        ?.firstOrNull()
+                        ?.uppercaseChar()
+                        ?.toString() ?: "A",
                     style = MaterialTheme.typography.titleSmall,
                     color = GreenPrimary,
                     fontWeight = FontWeight.Bold
@@ -480,7 +536,8 @@ private fun ReviewCard(review: DistributorReview) {
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     for (i in 1..5) {
                         Icon(
-                            imageVector = if (i <= review.calificacion) Icons.Default.Star else Icons.Outlined.StarOutline,
+                            imageVector = if (i <= review.calificacion) Icons.Default.Star
+                            else Icons.Outlined.StarOutline,
                             contentDescription = null,
                             tint = if (i <= review.calificacion) Color(0xFFFFC107) else GrayLight,
                             modifier = Modifier.size(14.dp)

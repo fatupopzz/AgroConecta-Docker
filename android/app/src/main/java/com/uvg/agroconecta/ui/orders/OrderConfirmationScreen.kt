@@ -3,13 +3,26 @@ package com.uvg.agroconecta.ui.orders
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.uvg.agroconecta.ui.cart.CartItemUI
 
+private val GreenPrimary = Color(0xFF2E7D32)
+private val GreenSurface = Color(0xFFF1F8E9)
+private val GrayMid = Color(0xFF78909C)
+private val GrayLight = Color(0xFFECEFF1)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderConfirmationScreen(
     items: List<CartItemUI>,
@@ -20,95 +33,258 @@ fun OrderConfirmationScreen(
     onConfirmOrder: () -> Unit,
     onBack: () -> Unit
 ) {
-    val isCashPayment = selectedPaymentMethod == "efectivo"
-    val canConfirm = deliveryAddress.isNotBlank() && items.isNotEmpty()
+    val canConfirm = deliveryAddress.length >= 5 && items.isNotEmpty()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Confirmar pedido",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = deliveryAddress,
-            onValueChange = onDeliveryAddressChange,
-            label = { Text("Dirección de entrega") },
-            modifier = Modifier.fillMaxWidth(),
-            isError = deliveryAddress.isBlank()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (isCashPayment) {
-            Text(
-                text = "Pague al recibir su pedido",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        "Confirmar pedido",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = GreenPrimary)
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        Text(
-            text = "Resumen del pedido",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(items) { item ->
-                Card(
-                    modifier = Modifier.fillMaxWidth()
+        },
+        bottomBar = {
+            Surface(shadowElevation = 8.dp) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(item.nombre, fontWeight = FontWeight.Bold)
-                        Text("Distribuidor: ${item.distribuidor}")
-                        Text("Cantidad: ${item.cantidad}")
-                        Text("Precio unitario: Q${item.precio}")
+                        Text(
+                            "Total a pagar",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = GrayMid
+                        )
+                        Text(
+                            "Q${"%.2f".format(total)}",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = GreenPrimary
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = onConfirmOrder,
+                        enabled = canConfirm,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Confirmar pedido",
+                            style = MaterialTheme.typography.titleSmall
+                        )
                     }
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Total: Q$total",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedButton(
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth()
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Regresar")
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
+            // ── Dirección de entrega ──────────────────────────────────────
+            item {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = GreenPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Dirección de entrega",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = deliveryAddress,
+                            onValueChange = onDeliveryAddressChange,
+                            placeholder = {
+                                Text(
+                                    "Ej: Aldea El Tablón, Jalapa",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = GrayMid
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            isError = deliveryAddress.isNotBlank() && deliveryAddress.length < 5,
+                            supportingText = {
+                                if (deliveryAddress.isNotBlank() && deliveryAddress.length < 5) {
+                                    Text(
+                                        "Ingresá una dirección más específica",
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = GreenPrimary,
+                                unfocusedBorderColor = GrayLight,
+                                cursorColor = GreenPrimary
+                            ),
+                            maxLines = 3
+                        )
+                    }
+                }
+            }
 
-        Button(
-            onClick = onConfirmOrder,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = canConfirm
-        ) {
-            Text("Confirmar pedido")
+            // ── Método de pago ────────────────────────────────────────────
+            item {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = GreenSurface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Payments,
+                            contentDescription = null,
+                            tint = GreenPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                "Método de pago",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = GrayMid
+                            )
+                            Text(
+                                "Pago contra entrega",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = GreenPrimary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── Resumen de productos ──────────────────────────────────────
+            item {
+                Text(
+                    "Resumen del pedido (${items.size} productos)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF37474F)
+                )
+            }
+
+            items(items) { item ->
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Ícono producto
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = GreenSurface,
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Eco,
+                                    contentDescription = null,
+                                    tint = GreenPrimary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.nombre,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = item.distribuidor,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GrayMid
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = GrayLight
+                            ) {
+                                Text(
+                                    text = "Cantidad: ${item.cantidad}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF37474F),
+                                    modifier = Modifier.padding(
+                                        horizontal = 8.dp,
+                                        vertical = 3.dp
+                                    )
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Q${"%.2f".format(item.precio * item.cantidad)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = GreenPrimary
+                        )
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(8.dp)) }
         }
     }
 }

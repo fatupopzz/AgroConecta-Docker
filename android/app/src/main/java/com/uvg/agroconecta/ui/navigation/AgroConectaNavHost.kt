@@ -97,7 +97,7 @@ fun AgroConectaNavHost(
             HomeScreen(
                 viewModel = homeViewModel,
                 onProductoClick = { productoId ->
-                    navController.navigate("product_detail/$productoId")
+                    navController.navigate(Screen.ProductDetail.createRoute(productoId))
                 },
                 onVerMasProductos = { },
                 onVerTodasCategorias = { },
@@ -105,7 +105,7 @@ fun AgroConectaNavHost(
                 onPerfilClick = { navController.navigate(Screen.Profile.route) },
                 onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
                 onDistribuidorClick = { distribuidorId ->
-                    navController.navigate("distributor_profile/$distribuidorId")
+                    navController.navigate(Screen.DistributorProfile.createRoute(distribuidorId))
                 }
             )
         }
@@ -216,7 +216,7 @@ fun AgroConectaNavHost(
         }
 
         composable(
-            route = "product_detail/{productoId}",
+            route = Screen.ProductDetail.route,
             arguments = listOf(navArgument("productoId") { type = NavType.IntType })
         ) { backStackEntry ->
             val productoId = backStackEntry.arguments?.getInt("productoId") ?: return@composable
@@ -228,7 +228,7 @@ fun AgroConectaNavHost(
         }
 
         composable(
-            route = "distributor_profile/{distribuidorId}",
+            route = Screen.DistributorProfile.route,
             arguments = listOf(navArgument("distribuidorId") { type = NavType.IntType })
         ) { backStackEntry ->
             val distribuidorId = backStackEntry.arguments?.getInt("distribuidorId") ?: return@composable
@@ -236,7 +236,7 @@ fun AgroConectaNavHost(
                 distributorId = distribuidorId,
                 onNavigateBack = { navController.popBackStack() },
                 onProductoClick = { productoId ->
-                    navController.navigate("product_detail/$productoId")
+                    navController.navigate(Screen.ProductDetail.createRoute(productoId))
                 }
             )
         }
@@ -250,6 +250,13 @@ fun AgroConectaNavHost(
         composable(Screen.Profile.route) {
             ProfileScreen(
                 onNavigateBack = { navController.popBackStack() },
+                onHomeClick = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = false }
+                    }
+                },
+                onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
+                onPedidosClick = { },
                 onLogout = {
                     authViewModel.resetLogin()
                     navController.navigate(Screen.Login.route) {
