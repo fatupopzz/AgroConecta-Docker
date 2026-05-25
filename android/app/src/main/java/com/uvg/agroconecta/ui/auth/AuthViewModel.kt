@@ -70,18 +70,20 @@ class AuthViewModel : ViewModel() {
                     val farmerId: Int
                     val perfilId: Int
                     val userId: Int
+                    val resolvedTipoUsuario: String
 
                     if (meResponse.isSuccessful && meResponse.body() != null) {
                         val me = meResponse.body()!!
-                        val tipoUsuario = body.tipoUsuario ?: me.user.tipoUsuario
+                        resolvedTipoUsuario = body.tipoUsuario ?: me.user.tipoUsuario ?: ""
                         farmerId = me.perfil?.idAgricultor ?: -1
-                        perfilId = when (tipoUsuario) {
+                        perfilId = when (resolvedTipoUsuario) {
                             "agricultor" -> me.perfil?.idAgricultor ?: -1
                             "distribuidor" -> me.perfil?.idDistribuidor ?: -1
                             else -> -1
                         }
                         userId = me.user.idUsuario
                     } else {
+                        resolvedTipoUsuario = body.tipoUsuario ?: ""
                         farmerId = if (body.tipoUsuario == "agricultor") body.idPerfil ?: -1 else -1
                         perfilId = body.idPerfil ?: -1
                         userId = -1
@@ -93,7 +95,7 @@ class AuthViewModel : ViewModel() {
                         nombre      = body.nombre ?: email.substringBefore("@"),
                         userId      = userId,
                         farmerId    = farmerId,
-                        tipoUsuario = body.tipoUsuario ?: "",
+                        tipoUsuario = resolvedTipoUsuario,
                         perfilId    = perfilId
                     )
                     _nombreUsuario.value = body.nombre ?: email.substringBefore("@")
