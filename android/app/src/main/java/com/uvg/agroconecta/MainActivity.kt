@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
@@ -15,10 +16,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         val initialTrackingOrderId = intent.getTrackingOrderId()
 
         setContent {
-            AgroConectaTheme {
+            AgroConectaTheme(darkTheme = false) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
                     AgroConectaNavHost(

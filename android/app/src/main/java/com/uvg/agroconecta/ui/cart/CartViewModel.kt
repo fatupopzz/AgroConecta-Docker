@@ -9,8 +9,8 @@ import kotlinx.coroutines.launch
 
 class CartViewModel : ViewModel() {
 
-    private val api = RetrofitClient.getService()
-    private var currentFarmerId: Int = 1
+    private var currentFarmerId: Int = -1
+    private var currentToken: String = ""
 
     private val _cartItems = MutableStateFlow<List<CartItemUI>>(emptyList())
     val cartItems: StateFlow<List<CartItemUI>> = _cartItems
@@ -21,12 +21,13 @@ class CartViewModel : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
-    fun loadCart(idAgricultor: Int) {
+    fun loadCart(idAgricultor: Int, token: String) {
         currentFarmerId = idAgricultor
+        currentToken = token
 
         viewModelScope.launch {
             try {
-                val response = api.getCart(idAgricultor)
+                val response = RetrofitClient.getService(token).getCart(idAgricultor)
 
                 if (response.isSuccessful) {
                     val cart = response.body()
@@ -46,7 +47,7 @@ class CartViewModel : ViewModel() {
                     _total.value = cart?.total ?: 0.0
                     _errorMessage.value = null
                 } else {
-                    _errorMessage.value = "No se pudo cargar el carrito"
+                    _errorMessage.value = "No se pudo cargar el carrito (${response.code()})"
                 }
             } catch (_: Exception) {
                 _errorMessage.value = "Error de conexión al cargar el carrito"
@@ -72,10 +73,11 @@ class CartViewModel : ViewModel() {
     fun removeItem(idItem: Int) {
         viewModelScope.launch {
             try {
-                val response = api.removeCartItem(currentFarmerId, idItem)
+                val response = RetrofitClient.getService(currentToken)
+                    .removeCartItem(currentFarmerId, idItem)
 
                 if (response.isSuccessful) {
-                    loadCart(currentFarmerId)
+                    loadCart(currentFarmerId, currentToken)
                     _errorMessage.value = null
                 } else {
                     _errorMessage.value = "No se pudo eliminar el producto"
@@ -89,14 +91,14 @@ class CartViewModel : ViewModel() {
     private fun updateQuantity(idItem: Int, cantidad: Int) {
         viewModelScope.launch {
             try {
-                val response = api.updateCartItem(
+                val response = RetrofitClient.getService(currentToken).updateCartItem(
                     idAgricultor = currentFarmerId,
                     idItem = idItem,
                     body = mapOf("cantidad" to cantidad)
                 )
 
                 if (response.isSuccessful) {
-                    loadCart(currentFarmerId)
+                    loadCart(currentFarmerId, currentToken)
                     _errorMessage.value = null
                 } else {
                     _errorMessage.value = "No se pudo actualizar la cantidad"

@@ -32,9 +32,9 @@ class OrderViewModel : ViewModel() {
     fun createCashOrder(
         idAgricultor: Int,
         items: List<CartItemUI>,
-        direccionEntrega: String
+        direccionEntrega: String,
+        token: String
     ) {
-
         if (items.isEmpty()) {
             _errorMessage.value = "El carrito está vacío"
             return
@@ -46,19 +46,15 @@ class OrderViewModel : ViewModel() {
         }
 
         val idDistribuidor = items.first().idDistribuidor
-        val hasSingleDistributor = items.all { item ->
-            item.idDistribuidor == idDistribuidor
-        }
+        val hasSingleDistributor = items.all { it.idDistribuidor == idDistribuidor }
 
         if (!hasSingleDistributor) {
-            _errorMessage.value = "Todos los productos del pedido deben pertenecer al mismo distribuidor"
+            _errorMessage.value = "Todos los productos deben ser del mismo distribuidor"
             return
         }
 
         viewModelScope.launch {
-
             try {
-
                 _isLoading.value = true
                 _errorMessage.value = null
 
@@ -75,29 +71,17 @@ class OrderViewModel : ViewModel() {
                     }
                 )
 
-                val response = RetrofitClient.getService().createOrder(request)
+                val response = RetrofitClient.getService(token).createOrder(request)
 
                 if (response.isSuccessful) {
-
-                    _successMessage.value =
-                        "Pedido creado exitosamente"
-
+                    _successMessage.value = "Pedido creado exitosamente"
                 } else {
-
-                    _errorMessage.value =
-                        "No se pudo crear el pedido"
-
+                    _errorMessage.value = "No se pudo crear el pedido (${response.code()})"
                 }
-
             } catch (e: Exception) {
-
-                _errorMessage.value =
-                    e.message ?: "Error inesperado"
-
+                _errorMessage.value = e.message ?: "Error inesperado"
             } finally {
-
                 _isLoading.value = false
-
             }
         }
     }

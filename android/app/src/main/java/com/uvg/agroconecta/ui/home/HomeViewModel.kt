@@ -14,30 +14,18 @@ import kotlinx.coroutines.launch
 
 data class HomeUiState(
     val nombreAgricultor: String = "",
-
-    // Categorías
     val categorias: List<Category> = emptyList(),
     val categoriaSeleccionadaId: Int? = null,
-
-    // Productos
     val productos: List<Product> = emptyList(),
     val currentPage: Int = 1,
     val hasMore: Boolean = true,
-
-    // Filtros
     val searchQuery: String = "",
     val filtroPrecioMin: Int? = null,
     val filtroPrecioMax: Int? = null,
     val filtroMarca: String = "",
     val filtrosAbiertos: Boolean = false,
-
-    // Oferta del día
     val ofertaDelDia: Product? = null,
-
-    // Distribuidores
     val distribuidores: List<Distributor> = emptyList(),
-
-    // Loading / error
     val isLoadingProductos: Boolean = false,
     val isLoadingCategorias: Boolean = false,
     val isLoadingDistribuidores: Boolean = false,
@@ -49,9 +37,10 @@ class HomeViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private val api = RetrofitClient.getService()
+    private var token: String? = null
 
-    init {
+    fun init(token: String?) {
+        this.token = token
         loadCategorias()
         loadProductos(reset = true)
         loadDistribuidores()
@@ -65,7 +54,7 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingCategorias = true) }
             try {
-                val response = api.getCategories()
+                val response = RetrofitClient.getService().getCategories()
                 if (response.isSuccessful) {
                     _uiState.update {
                         it.copy(
@@ -97,7 +86,7 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingProductos = true) }
             try {
-                val response = api.getProducts(
+                val response = RetrofitClient.getService().getProducts(
                     page = page,
                     limit = 10,
                     nombre = state.searchQuery.ifBlank { null },
@@ -130,7 +119,7 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingDistribuidores = true) }
             try {
-                val response = api.getVerifiedDistributors()
+                val response = RetrofitClient.getService(token).getVerifiedDistributors()
                 if (response.isSuccessful) {
                     val verificados = (response.body() ?: emptyList())
                         .filter { it.estadoVerificacion == "verificado" }

@@ -16,9 +16,14 @@ sealed class Screen(val route: String) {
         fun createRoute(orderId: Int) = "order_tracking/$orderId"
     }
     data object Profile : Screen("profile")
+    data object PublishProduct : Screen("publish_product")
 
-    data object ProductDetail : Screen("product_detail/{productId}") {
-        fun createRoute(productId: Int) = "product_detail/$productId"
+    data object ProductDetail : Screen("product_detail/{productoId}") {
+        fun createRoute(productoId: Int) = "product_detail/$productoId"
+    }
+
+    data object DistributorProfile : Screen("distributor_profile/{distribuidorId}") {
+        fun createRoute(distribuidorId: Int) = "distributor_profile/$distribuidorId"
     }
 
     data object Delivery : Screen(
@@ -36,5 +41,4 @@ sealed class Screen(val route: String) {
                 "&price=${android.net.Uri.encode(price)}" +
                 "&distributorName=${android.net.Uri.encode(distributorName)}"
     }
-    data object PublishProduct : Screen("publish_product")
 }
