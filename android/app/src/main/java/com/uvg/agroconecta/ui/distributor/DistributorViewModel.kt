@@ -55,12 +55,20 @@ class DistributorViewModel : ViewModel() {
                 // Reseñas
                 reloadReviews(distributorId)
 
-                // Productos — filtra directamente desde el listado para evitar patrón N+1
+                // Productos — loop con detalle para filtrar por distribuidor
                 val productosResponse = RetrofitClient.getService().getProducts(limit = 100)
                 if (productosResponse.isSuccessful) {
                     val todosProductos = productosResponse.body()?.products ?: emptyList()
+
                     val productosDelDist = todosProductos.filter { producto ->
-                        producto.ofertas?.any { it.idDistribuidor == distributorId } == true
+                        try {
+                            val detalle = api.getProductById(producto.id)
+                            detalle.isSuccessful &&
+                                    detalle.body()?.ofertas
+                                        ?.any { it.idDistribuidor == distributorId } == true
+                        } catch (_: Exception) {
+                            false
+                        }
                     }
 
                     _uiState.update { it.copy(productos = productosDelDist) }
@@ -110,7 +118,8 @@ class DistributorViewModel : ViewModel() {
         _uiState.update { it.copy(isSubmittingReview = true) }
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService(token).createReview(
+                // getService() sin token + header manual para evitar Authorization duplicado
+                val response = RetrofitClient.getService().createReview(
                     productoId = primerProducto.id,
                     token = "Bearer $token",
                     body = CreateReviewRequest(
