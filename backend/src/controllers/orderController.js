@@ -691,12 +691,47 @@ const updateOrderStatus = async (req, res) => {
 const getOrderTracking = async (req, res) => {
   try {
     const { id } = req.params;
+    const requesterId = req.user ? Number(req.user.id) : null;
+    const requesterTipo = req.user ? req.user.tipo : null;
 
     if (!isPositiveInteger(id)) {
       return res.status(400).json({ error: "ID de pedido inválido" });
     }
 
-    const tracking = await getOrderTrackingData(pool, Number(id));
+    if (!requesterId || !requesterTipo) {
+      return res.status(401).json({ error: "Usuario no autenticado" });
+    }
+
+    const orderId = Number(id);
+
+    const permissionResult = await pool.query(
+      `SELECT
+          a.id_usuario AS agricultor_usuario_id,
+          d.id_usuario AS distribuidor_usuario_id
+       FROM pedido p
+       JOIN agricultor a ON p.id_agricultor = a.id_agricultor
+       JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
+       WHERE p.id_pedido = $1`,
+      [orderId]
+    );
+
+    if (permissionResult.rows.length === 0) {
+      return res.status(404).json({ error: "Pedido no encontrado" });
+    }
+
+    const orderPermission = permissionResult.rows[0];
+    const canView =
+      requesterTipo === "administrador" ||
+      Number(orderPermission.agricultor_usuario_id) === requesterId ||
+      Number(orderPermission.distribuidor_usuario_id) === requesterId;
+
+    if (!canView) {
+      return res.status(403).json({
+        error: "No tienes permiso para ver el seguimiento de este pedido",
+      });
+    }
+
+    const tracking = await getOrderTrackingData(pool, orderId);
 
     if (!tracking) {
       return res.status(404).json({ error: "Pedido no encontrado" });
