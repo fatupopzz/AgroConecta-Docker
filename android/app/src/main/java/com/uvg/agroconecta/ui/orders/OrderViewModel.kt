@@ -29,6 +29,9 @@ class OrderViewModel : ViewModel() {
     private val _tracking = MutableStateFlow<OrderTrackingResponse?>(null)
     val tracking: StateFlow<OrderTrackingResponse?> = _tracking
 
+    private val _createdOrderId = MutableStateFlow<Int?>(null)
+    val createdOrderId: StateFlow<Int?> = _createdOrderId
+
     fun createCashOrder(
         idAgricultor: Int,
         items: List<CartItemUI>,
@@ -74,6 +77,7 @@ class OrderViewModel : ViewModel() {
                 val response = RetrofitClient.getService(token).createOrder(request)
 
                 if (response.isSuccessful) {
+                    _createdOrderId.value = response.body()?.pedido?.id
                     _successMessage.value = "Pedido creado exitosamente"
                 } else {
                     _errorMessage.value = "No se pudo crear el pedido (${response.code()})"
@@ -131,5 +135,9 @@ class OrderViewModel : ViewModel() {
 
     fun clearSuccessMessage() {
         _successMessage.value = null
+    }
+
+    fun clearCreatedOrderId() {
+        _createdOrderId.value = null
     }
 }

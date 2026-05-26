@@ -42,6 +42,7 @@ fun ProductDetailScreen(
     productId: Int,
     onNavigateBack: () -> Unit,
     onNavigateToCart: () -> Unit = {},
+    onAddedToCart: () -> Unit = {},
     viewModel: ProductViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -83,7 +84,11 @@ fun ProductDetailScreen(
 
     // ── Snackbars ─────────────────────────────────────────────────────────────
     LaunchedEffect(cartSuccess) {
-        cartSuccess?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
+        cartSuccess?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessages()
+            onAddedToCart()   // <-- NUEVO
+        }
     }
     LaunchedEffect(error) {
         error?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
@@ -358,14 +363,13 @@ private fun OfertaItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(text = offer.distribuidor, style = MaterialTheme.typography.titleSmall, color = GrayDark)
                 if (esVerificado) {
-                    Spacer(Modifier.width(6.dp))
-                    Surface(color = GreenPrimary, shape = RoundedCornerShape(4.dp)) {
-                        Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Verified, contentDescription = "Verificado", tint = Color.White, modifier = Modifier.size(10.dp))
-                            Spacer(Modifier.width(3.dp))
-                            Text("Verificado", style = MaterialTheme.typography.labelSmall, color = Color.White)
-                        }
-                    }
+                    Spacer(Modifier.width(4.dp))
+                    Icon(
+                        Icons.Default.Verified,
+                        contentDescription = "Verificado",
+                        tint = GreenPrimary,
+                        modifier = Modifier.size(14.dp)
+                    )
                 }
             }
             Spacer(Modifier.height(2.dp))

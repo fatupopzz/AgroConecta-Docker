@@ -1,16 +1,12 @@
 package com.uvg.agroconecta.ui.publish
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -19,9 +15,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.Category
+import com.uvg.agroconecta.ui.components.AppBottomBar
+import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.GrayLight
 import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPale
 import com.uvg.agroconecta.ui.theme.GreenPrimary
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -30,16 +27,17 @@ import kotlinx.coroutines.launch
 @Composable
 fun PublishProductScreen(
     onNavigateBack: () -> Unit,
+    onHomeClick: () -> Unit,
+    onPedidosClick: () -> Unit,
+    onPerfilClick: () -> Unit,
     viewModel: PublishProductViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
-
     val uiState by viewModel.uiState.collectAsState()
 
-    // Campos del formulario
     var nombre by remember { mutableStateOf("") }
     var marca by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf("") }
@@ -50,7 +48,6 @@ fun PublishProductScreen(
     var tiempoEntrega by remember { mutableStateOf("") }
     var dropdownExpanded by remember { mutableStateOf(false) }
 
-    // Reaccionar al estado de publicación
     LaunchedEffect(uiState.publishState) {
         when (val state = uiState.publishState) {
             is PublishState.Success -> {
@@ -71,78 +68,18 @@ fun PublishProductScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Publicar producto", color = Color.White) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = Color.White
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = GreenPrimary)
             )
         },
         bottomBar = {
-            Surface(shadowElevation = 8.dp) {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            val token = SessionManager.getToken(context).first()
-                            if (token == null) {
-                                snackbarHostState.showSnackbar("Sesión inválida")
-                                return@launch
-                            }
-                            if (nombre.isBlank()) {
-                                snackbarHostState.showSnackbar("El nombre es obligatorio")
-                                return@launch
-                            }
-                            if (categoriaSeleccionada == null) {
-                                snackbarHostState.showSnackbar("Seleccioná una categoría")
-                                return@launch
-                            }
-                            val precioNum = precio.toDoubleOrNull()
-                            if (precioNum == null || precioNum <= 0) {
-                                snackbarHostState.showSnackbar("Ingresá un precio válido")
-                                return@launch
-                            }
-                            val stockNum = stock.toIntOrNull()
-                            if (stockNum == null || stockNum < 0) {
-                                snackbarHostState.showSnackbar("Ingresá un stock válido")
-                                return@launch
-                            }
-                            viewModel.publishProduct(
-                                token = token,
-                                nombre = nombre,
-                                marca = marca,
-                                descripcion = descripcion,
-                                idCategoria = categoriaSeleccionada!!.id,
-                                precio = precioNum,
-                                stock = stockNum,
-                                unidadMedida = unidadMedida,
-                                tiempoEntrega = tiempoEntrega.toIntOrNull()
-                            )
-                        }
-                    },
-                    enabled = uiState.publishState !is PublishState.Loading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    if (uiState.publishState is PublishState.Loading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text("Publicar producto", style = MaterialTheme.typography.titleSmall)
-                    }
-                }
-            }
+            AppBottomBar(
+                selectedTab = BottomNavTab.AGREGAR,
+                tipoUsuario = "distribuidor",
+                onHomeClick = onHomeClick,
+                onAgregarClick = { },
+                onPedidosClick = onPedidosClick,
+                onPerfilClick = onPerfilClick
+            )
         }
     ) { padding ->
         Column(
@@ -153,7 +90,6 @@ fun PublishProductScreen(
                 .padding(horizontal = 16.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Nombre
             OutlinedTextField(
                 value = nombre,
                 onValueChange = { nombre = it },
@@ -162,8 +98,6 @@ fun PublishProductScreen(
                 singleLine = true,
                 colors = fieldColors()
             )
-
-            // Marca
             OutlinedTextField(
                 value = marca,
                 onValueChange = { marca = it },
@@ -172,8 +106,6 @@ fun PublishProductScreen(
                 singleLine = true,
                 colors = fieldColors()
             )
-
-            // Descripción
             OutlinedTextField(
                 value = descripcion,
                 onValueChange = { descripcion = it },
@@ -185,7 +117,6 @@ fun PublishProductScreen(
                 colors = fieldColors()
             )
 
-            // Categoría dropdown
             ExposedDropdownMenuBox(
                 expanded = dropdownExpanded,
                 onExpandedChange = { dropdownExpanded = !dropdownExpanded }
@@ -208,10 +139,7 @@ fun PublishProductScreen(
                     onDismissRequest = { dropdownExpanded = false }
                 ) {
                     if (uiState.isLoadingCategorias) {
-                        DropdownMenuItem(
-                            text = { Text("Cargando...") },
-                            onClick = {}
-                        )
+                        DropdownMenuItem(text = { Text("Cargando...") }, onClick = {})
                     } else {
                         uiState.categorias.forEach { cat ->
                             DropdownMenuItem(
@@ -234,7 +162,6 @@ fun PublishProductScreen(
                 color = GreenPrimary
             )
 
-            // Precio y stock en fila
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -259,7 +186,6 @@ fun PublishProductScreen(
                 )
             }
 
-            // Unidad de medida y tiempo entrega en fila
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -283,7 +209,45 @@ fun PublishProductScreen(
                 )
             }
 
-            Spacer(Modifier.height(80.dp))
+            // Botón publicar al fondo del scroll
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    scope.launch {
+                        val token = SessionManager.getToken(context).first()
+                        if (token == null) { snackbarHostState.showSnackbar("Sesión inválida"); return@launch }
+                        if (nombre.isBlank()) { snackbarHostState.showSnackbar("El nombre es obligatorio"); return@launch }
+                        if (categoriaSeleccionada == null) { snackbarHostState.showSnackbar("Seleccioná una categoría"); return@launch }
+                        val precioNum = precio.toDoubleOrNull()
+                        if (precioNum == null || precioNum <= 0) { snackbarHostState.showSnackbar("Ingresá un precio válido"); return@launch }
+                        val stockNum = stock.toIntOrNull()
+                        if (stockNum == null || stockNum < 0) { snackbarHostState.showSnackbar("Ingresá un stock válido"); return@launch }
+                        viewModel.publishProduct(
+                            token = token,
+                            nombre = nombre,
+                            marca = marca,
+                            descripcion = descripcion,
+                            idCategoria = categoriaSeleccionada!!.id,
+                            precio = precioNum,
+                            stock = stockNum,
+                            unidadMedida = unidadMedida,
+                            tiempoEntrega = tiempoEntrega.toIntOrNull()
+                        )
+                    }
+                },
+                enabled = uiState.publishState !is PublishState.Loading,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (uiState.publishState is PublishState.Loading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("Publicar producto", style = MaterialTheme.typography.titleSmall)
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
         }
     }
 }

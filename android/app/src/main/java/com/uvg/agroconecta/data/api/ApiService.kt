@@ -67,6 +67,11 @@ interface ApiService {
         @Path("id_item") idItem: Int
     ): Response<Map<String, Any>>
 
+    @DELETE("cart/{id_agricultor}")
+    suspend fun clearCart(
+        @Path("id_agricultor") idAgricultor: Int
+    ): Response<Map<String, Any>>
+
     // ── Orders (HU-015) ──────────────────────────────────────────────────
     @POST("orders")
     suspend fun createOrder(@Body request: CreateOrderRequest): Response<OrderResponse>
