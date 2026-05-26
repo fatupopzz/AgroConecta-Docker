@@ -49,6 +49,7 @@ fun HomeScreen(
     onPerfilClick: () -> Unit,
     onAgregarClick: () -> Unit,
     onDistribuidorClick: (Int) -> Unit,
+    tipoUsuario: String = "agricultor",
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -78,6 +79,7 @@ fun HomeScreen(
         bottomBar = {
             AppBottomBar(
                 selectedTab = BottomNavTab.HOME,
+                tipoUsuario = tipoUsuario,
                 onHomeClick = { },
                 onAgregarClick = onAgregarClick,
                 onPedidosClick = { },

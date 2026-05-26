@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.dp
 
 private val GreenPrimary = Color(0xFF2E7D32)
 
+// Serializable removido — CartItemUI ya no viaja por savedStateHandle,
+// se accede directamente desde el CartViewModel compartido.
 data class CartItemUI(
     val id: Int,
     val idInventario: Int,
@@ -23,7 +25,7 @@ data class CartItemUI(
     val distribuidor: String,
     val cantidad: Int,
     val precio: Double
-) : java.io.Serializable
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

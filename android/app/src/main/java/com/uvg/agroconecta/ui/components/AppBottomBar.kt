@@ -22,79 +22,84 @@ enum class BottomNavTab { HOME, AGREGAR, PEDIDOS, PERFIL }
 @Composable
 fun AppBottomBar(
     selectedTab: BottomNavTab,
+    tipoUsuario: String = "agricultor",
     onHomeClick: () -> Unit,
     onAgregarClick: () -> Unit,
     onPedidosClick: () -> Unit,
     onPerfilClick: () -> Unit
 ) {
     NavigationBar(containerColor = Color.White, tonalElevation = 4.dp) {
+
         NavigationBarItem(
             selected = selectedTab == BottomNavTab.HOME,
             onClick = onHomeClick,
             icon = {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            if (selectedTab == BottomNavTab.HOME)
-                                VerdeClaro.copy(alpha = 0.2f)
-                            else Color.Transparent,
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Home,
-                        contentDescription = "Home",
-                        tint = if (selectedTab == BottomNavTab.HOME) VerdeAgroConecta
-                        else GrisIcono
-                    )
-                }
-            },
-            label = null,
-            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
-        )
-        NavigationBarItem(
-            selected = selectedTab == BottomNavTab.AGREGAR,
-            onClick = onAgregarClick,
-            icon = {
-                Icon(
-                    Icons.Default.AddCircleOutline,
-                    contentDescription = "Agregar",
-                    tint = if (selectedTab == BottomNavTab.AGREGAR) VerdeAgroConecta
-                    else GrisIcono
+                NavIcon(
+                    selected = selectedTab == BottomNavTab.HOME,
+                    icon = { tint -> Icon(Icons.Default.Home, contentDescription = "Home", tint = tint) }
                 )
             },
             label = null,
             colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
         )
+
+        if (tipoUsuario == "distribuidor") {
+            NavigationBarItem(
+                selected = selectedTab == BottomNavTab.AGREGAR,
+                onClick = onAgregarClick,
+                icon = {
+                    NavIcon(
+                        selected = selectedTab == BottomNavTab.AGREGAR,
+                        icon = { tint -> Icon(Icons.Default.AddCircleOutline, contentDescription = "Publicar", tint = tint) }
+                    )
+                },
+                label = null,
+                colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
+            )
+        }
+
         NavigationBarItem(
             selected = selectedTab == BottomNavTab.PEDIDOS,
             onClick = onPedidosClick,
             icon = {
-                Icon(
-                    Icons.Default.List,
-                    contentDescription = "Pedidos",
-                    tint = if (selectedTab == BottomNavTab.PEDIDOS) VerdeAgroConecta
-                    else GrisIcono
+                NavIcon(
+                    selected = selectedTab == BottomNavTab.PEDIDOS,
+                    icon = { tint -> Icon(Icons.Default.List, contentDescription = "Pedidos", tint = tint) }
                 )
             },
             label = null,
             colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
         )
+
         NavigationBarItem(
             selected = selectedTab == BottomNavTab.PERFIL,
             onClick = onPerfilClick,
             icon = {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = "Perfil",
-                    tint = if (selectedTab == BottomNavTab.PERFIL) VerdeAgroConecta
-                    else GrisIcono
+                NavIcon(
+                    selected = selectedTab == BottomNavTab.PERFIL,
+                    icon = { tint -> Icon(Icons.Default.Person, contentDescription = "Perfil", tint = tint) }
                 )
             },
             label = null,
             colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
         )
+    }
+}
+
+@Composable
+private fun NavIcon(
+    selected: Boolean,
+    icon: @Composable (tint: Color) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .background(
+                color = if (selected) VerdeClaro.copy(alpha = 0.2f) else Color.Transparent,
+                shape = CircleShape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        icon(if (selected) VerdeAgroConecta else GrisIcono)
     }
 }

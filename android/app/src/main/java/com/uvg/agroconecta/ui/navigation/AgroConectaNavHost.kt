@@ -25,7 +25,6 @@ import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
-import com.uvg.agroconecta.ui.cart.CartItemUI
 import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
 import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
@@ -89,9 +88,12 @@ fun AgroConectaNavHost(
             val context = LocalContext.current
             val homeViewModel: HomeViewModel = viewModel()
             val nombre by authViewModel.nombreUsuario.observeAsState("")
+            // NUEVO — leer tipoUsuario del SessionManager
+            var tipoUsuario by remember { mutableStateOf("agricultor") }
 
             LaunchedEffect(Unit) {
                 val token = SessionManager.getToken(context).first()
+                tipoUsuario = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
                 homeViewModel.init(token)
             }
 
@@ -103,6 +105,7 @@ fun AgroConectaNavHost(
 
             HomeScreen(
                 viewModel = homeViewModel,
+                tipoUsuario = tipoUsuario,        // <-- NUEVO
                 onProductoClick = { productoId ->
                     navController.navigate(Screen.ProductDetail.createRoute(productoId))
                 },
@@ -117,6 +120,9 @@ fun AgroConectaNavHost(
             )
         }
 
+        // ── Cart ─────────────────────────────────────────────────────────────
+        // El CartViewModel se instancia aquí y se reutiliza en OrderConfirmation
+        // a través de viewModel(viewModelStoreOwner = cartEntry).
         composable(Screen.Cart.route) {
             val context = LocalContext.current
             val cartViewModel: CartViewModel = viewModel()
@@ -140,12 +146,8 @@ fun AgroConectaNavHost(
                 onDecreaseQuantity = { cartViewModel.decreaseQuantity(it) },
                 onRemoveItem = { cartViewModel.removeItem(it) },
                 onCheckout = {
-                    navController.currentBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("cart_items", ArrayList(cartItems))
-                    navController.currentBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("cart_total", total)
+                    // Navegamos directamente; los items se leen desde el CartViewModel
+                    // compartido en OrderConfirmation — no necesitamos savedStateHandle.
                     navController.navigate(Screen.OrderConfirmation.route)
                 },
                 onGoToCatalog = {
@@ -155,25 +157,27 @@ fun AgroConectaNavHost(
             )
         }
 
+        // ── OrderConfirmation ─────────────────────────────────────────────────
+        // Reutiliza el CartViewModel que vive en el backstack entry de Cart,
+        // evitando el problema de savedStateHandle con tipos Serializable.
         composable(Screen.OrderConfirmation.route) {
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
             val orderViewModel: OrderViewModel = viewModel()
+            val snackbarHostState = remember { SnackbarHostState() }
+
+            // Obtener la instancia existente del CartViewModel desde el backstack de Cart
+            val cartEntry = remember {
+                navController.getBackStackEntry(Screen.Cart.route)
+            }
+            val cartViewModel: CartViewModel = viewModel(viewModelStoreOwner = cartEntry)
+
+            val cartItems by cartViewModel.cartItems.collectAsState()
+            val total by cartViewModel.total.collectAsState()
+
             val isLoading by orderViewModel.isLoading.collectAsState()
             val successMessage by orderViewModel.successMessage.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()
-            val snackbarHostState = remember { SnackbarHostState() }
-
-            val previousEntry = navController.previousBackStackEntry
-            val cartItems: List<CartItemUI> = remember {
-                @Suppress("UNCHECKED_CAST")
-                previousEntry?.savedStateHandle
-                    ?.get<ArrayList<CartItemUI>>("cart_items")
-                    ?.toList() ?: emptyList()
-            }
-            val total: Double = remember {
-                previousEntry?.savedStateHandle?.get<Double>("cart_total") ?: 0.0
-            }
 
             var deliveryAddress by remember { mutableStateOf("") }
 
@@ -220,7 +224,7 @@ fun AgroConectaNavHost(
                     )
                 }
             }
-        }  // ← este cierre faltaba
+        }
 
         composable(Screen.OrderHistory.route) {
             val context = LocalContext.current
