@@ -7,57 +7,37 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.uvg.agroconecta.data.models.OrderTrackingChange
 import com.uvg.agroconecta.data.models.OrderTrackingResponse
+import com.uvg.agroconecta.ui.theme.*
 
-private data class TrackingStep(
-    val estado: String,
-    val label: String
-)
+private data class TrackingStep(val estado: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
 private val mainTrackingSteps = listOf(
-    TrackingStep("confirmado", "Confirmado"),
-    TrackingStep("preparando", "Preparando"),
-    TrackingStep("en_ruta", "En ruta"),
-    TrackingStep("entregado", "Entregado")
+    TrackingStep("confirmado", "Confirmado", Icons.Default.CheckCircle),
+    TrackingStep("preparando", "Preparando", Icons.Default.Inventory),
+    TrackingStep("en_ruta", "En ruta", Icons.Default.LocalShipping),
+    TrackingStep("entregado", "Entregado", Icons.Default.Home)
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderTrackingScreen(
     tracking: OrderTrackingResponse?,
@@ -66,41 +46,67 @@ fun OrderTrackingScreen(
     onBack: () -> Unit,
     onRetry: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Seguimiento del pedido",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        "Seguimiento del pedido",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = GreenPrimary)
+            )
+        },
+        containerColor = GrayLight
+    ) { padding ->
         Box(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
+                .fillMaxSize()
+                .padding(padding)
         ) {
             when {
                 isLoading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = GreenPrimary
+                    )
                 }
 
                 errorMessage != null -> {
                     Column(
-                        modifier = Modifier.align(Alignment.Center),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        Icon(
+                            Icons.Default.CloudOff,
+                            contentDescription = null,
+                            tint = GrayBorder,
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(Modifier.height(16.dp))
                         Text(
                             text = errorMessage,
-                            color = MaterialTheme.colorScheme.error,
+                            color = GrayMid,
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = onRetry) {
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = onRetry,
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+                        ) {
                             Text("Reintentar")
                         }
                     }
@@ -109,39 +115,29 @@ fun OrderTrackingScreen(
                 tracking != null -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        item {
-                            TrackingHeader(tracking = tracking)
+                        item { TrackingHeader(tracking = tracking) }
+                        item { TrackingStepper(currentEstado = tracking.estadoActual) }
+                        if (tracking.cambios.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "Historial",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GrayDark,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                            items(tracking.cambios) { change ->
+                                TimelineItem(change = change)
+                            }
                         }
-
-                        item {
-                            TrackingStepper(currentEstado = tracking.estadoActual)
-                        }
-
-                        item {
-                            Text(
-                                text = "Timeline",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        items(tracking.cambios) { change ->
-                            TimelineItem(change = change)
-                        }
+                        item { Spacer(Modifier.height(8.dp)) }
                     }
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedButton(
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Regresar")
         }
     }
 }
@@ -151,39 +147,78 @@ private fun TrackingHeader(tracking: OrderTrackingResponse) {
     val currentStepIndex = mainTrackingSteps.indexOfFirst { it.estado == tracking.estadoActual }
         .coerceAtLeast(0)
     val progress = (currentStepIndex + 1) / mainTrackingSteps.size.toFloat()
+    val isCanceled = tracking.estadoActual == "cancelado"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.LocalShipping,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Pedido #${tracking.idPedido}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(GreenSurface, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.LocalShipping,
+                        contentDescription = null,
+                        tint = GreenPrimary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(
+                        text = "Pedido #${tracking.idPedido}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = GrayDark
+                    )
+                    Text(
+                        text = tracking.estadoActual.toDisplayStatus(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isCanceled) MaterialTheme.colorScheme.error else GreenPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
 
-            Text("Estado actual: ${tracking.estadoActual.toDisplayStatus()}")
-            Text("Entrega estimada: ${tracking.tiempoEstimadoEntrega.toFriendlyDateTime()}")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        "Entrega estimada",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = GrayMid
+                    )
+                    Text(
+                        tracking.tiempoEstimadoEntrega.toFriendlyDateTime(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GrayDark
+                    )
+                }
+            }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LinearProgressIndicator(
-                progress = progress,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (!isCanceled) {
+                Spacer(Modifier.height(14.dp))
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = GreenPrimary,
+                    trackColor = GreenPale
+                )
+            }
         }
     }
 }
@@ -193,77 +228,110 @@ private fun TrackingStepper(currentEstado: String) {
     val currentIndex = mainTrackingSteps.indexOfFirst { it.estado == currentEstado }
     val isCanceled = currentEstado == "cancelado"
 
-    Column {
-        Text(
-            text = "Progreso",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "Progreso",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = GrayDark
+            )
+            Spacer(Modifier.height(16.dp))
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        mainTrackingSteps.forEachIndexed { index, step ->
-            val isDone = !isCanceled && currentIndex >= index
-            val isCurrent = !isCanceled && currentIndex == index
-
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    StepDot(isDone = isDone, isCurrent = isCurrent)
-                    if (index < mainTrackingSteps.lastIndex) {
-                        Box(
-                            modifier = Modifier
-                                .width(2.dp)
-                                .height(34.dp)
-                                .background(
-                                    if (currentIndex > index) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.outlineVariant
-                                    }
-                                )
+            if (isCanceled) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Cancel,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Pedido cancelado",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
+            } else {
+                mainTrackingSteps.forEachIndexed { index, step ->
+                    val isDone = currentIndex >= index
+                    val isCurrent = currentIndex == index
 
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.padding(top = 2.dp)) {
-                    Text(
-                        text = step.label,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
-                    )
-                    Text(
-                        text = if (isCurrent) "Estado actual" else if (isDone) "Completado" else "Pendiente",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            StepDot(isDone = isDone, isCurrent = isCurrent, icon = step.icon)
+                            if (index < mainTrackingSteps.lastIndex) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(2.dp)
+                                        .height(36.dp)
+                                        .background(
+                                            if (currentIndex > index) GreenPrimary else GrayLight
+                                        )
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(modifier = Modifier.padding(top = 4.dp)) {
+                            Text(
+                                text = step.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isDone) GrayDark else GrayMid
+                            )
+                            Text(
+                                text = when {
+                                    isCurrent -> "Estado actual"
+                                    isDone -> "Completado"
+                                    else -> "Pendiente"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when {
+                                    isCurrent -> GreenPrimary
+                                    isDone -> GrayMid
+                                    else -> GrayBorder
+                                }
+                            )
+                            if (index < mainTrackingSteps.lastIndex) {
+                                Spacer(Modifier.height(8.dp))
+                            }
+                        }
+                    }
                 }
-            }
-        }
-
-        if (isCanceled) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.errorContainer,
-                shape = MaterialTheme.shapes.small
-            ) {
-                Text(
-                    text = "Pedido cancelado",
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                )
             }
         }
     }
 }
 
 @Composable
-private fun StepDot(isDone: Boolean, isCurrent: Boolean) {
+private fun StepDot(
+    isDone: Boolean,
+    isCurrent: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
     val transition = rememberInfiniteTransition(label = "trackingPulse")
     val scale by transition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.18f,
+        targetValue = 1.15f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 700, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -273,44 +341,72 @@ private fun StepDot(isDone: Boolean, isCurrent: Boolean) {
 
     Box(
         modifier = Modifier
-            .size(28.dp)
+            .size(32.dp)
             .scale(if (isCurrent) scale else 1f)
             .background(
-                color = if (isDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                color = when {
+                    isDone -> GreenPrimary
+                    else -> GrayLight
+                },
                 shape = CircleShape
             ),
         contentAlignment = Alignment.Center
     ) {
-        if (isDone) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(16.dp)
-            )
-        }
+        Icon(
+            imageVector = if (isDone) Icons.Default.Check else icon,
+            contentDescription = null,
+            tint = if (isDone) Color.White else GrayBorder,
+            modifier = Modifier.size(16.dp)
+        )
     }
 }
 
 @Composable
 private fun TimelineItem(change: OrderTrackingChange) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text(
-                text = change.estado.toDisplayStatus(),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = change.timestamp.toFriendlyDateTime(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            change.notas?.takeIf { it.isNotBlank() }?.let { notes ->
-                Spacer(modifier = Modifier.height(8.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(notes)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(GreenSurface, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.History,
+                    contentDescription = null,
+                    tint = GreenPrimary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = change.estado.toDisplayStatus(),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = GrayDark
+                )
+                Text(
+                    text = change.timestamp.toFriendlyDateTime(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GrayMid
+                )
+                change.notas?.takeIf { it.isNotBlank() }?.let { notes ->
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = notes,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrayDark
+                    )
+                }
             }
         }
     }
@@ -327,9 +423,6 @@ private fun String.toDisplayStatus(): String =
     }
 
 private fun String?.toFriendlyDateTime(): String {
-    if (isNullOrBlank()) {
-        return "Pendiente"
-    }
-
+    if (isNullOrBlank()) return "Pendiente"
     return take(16).replace("T", " ")
 }
