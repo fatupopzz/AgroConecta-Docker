@@ -159,12 +159,6 @@ fun AgroConectaNavHost(
                 onDecreaseQuantity = { sharedCartViewModel.decreaseQuantity(it) },
                 onRemoveItem = { sharedCartViewModel.removeItem(it) },
                 onCheckout = {
-                    navController.currentBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("cart_items", ArrayList(cartItemsState))
-                    navController.currentBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("cart_total", total)
                     navController.navigate(Screen.OrderConfirmation.route)
                 },
                 onGoToCatalog = {
@@ -181,9 +175,8 @@ fun AgroConectaNavHost(
             val errorMessage by orderViewModel.errorMessage.collectAsState()
             val createdOrderId by orderViewModel.createdOrderId.collectAsState()
             val snackbarHostState = remember { SnackbarHostState() }
-
-            val cartItemsForOrder: List<CartItemUI> by sharedCartViewModel.cartItems.observeAsState(emptyList())
-            val total: Double by sharedCartViewModel.total.observeAsState(0.0)
+            val cartItemsForOrder by sharedCartViewModel.cartItems.collectAsState()
+            val total by sharedCartViewModel.total.collectAsState()
 
             var deliveryAddress by remember { mutableStateOf("") }
 
@@ -192,14 +185,12 @@ fun AgroConectaNavHost(
                     snackbarHostState.showSnackbar("¡Pedido creado exitosamente!")
                     orderViewModel.clearSuccessMessage()
 
-                    // Limpiar carrito en backend y frontend
                     val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                     val token = SessionManager.getToken(context).first()
                     if (farmerId != -1) {
                         sharedCartViewModel.clearCart(idAgricultor = farmerId, token = token)
                     }
 
-                    // Navegar a tracking del pedido recién creado
                     val orderId = createdOrderId
                     orderViewModel.clearCreatedOrderId()
                     if (orderId != null) {
