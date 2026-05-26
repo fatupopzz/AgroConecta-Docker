@@ -14,6 +14,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import androidx.compose.runtime.livedata.observeAsState
 import com.uvg.agroconecta.ui.auth.AuthViewModel
@@ -25,6 +26,7 @@ import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
+import com.uvg.agroconecta.ui.cart.CartItemUI
 import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
 import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
@@ -42,6 +44,26 @@ fun AgroConectaNavHost(
     authViewModel: AuthViewModel = viewModel(),
     initialTrackingOrderId: Int? = null
 ) {
+    val context = LocalContext.current
+    val sharedCartViewModel: CartViewModel = viewModel()
+    val cartItems by sharedCartViewModel.cartItems.collectAsState()
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+
+    // Recargar carrito cada vez que se navega de vuelta a Home
+    LaunchedEffect(currentBackStackEntry?.destination?.route) {
+        val route = currentBackStackEntry?.destination?.route
+        if (route == Screen.Home.route) {
+            val token = SessionManager.getToken(context).first() ?: return@LaunchedEffect
+            val tipoUsuario = SessionManager.getTipoUsuario(context).first() ?: return@LaunchedEffect
+            if (tipoUsuario == "agricultor") {
+                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                if (farmerId != -1) {
+                    sharedCartViewModel.loadCart(idAgricultor = farmerId, token = token)
+                }
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Login.route
@@ -52,7 +74,6 @@ fun AgroConectaNavHost(
                     val destination = initialTrackingOrderId?.let {
                         Screen.OrderTracking.createRoute(it)
                     } ?: Screen.Home.route
-
                     navController.navigate(destination) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
@@ -85,10 +106,8 @@ fun AgroConectaNavHost(
         }
 
         composable(Screen.Home.route) {
-            val context = LocalContext.current
             val homeViewModel: HomeViewModel = viewModel()
             val nombre by authViewModel.nombreUsuario.observeAsState("")
-            // NUEVO — leer tipoUsuario del SessionManager
             var tipoUsuario by remember { mutableStateOf("agricultor") }
 
             LaunchedEffect(Unit) {
@@ -98,14 +117,13 @@ fun AgroConectaNavHost(
             }
 
             LaunchedEffect(nombre) {
-                if (nombre.isNotBlank()) {
-                    homeViewModel.setNombreAgricultor(nombre)
-                }
+                if (nombre.isNotBlank()) homeViewModel.setNombreAgricultor(nombre)
             }
 
             HomeScreen(
                 viewModel = homeViewModel,
-                tipoUsuario = tipoUsuario,        // <-- NUEVO
+                tipoUsuario = tipoUsuario,
+                cartItemCount = cartItems.size,
                 onProductoClick = { productoId ->
                     navController.navigate(Screen.ProductDetail.createRoute(productoId))
                 },
@@ -114,40 +132,40 @@ fun AgroConectaNavHost(
                 onCarritoClick = { navController.navigate(Screen.Cart.route) },
                 onPerfilClick = { navController.navigate(Screen.Profile.route) },
                 onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
+                onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
                 onDistribuidorClick = { distribuidorId ->
                     navController.navigate(Screen.DistributorProfile.createRoute(distribuidorId))
                 }
             )
         }
 
-        // ── Cart ─────────────────────────────────────────────────────────────
-        // El CartViewModel se instancia aquí y se reutiliza en OrderConfirmation
-        // a través de viewModel(viewModelStoreOwner = cartEntry).
         composable(Screen.Cart.route) {
-            val context = LocalContext.current
-            val cartViewModel: CartViewModel = viewModel()
-            val cartItems by cartViewModel.cartItems.collectAsState()
-            val total by cartViewModel.total.collectAsState()
-            val errorMessage by cartViewModel.errorMessage.collectAsState()
+            val cartItemsState by sharedCartViewModel.cartItems.collectAsState()
+            val total by sharedCartViewModel.total.collectAsState()
+            val errorMessage by sharedCartViewModel.errorMessage.collectAsState()
 
             LaunchedEffect(Unit) {
                 val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                 val token = SessionManager.getToken(context).first() ?: return@LaunchedEffect
                 if (farmerId != -1) {
-                    cartViewModel.loadCart(idAgricultor = farmerId, token = token)
+                    sharedCartViewModel.loadCart(idAgricultor = farmerId, token = token)
                 }
             }
 
             CartScreen(
-                items = cartItems,
+                items = cartItemsState,
                 total = total,
                 errorMessage = errorMessage,
-                onIncreaseQuantity = { cartViewModel.increaseQuantity(it) },
-                onDecreaseQuantity = { cartViewModel.decreaseQuantity(it) },
-                onRemoveItem = { cartViewModel.removeItem(it) },
+                onIncreaseQuantity = { sharedCartViewModel.increaseQuantity(it) },
+                onDecreaseQuantity = { sharedCartViewModel.decreaseQuantity(it) },
+                onRemoveItem = { sharedCartViewModel.removeItem(it) },
                 onCheckout = {
-                    // Navegamos directamente; los items se leen desde el CartViewModel
-                    // compartido en OrderConfirmation — no necesitamos savedStateHandle.
+                    navController.currentBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("cart_items", ArrayList(cartItemsState))
+                    navController.currentBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("cart_total", total)
                     navController.navigate(Screen.OrderConfirmation.route)
                 },
                 onGoToCatalog = {
@@ -157,27 +175,24 @@ fun AgroConectaNavHost(
             )
         }
 
-        // ── OrderConfirmation ─────────────────────────────────────────────────
-        // Reutiliza el CartViewModel que vive en el backstack entry de Cart,
-        // evitando el problema de savedStateHandle con tipos Serializable.
         composable(Screen.OrderConfirmation.route) {
-            val context = LocalContext.current
             val scope = rememberCoroutineScope()
             val orderViewModel: OrderViewModel = viewModel()
-            val snackbarHostState = remember { SnackbarHostState() }
-
-            // Obtener la instancia existente del CartViewModel desde el backstack de Cart
-            val cartEntry = remember {
-                navController.getBackStackEntry(Screen.Cart.route)
-            }
-            val cartViewModel: CartViewModel = viewModel(viewModelStoreOwner = cartEntry)
-
-            val cartItems by cartViewModel.cartItems.collectAsState()
-            val total by cartViewModel.total.collectAsState()
-
             val isLoading by orderViewModel.isLoading.collectAsState()
             val successMessage by orderViewModel.successMessage.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()
+            val snackbarHostState = remember { SnackbarHostState() }
+
+            val previousEntry = navController.previousBackStackEntry
+            val cartItemsForOrder: List<CartItemUI> = remember {
+                @Suppress("UNCHECKED_CAST")
+                previousEntry?.savedStateHandle
+                    ?.get<ArrayList<CartItemUI>>("cart_items")
+                    ?.toList() ?: emptyList()
+            }
+            val total: Double = remember {
+                previousEntry?.savedStateHandle?.get<Double>("cart_total") ?: 0.0
+            }
 
             var deliveryAddress by remember { mutableStateOf("") }
 
@@ -185,16 +200,20 @@ fun AgroConectaNavHost(
                 successMessage?.let {
                     snackbarHostState.showSnackbar("¡Pedido creado exitosamente!")
                     orderViewModel.clearSuccessMessage()
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true }
+                    // Limpiar carrito compartido
+                    val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                    val token = SessionManager.getToken(context).first() ?: return@LaunchedEffect
+                    if (farmerId != -1) {
+                        sharedCartViewModel.loadCart(idAgricultor = farmerId, token = token)
+                    }
+                    navController.navigate(Screen.OrderHistory.route) {
+                        popUpTo(Screen.Home.route) { inclusive = false }
                     }
                 }
             }
 
             LaunchedEffect(errorMessage) {
-                errorMessage?.let {
-                    snackbarHostState.showSnackbar(it)
-                }
+                errorMessage?.let { snackbarHostState.showSnackbar(it) }
             }
 
             Scaffold(
@@ -202,7 +221,7 @@ fun AgroConectaNavHost(
             ) { padding ->
                 Box(modifier = Modifier.padding(padding)) {
                     OrderConfirmationScreen(
-                        items = cartItems,
+                        items = cartItemsForOrder,
                         total = total,
                         selectedPaymentMethod = "efectivo",
                         deliveryAddress = deliveryAddress,
@@ -214,7 +233,7 @@ fun AgroConectaNavHost(
                                 if (farmerId == -1) return@launch
                                 orderViewModel.createCashOrder(
                                     idAgricultor = farmerId,
-                                    items = cartItems,
+                                    items = cartItemsForOrder,
                                     direccionEntrega = deliveryAddress,
                                     token = token
                                 )
@@ -227,7 +246,6 @@ fun AgroConectaNavHost(
         }
 
         composable(Screen.OrderHistory.route) {
-            val context = LocalContext.current
             val orderViewModel: OrderViewModel = viewModel()
             val orders by orderViewModel.orders.collectAsState()
             val isLoading by orderViewModel.isLoading.collectAsState()
@@ -248,7 +266,15 @@ fun AgroConectaNavHost(
                 onTrackOrder = { orderId ->
                     navController.navigate(Screen.OrderTracking.createRoute(orderId))
                 },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onHomeClick = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
+                onPerfilClick = { navController.navigate(Screen.Profile.route) }
             )
         }
 
@@ -256,7 +282,6 @@ fun AgroConectaNavHost(
             route = Screen.OrderTracking.route,
             arguments = listOf(navArgument("orderId") { type = NavType.IntType })
         ) { backStackEntry ->
-            val context = LocalContext.current
             val orderId = backStackEntry.arguments?.getInt("orderId") ?: return@composable
             val orderViewModel: OrderViewModel = viewModel()
             val tracking by orderViewModel.tracking.collectAsState()
@@ -274,9 +299,7 @@ fun AgroConectaNavHost(
                 isLoading = isLoading,
                 errorMessage = errorMessage,
                 onBack = { navController.popBackStack() },
-                onRetry = {
-                    orderViewModel.loadOrderTracking(orderId, token)
-                }
+                onRetry = { orderViewModel.loadOrderTracking(orderId, token) }
             )
         }
 
@@ -285,10 +308,21 @@ fun AgroConectaNavHost(
             arguments = listOf(navArgument("productoId") { type = NavType.IntType })
         ) { backStackEntry ->
             val productoId = backStackEntry.arguments?.getInt("productoId") ?: return@composable
+            val scope = rememberCoroutineScope()
             ProductDetailScreen(
                 productId = productoId,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToCart = { navController.navigate(Screen.Cart.route) }
+                onNavigateToCart = { navController.navigate(Screen.Cart.route) },
+                onAddedToCart = {
+                    // Recargar carrito compartido inmediatamente al agregar
+                    scope.launch {
+                        val token = SessionManager.getToken(context).first() ?: return@launch
+                        val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                        if (farmerId != -1) {
+                            sharedCartViewModel.loadCart(idAgricultor = farmerId, token = token)
+                        }
+                    }
+                }
             )
         }
 
@@ -308,7 +342,15 @@ fun AgroConectaNavHost(
 
         composable(Screen.PublishProduct.route) {
             PublishProductScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onHomeClick = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
+                onPerfilClick = { navController.navigate(Screen.Profile.route) }
             )
         }
 

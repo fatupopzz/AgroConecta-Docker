@@ -6,7 +6,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -17,7 +16,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +29,7 @@ import com.uvg.agroconecta.data.models.Distributor
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
+import androidx.compose.ui.draw.clip
 
 private val VerdeAgroConecta = Color(0xFF2D6A1F)
 private val VerdeClaro = Color(0xFF4CAF50)
@@ -48,8 +47,10 @@ fun HomeScreen(
     onCarritoClick: () -> Unit,
     onPerfilClick: () -> Unit,
     onAgregarClick: () -> Unit,
+    onPedidosClick: () -> Unit,
     onDistribuidorClick: (Int) -> Unit,
     tipoUsuario: String = "agricultor",
+    cartItemCount: Int = 0,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -82,7 +83,7 @@ fun HomeScreen(
                 tipoUsuario = tipoUsuario,
                 onHomeClick = { },
                 onAgregarClick = onAgregarClick,
-                onPedidosClick = { },
+                onPedidosClick = onPedidosClick,
                 onPerfilClick = onPerfilClick
             )
         }
@@ -96,12 +97,13 @@ fun HomeScreen(
             item {
                 HomeHeader(
                     nombre = uiState.nombreAgricultor,
+                    tipoUsuario = tipoUsuario,
+                    cartItemCount = cartItemCount,
                     searchQuery = uiState.searchQuery,
                     onSearchChange = { viewModel.onSearchChange(it) },
                     onSearchSubmit = { viewModel.onSearchSubmit() },
                     onFiltrosClick = { viewModel.abrirFiltros() },
-                    onCarritoClick = onCarritoClick,
-                    onPerfilClick = onPerfilClick
+                    onCarritoClick = onCarritoClick
                 )
             }
             item {
@@ -142,12 +144,13 @@ fun HomeScreen(
 @Composable
 private fun HomeHeader(
     nombre: String,
+    tipoUsuario: String,
+    cartItemCount: Int,
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     onSearchSubmit: () -> Unit,
     onFiltrosClick: () -> Unit,
-    onCarritoClick: () -> Unit,
-    onPerfilClick: () -> Unit
+    onCarritoClick: () -> Unit
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -165,33 +168,29 @@ private fun HomeHeader(
             Column {
                 Text("Buen día,", color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp)
                 Text(
-                    text = nombre.ifBlank { "Agricultor" },
+                    text = nombre.ifBlank { if (tipoUsuario == "distribuidor") "Distribuidor" else "Agricultor" },
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onCarritoClick) {
-                    Icon(Icons.Outlined.ShoppingCart, contentDescription = "Carrito", tint = Color.White)
-                }
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(VerdeClaro)
-                        .clickable { onPerfilClick() },
-                    contentAlignment = Alignment.Center
+
+            // Solo agricultores ven el carrito en el header
+            if (tipoUsuario != "distribuidor") {
+                BadgedBox(
+                    badge = {
+                        if (cartItemCount > 0) {
+                            Badge { Text("$cartItemCount") }
+                        }
+                    }
                 ) {
-                    Text(
-                        text = nombre.firstOrNull()?.uppercase() ?: "A",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
+                    IconButton(onClick = onCarritoClick) {
+                        Icon(
+                            Icons.Outlined.ShoppingCart,
+                            contentDescription = "Carrito",
+                            tint = Color.White
+                        )
+                    }
                 }
             }
         }
@@ -586,3 +585,4 @@ private fun DistribuidorCard(
         }
     }
 }
+
