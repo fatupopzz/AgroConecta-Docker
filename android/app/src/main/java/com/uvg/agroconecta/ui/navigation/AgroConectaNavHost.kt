@@ -182,15 +182,16 @@ fun AgroConectaNavHost(
 
             LaunchedEffect(successMessage) {
                 successMessage?.let {
-                    snackbarHostState.showSnackbar("¡Pedido creado exitosamente!")
                     orderViewModel.clearSuccessMessage()
 
+                    // Limpiar carrito sin esperar
                     val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                     val token = SessionManager.getToken(context).first()
                     if (farmerId != -1) {
                         sharedCartViewModel.clearCart(idAgricultor = farmerId, token = token)
                     }
 
+                    // Navegar inmediatamente
                     val orderId = createdOrderId
                     orderViewModel.clearCreatedOrderId()
                     if (orderId != null) {
