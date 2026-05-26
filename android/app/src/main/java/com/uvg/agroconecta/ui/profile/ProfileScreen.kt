@@ -1,5 +1,6 @@
 package com.uvg.agroconecta.ui.profile
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.ErrorRed
@@ -33,6 +35,7 @@ import com.uvg.agroconecta.ui.theme.GreenSurface
 import com.uvg.agroconecta.ui.theme.OrangeAccent
 import com.uvg.agroconecta.ui.theme.OrangeLight
 import com.uvg.agroconecta.ui.theme.VerifiedBlue
+import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,8 +52,10 @@ fun ProfileScreen(
     val isLoggingOut by viewModel.isLoggingOut.collectAsState()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var tipoUsuario by remember { mutableStateOf("agricultor") }
 
     LaunchedEffect(Unit) {
+        tipoUsuario = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
         viewModel.loadProfile(context)
     }
 
@@ -84,6 +89,7 @@ fun ProfileScreen(
         bottomBar = {
             AppBottomBar(
                 selectedTab = BottomNavTab.PERFIL,
+                tipoUsuario = tipoUsuario,
                 onHomeClick = onHomeClick,
                 onAgregarClick = onAgregarClick,
                 onPedidosClick = onPedidosClick,
