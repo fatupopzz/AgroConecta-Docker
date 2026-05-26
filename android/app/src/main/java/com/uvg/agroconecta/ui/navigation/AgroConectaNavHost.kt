@@ -182,16 +182,8 @@ fun AgroConectaNavHost(
             val createdOrderId by orderViewModel.createdOrderId.collectAsState()
             val snackbarHostState = remember { SnackbarHostState() }
 
-            val previousEntry = navController.previousBackStackEntry
-            val cartItemsForOrder: List<CartItemUI> = remember {
-                @Suppress("UNCHECKED_CAST")
-                previousEntry?.savedStateHandle
-                    ?.get<ArrayList<CartItemUI>>("cart_items")
-                    ?.toList() ?: emptyList()
-            }
-            val total: Double = remember {
-                previousEntry?.savedStateHandle?.get<Double>("cart_total") ?: 0.0
-            }
+            val cartItemsForOrder: List<CartItemUI> by sharedCartViewModel.cartItems.observeAsState(emptyList())
+            val total: Double by sharedCartViewModel.total.observeAsState(0.0)
 
             var deliveryAddress by remember { mutableStateOf("") }
 
