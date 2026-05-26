@@ -49,7 +49,6 @@ fun AgroConectaNavHost(
     val cartItems by sharedCartViewModel.cartItems.collectAsState()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
 
-    // Recargar carrito cada vez que se navega de vuelta a Home
     LaunchedEffect(currentBackStackEntry?.destination?.route) {
         val route = currentBackStackEntry?.destination?.route
         if (route == Screen.Home.route) {
@@ -178,9 +177,9 @@ fun AgroConectaNavHost(
         composable(Screen.OrderConfirmation.route) {
             val scope = rememberCoroutineScope()
             val orderViewModel: OrderViewModel = viewModel()
-            val isLoading by orderViewModel.isLoading.collectAsState()
             val successMessage by orderViewModel.successMessage.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()
+            val createdOrderId by orderViewModel.createdOrderId.collectAsState()
             val snackbarHostState = remember { SnackbarHostState() }
 
             val previousEntry = navController.previousBackStackEntry
@@ -200,14 +199,25 @@ fun AgroConectaNavHost(
                 successMessage?.let {
                     snackbarHostState.showSnackbar("¡Pedido creado exitosamente!")
                     orderViewModel.clearSuccessMessage()
-                    // Limpiar carrito compartido
+
+                    // Limpiar carrito en backend y frontend
                     val farmerId = SessionManager.getFarmerId(context).first() ?: -1
-                    val token = SessionManager.getToken(context).first() ?: return@LaunchedEffect
+                    val token = SessionManager.getToken(context).first()
                     if (farmerId != -1) {
-                        sharedCartViewModel.loadCart(idAgricultor = farmerId, token = token)
+                        sharedCartViewModel.clearCart(idAgricultor = farmerId, token = token)
                     }
-                    navController.navigate(Screen.OrderHistory.route) {
-                        popUpTo(Screen.Home.route) { inclusive = false }
+
+                    // Navegar a tracking del pedido recién creado
+                    val orderId = createdOrderId
+                    orderViewModel.clearCreatedOrderId()
+                    if (orderId != null) {
+                        navController.navigate(Screen.OrderTracking.createRoute(orderId)) {
+                            popUpTo(Screen.Home.route) { inclusive = false }
+                        }
+                    } else {
+                        navController.navigate(Screen.OrderHistory.route) {
+                            popUpTo(Screen.Home.route) { inclusive = false }
+                        }
                     }
                 }
             }
@@ -314,7 +324,6 @@ fun AgroConectaNavHost(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToCart = { navController.navigate(Screen.Cart.route) },
                 onAddedToCart = {
-                    // Recargar carrito compartido inmediatamente al agregar
                     scope.launch {
                         val token = SessionManager.getToken(context).first() ?: return@launch
                         val farmerId = SessionManager.getFarmerId(context).first() ?: -1
