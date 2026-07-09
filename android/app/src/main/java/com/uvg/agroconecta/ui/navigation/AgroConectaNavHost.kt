@@ -26,9 +26,9 @@ import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
-import com.uvg.agroconecta.ui.cart.CartItemUI
 import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
+import com.uvg.agroconecta.ui.dosecalculator.DoseCalculatorScreen
 import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
 import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
 import com.uvg.agroconecta.ui.orders.OrderTrackingScreen
@@ -49,12 +49,26 @@ fun AgroConectaNavHost(
     val cartItems by sharedCartViewModel.cartItems.collectAsState()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
 
+    // ── tipoUsuario a nivel global del NavHost ──
+    val tipoUsuarioFlow by SessionManager.getTipoUsuario(context)
+        .collectAsState(initial = null)
+    val tipoUsuario = tipoUsuarioFlow ?: "agricultor"
+
+    // ── Lambda compartida: segundo tab navega según tipo ──
+    val onAgregarClick: () -> Unit = {
+        if (tipoUsuario == "distribuidor") {
+            navController.navigate(Screen.PublishProduct.route)
+        } else {
+            navController.navigate(Screen.DoseCalculator.route)
+        }
+    }
+
     LaunchedEffect(currentBackStackEntry?.destination?.route) {
         val route = currentBackStackEntry?.destination?.route
         if (route == Screen.Home.route) {
             val token = SessionManager.getToken(context).first() ?: return@LaunchedEffect
-            val tipoUsuario = SessionManager.getTipoUsuario(context).first() ?: return@LaunchedEffect
-            if (tipoUsuario == "agricultor") {
+            val tipo = SessionManager.getTipoUsuario(context).first() ?: return@LaunchedEffect
+            if (tipo == "agricultor") {
                 val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                 if (farmerId != -1) {
                     sharedCartViewModel.loadCart(idAgricultor = farmerId, token = token)
@@ -107,11 +121,9 @@ fun AgroConectaNavHost(
         composable(Screen.Home.route) {
             val homeViewModel: HomeViewModel = viewModel()
             val nombre by authViewModel.nombreUsuario.observeAsState("")
-            var tipoUsuario by remember { mutableStateOf("agricultor") }
 
             LaunchedEffect(Unit) {
                 val token = SessionManager.getToken(context).first()
-                tipoUsuario = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
                 homeViewModel.init(token)
             }
 
@@ -130,7 +142,7 @@ fun AgroConectaNavHost(
                 onVerTodasCategorias = { },
                 onCarritoClick = { navController.navigate(Screen.Cart.route) },
                 onPerfilClick = { navController.navigate(Screen.Profile.route) },
-                onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
+                onAgregarClick = onAgregarClick,
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
                 onDistribuidorClick = { distribuidorId ->
                     navController.navigate(Screen.DistributorProfile.createRoute(distribuidorId))
@@ -184,14 +196,12 @@ fun AgroConectaNavHost(
                 successMessage?.let {
                     orderViewModel.clearSuccessMessage()
 
-                    // Limpiar carrito sin esperar
                     val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                     val token = SessionManager.getToken(context).first()
                     if (farmerId != -1) {
                         sharedCartViewModel.clearCart(idAgricultor = farmerId, token = token)
                     }
 
-                    // Navegar inmediatamente
                     val orderId = createdOrderId
                     orderViewModel.clearCreatedOrderId()
                     if (orderId != null) {
@@ -267,7 +277,7 @@ fun AgroConectaNavHost(
                         launchSingleTop = true
                     }
                 },
-                onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
+                onAgregarClick = onAgregarClick,
                 onPerfilClick = { navController.navigate(Screen.Profile.route) }
             )
         }
@@ -347,6 +357,20 @@ fun AgroConectaNavHost(
             )
         }
 
+        composable(Screen.DoseCalculator.route) {
+            DoseCalculatorScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onHomeClick = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
+                onPerfilClick = { navController.navigate(Screen.Profile.route) }
+            )
+        }
+
         composable(Screen.Profile.route) {
             ProfileScreen(
                 onNavigateBack = { navController.popBackStack() },
@@ -356,7 +380,7 @@ fun AgroConectaNavHost(
                         launchSingleTop = true
                     }
                 },
-                onAgregarClick = { navController.navigate(Screen.PublishProduct.route) },
+                onAgregarClick = onAgregarClick,
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
                 onLogout = {
                     authViewModel.resetLogin()
