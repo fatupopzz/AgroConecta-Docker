@@ -54,12 +54,16 @@ fun AgroConectaNavHost(
         .collectAsState(initial = null)
     val tipoUsuario = tipoUsuarioFlow ?: "agricultor"
 
-    // ── Lambda compartida: segundo tab navega según tipo ──
+    // ── Lambda compartida: onAgregarClick ──
     val onAgregarClick: () -> Unit = {
         if (tipoUsuario == "distribuidor") {
-            navController.navigate(Screen.PublishProduct.route)
+            navController.navigate(Screen.PublishProduct.route) {
+                launchSingleTop = true
+            }
         } else {
-            navController.navigate(Screen.DoseCalculator.route)
+            navController.navigate(Screen.DoseCalculator.route) {
+                launchSingleTop = true
+            }
         }
     }
 
