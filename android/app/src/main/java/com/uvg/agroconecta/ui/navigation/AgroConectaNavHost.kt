@@ -56,15 +56,13 @@ fun AgroConectaNavHost(
 
     // ── Lambda compartida: onAgregarClick ──
     val onAgregarClick: () -> Unit = {
-        tipoUsuarioFlow?.let { tipo ->
-            if (tipo == "distribuidor") {
-                navController.navigate(Screen.PublishProduct.route) {
-                    launchSingleTop = true
-                }
-            } else {
-                navController.navigate(Screen.DoseCalculator.route) {
-                    launchSingleTop = true
-                }
+        if (tipoUsuario == "distribuidor") {
+            navController.navigate(Screen.PublishProduct.route) {
+                launchSingleTop = true
+            }
+        } else {
+            navController.navigate(Screen.DoseCalculator.route) {
+                launchSingleTop = true
             }
         }
     }
