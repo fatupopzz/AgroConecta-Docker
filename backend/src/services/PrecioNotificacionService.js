@@ -1,4 +1,5 @@
 const { NOTIFICATION_TYPES } = require("../constants/notificationTypes");
+const { NotificacionService } = require("./NotificacionService");
 const ProductoSeguidoRepository = require("../repositories/ProductoSeguidoRepository");
 
 class PrecioNotificacionServiceError extends Error {
@@ -35,8 +36,12 @@ const calculateDiscountPercentage = (precioAnterior, precioNuevo) =>
   Number((((precioAnterior - precioNuevo) / precioAnterior) * 100).toFixed(2));
 
 class PrecioNotificacionService {
-  constructor(productoSeguidoRepository = new ProductoSeguidoRepository()) {
+  constructor(
+    productoSeguidoRepository = new ProductoSeguidoRepository(),
+    notificacionService = new NotificacionService()
+  ) {
     this.productoSeguidoRepository = productoSeguidoRepository;
+    this.notificacionService = notificacionService;
   }
 
   async verificarYNotificarBajaDePrecio(idProducto, precioAnterior, precioNuevo) {
@@ -53,10 +58,24 @@ class PrecioNotificacionService {
         precio_nuevo: roundMoney(newPrice),
         porcentaje_descuento: 0,
         seguidores: [],
+        notificaciones_creadas: [],
       };
     }
 
     const seguidores = await this.productoSeguidoRepository.findByIdProducto(productoId);
+    const porcentajeDescuento = calculateDiscountPercentage(previousPrice, newPrice);
+    const notificacionesCreadas = [];
+
+    for (const seguimiento of seguidores) {
+      const notificacion = await this.notificacionService.crearNotificacionBajaPrecio(
+        seguimiento.idAgricultor,
+        productoId,
+        previousPrice,
+        newPrice,
+        porcentajeDescuento
+      );
+      notificacionesCreadas.push(notificacion);
+    }
 
     return {
       hay_baja_precio: true,
@@ -64,8 +83,9 @@ class PrecioNotificacionService {
       id_producto: productoId,
       precio_anterior: roundMoney(previousPrice),
       precio_nuevo: roundMoney(newPrice),
-      porcentaje_descuento: calculateDiscountPercentage(previousPrice, newPrice),
+      porcentaje_descuento: porcentajeDescuento,
       seguidores,
+      notificaciones_creadas: notificacionesCreadas,
     };
   }
 }
