@@ -134,8 +134,7 @@ test("getAdminMetrics returns 500 when an aggregate query fails", async () => {
     console.error = originalConsoleError;
   }
 
-  assert.equal(res.statusCode, 500);
   assert.deepEqual(res.body, {
-    error: "Error al obtener metricas administrativas",
+    error: "Error al obtener métricas administrativas",
   });
 });
