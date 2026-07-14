@@ -126,6 +126,20 @@ data class DistributorCompare(
     @SerializedName("es_precio_mas_bajo") val esPrecioMasBajo: Boolean
 )
 
+data class ProductFollowResponse(
+    val siguiendo: Boolean,
+    @SerializedName("producto_seguido") val productoSeguido: FollowedProduct? = null,
+    val message: String? = null
+)
+
+data class FollowedProduct(
+    val id: Int,
+    @SerializedName("id_agricultor") val idAgricultor: Int,
+    @SerializedName("id_producto") val idProducto: Int,
+    @SerializedName("precio_al_seguir") val precioAlSeguir: Double,
+    val fecha: String?
+)
+
 // ─── Category ────────────────────────────────────────────────────────────────
 
 data class Category(

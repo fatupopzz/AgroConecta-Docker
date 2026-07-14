@@ -36,6 +36,15 @@ interface ApiService {
     @GET("products/{id}/compare")
     suspend fun compareProductPrices(@Path("id") id: Int): Response<PriceComparison>
 
+    @GET("products/{id}/seguidos")
+    suspend fun getProductFollowStatus(@Path("id") id: Int): Response<ProductFollowResponse>
+
+    @POST("products/{id}/seguir")
+    suspend fun followProductPrice(@Path("id") id: Int): Response<ProductFollowResponse>
+
+    @DELETE("products/{id}/seguir")
+    suspend fun unfollowProductPrice(@Path("id") id: Int): Response<ProductFollowResponse>
+
     // ── Categories ───────────────────────────────────────────────────────
     @GET("categories")
     suspend fun getCategories(): Response<List<Category>>
