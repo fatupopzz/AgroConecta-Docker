@@ -7,6 +7,10 @@ const {
   verifyDistributor,
   rejectDistributor,
 } = require("../controllers/adminDistributorController");
+const { getAdminMetrics } = require("../controllers/adminMetricsController");
+
+// GET /api/admin/metrics
+router.get("/metrics", verifyAdmin, getAdminMetrics);
 
 // GET /api/admin/distributors/pending
 router.get("/distributors/pending", verifyAdmin, getPendingDistributors);

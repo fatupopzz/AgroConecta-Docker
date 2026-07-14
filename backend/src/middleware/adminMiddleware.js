@@ -2,18 +2,15 @@ const jwt = require("jsonwebtoken");
 
 /**
  * Middleware que verifica que el token JWT corresponde a un usuario administrador.
- * Retorna 403 si no hay token o si el tipo de usuario no es 'administrador'.
- *
- * TODO (Juan Jose): revisar y reemplazar con implementación final si aplica.
+ * Retorna 401 si falta o falla el token, y 403 si el usuario no es administrador.
  */
 const verifyAdmin = (req, res, next) => {
   const authHeader = req.headers["authorization"];
+  const [scheme, token] = authHeader ? authHeader.split(" ") : [];
 
-  if (!authHeader) {
-    return res.status(403).json({ error: "Token requerido" });
+  if (scheme !== "Bearer" || !token) {
+    return res.status(401).json({ error: "Token requerido" });
   }
-
-  const token = authHeader.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -25,7 +22,7 @@ const verifyAdmin = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
-    return res.status(403).json({ error: "Token inválido o expirado" });
+    return res.status(401).json({ error: "Token inválido o expirado" });
   }
 };
 
