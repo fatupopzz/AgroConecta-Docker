@@ -28,7 +28,8 @@ object SessionManager {
     private val USER_ID_KEY = intPreferencesKey("user_id")
     private val FARMER_ID_KEY = intPreferencesKey("farmer_id")
     private val TIPO_USUARIO_KEY = stringPreferencesKey("tipo_usuario")
-    private val PERFIL_ID_KEY    = intPreferencesKey("perfil_id")
+    private val PERFIL_ID_KEY = intPreferencesKey("perfil_id")
+    private val DELIVERY_ADDRESS_KEY = stringPreferencesKey("delivery_address")
 
     suspend fun saveSession(
         context: Context,
@@ -70,6 +71,15 @@ object SessionManager {
 
     fun getPerfilId(context: Context): Flow<Int?> =
         context.dataStore.data.map { it[PERFIL_ID_KEY] }
+
+    suspend fun saveDeliveryAddress(context: Context, address: String) {
+        context.dataStore.edit { prefs ->
+            prefs[DELIVERY_ADDRESS_KEY] = address
+        }
+    }
+
+    fun getDeliveryAddress(context: Context): Flow<String?> =
+        context.dataStore.data.map { it[DELIVERY_ADDRESS_KEY] }
 }
 
 // ─── Retrofit Client ─────────────────────────────────────────────────────────
@@ -134,5 +144,4 @@ object RetrofitClient {
         }
         return "$normalized/"
     }
-
 }
