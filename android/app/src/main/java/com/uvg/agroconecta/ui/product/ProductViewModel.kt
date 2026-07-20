@@ -116,10 +116,14 @@ class ProductViewModel : ViewModel() {
                 val response = RetrofitClient.getService(token).getProductFollowStatus(productoId)
                 if (response.isSuccessful) {
                     _isFollowingPrice.value = response.body()?.siguiendo == true
-                } else if (response.code() == 403) {
+                } else if (response.code() == 401 || response.code() == 403) {
+                    _isFollowingPrice.value = false
+                } else {
                     _isFollowingPrice.value = false
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                _isFollowingPrice.value = false
+            }
         }
     }
 

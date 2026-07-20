@@ -39,6 +39,19 @@ const parseDiscountPercentage = (value) => {
   return Number(parsed.toFixed(2));
 };
 
+const normalizeProductName = (value) => {
+  if (typeof value !== "string") {
+    return "Producto";
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return "Producto";
+  }
+
+  return trimmed.slice(0, 150);
+};
+
 class NotificacionService {
   constructor(db = pool) {
     this.db = db;
@@ -60,7 +73,7 @@ class NotificacionService {
 
     const contenido = {
       id_producto: productoId,
-      producto: product.nombre,
+      producto: normalizeProductName(product.nombre),
       precio_anterior: previousPrice,
       precio_nuevo: newPrice,
       porcentaje_descuento: discountPercentage,
@@ -69,9 +82,9 @@ class NotificacionService {
     const result = await this.db.query(
       `INSERT INTO notificacion
          (id_agricultor, tipo, contenido)
-       VALUES ($1, $2, $3)
+       VALUES ($1, $2, $3::jsonb)
        RETURNING *`,
-      [agricultorId, NOTIFICATION_TYPES.BAJA_PRECIO, contenido]
+      [agricultorId, NOTIFICATION_TYPES.BAJA_PRECIO, JSON.stringify(contenido)]
     );
 
     return result.rows[0];

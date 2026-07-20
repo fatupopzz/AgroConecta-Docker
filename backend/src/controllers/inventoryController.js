@@ -219,6 +219,9 @@ const updateInventory = async (req, res) => {
     return res.status(400).json({ error: "No hay campos válidos para actualizar" });
   }
 
+  let client;
+  let transactionStarted = false;
+
   try {
     const distResult = await pool.query(
       `SELECT id_distribuidor, estado_verificacion
@@ -237,24 +240,31 @@ const updateInventory = async (req, res) => {
       return res.status(403).json({ error: "Tu cuenta aún no está verificada" });
     }
 
-    const previousInventory = await pool.query(
+    client = await pool.connect();
+    await client.query("BEGIN");
+    transactionStarted = true;
+
+    const previousInventory = await client.query(
       `SELECT id_inventario,
               id_distribuidor,
               id_producto,
               precio
        FROM inventario_distribuidor
        WHERE id_inventario = $1
-         AND id_distribuidor = $2`,
+         AND id_distribuidor = $2
+       FOR UPDATE`,
       [Number(req.params.id), id_distribuidor]
     );
 
     if (previousInventory.rows.length === 0) {
+      await client.query("ROLLBACK");
+      transactionStarted = false;
       return res.status(404).json({ error: "Inventario no encontrado" });
     }
 
     values.push(Number(req.params.id), id_distribuidor);
 
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE inventario_distribuidor
        SET ${fields.join(", ")},
            ultima_actualizacion = NOW()
@@ -263,6 +273,9 @@ const updateInventory = async (req, res) => {
        RETURNING *`,
       values
     );
+
+    await client.query("COMMIT");
+    transactionStarted = false;
 
     const previousPrice = Number(previousInventory.rows[0].precio);
     const newPrice = Number(result.rows[0].precio);
@@ -280,8 +293,18 @@ const updateInventory = async (req, res) => {
       inventario: result.rows[0],
     });
   } catch (error) {
+    if (client && transactionStarted) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Error en rollback de updateInventory:", rollbackError);
+      }
+    }
+
     console.error("Error en updateInventory:", error);
     return res.status(500).json({ error: "Error al actualizar inventario" });
+  } finally {
+    if (client) client.release();
   }
 };
 

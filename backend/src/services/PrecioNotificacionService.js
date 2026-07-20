@@ -64,17 +64,44 @@ class PrecioNotificacionService {
 
     const seguidores = await this.productoSeguidoRepository.findByIdProducto(productoId);
     const porcentajeDescuento = calculateDiscountPercentage(previousPrice, newPrice);
-    const notificacionesCreadas = [];
+    const notificationResults = await Promise.allSettled(
+      seguidores.map((seguimiento) =>
+        this.notificacionService.crearNotificacionBajaPrecio(
+          seguimiento.idAgricultor,
+          productoId,
+          previousPrice,
+          newPrice,
+          porcentajeDescuento
+        )
+      )
+    );
 
-    for (const seguimiento of seguidores) {
-      const notificacion = await this.notificacionService.crearNotificacionBajaPrecio(
-        seguimiento.idAgricultor,
-        productoId,
-        previousPrice,
-        newPrice,
-        porcentajeDescuento
+    const notificacionesCreadas = [];
+    const notificacionesFallidas = [];
+
+    notificationResults.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        notificacionesCreadas.push(result.value);
+        return;
+      }
+
+      const seguimiento = seguidores[index];
+      notificacionesFallidas.push({
+        id_agricultor: seguimiento.idAgricultor,
+        error: result.reason?.message || "Error al crear notificación",
+      });
+      console.error("Error al crear notificación de baja de precio:", {
+        id_agricultor: seguimiento.idAgricultor,
+        id_producto: productoId,
+        error: result.reason,
+      });
+    });
+
+    if (notificacionesCreadas.length === 0 && notificacionesFallidas.length > 0) {
+      throw new PrecioNotificacionServiceError(
+        "No se pudo crear ninguna notificación de baja de precio",
+        500
       );
-      notificacionesCreadas.push(notificacion);
     }
 
     return {
@@ -86,6 +113,7 @@ class PrecioNotificacionService {
       porcentaje_descuento: porcentajeDescuento,
       seguidores,
       notificaciones_creadas: notificacionesCreadas,
+      notificaciones_fallidas: notificacionesFallidas,
     };
   }
 }
