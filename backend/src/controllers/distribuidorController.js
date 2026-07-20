@@ -29,6 +29,7 @@ const getDistributorById = async (req, res) => {
   }
 
   try {
+    // Obtener información del distribuidor
     const result = await pool.query(
       `SELECT d.*, u.nombre, u.telefono, u.email
        FROM distribuidor d
@@ -38,13 +39,36 @@ const getDistributorById = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Distribuidor no encontrado" });
+      return res.status(404).json({
+        error: "Distribuidor no encontrado",
+      });
     }
 
-    res.json(result.rows[0]);
+    // Obtener promedio y cantidad de reseñas
+    const reviews = await pool.query(
+      `SELECT
+          ROUND(AVG(calificacion),2) AS calificacion_promedio,
+          COUNT(*) AS cantidad_resenas
+       FROM resena_distribuidor
+       WHERE id_distribuidor = $1`,
+      [id]
+    );
+
+    res.json({
+      ...result.rows[0],
+
+      calificacion_promedio:
+        reviews.rows[0].calificacion_promedio ?? 0,
+
+      cantidad_resenas:
+        Number(reviews.rows[0].cantidad_resenas)
+    });
+
   } catch (error) {
     console.error("Error en getDistributorById:", error);
-    res.status(500).json({ error: "Error al obtener distribuidor" });
+    res.status(500).json({
+      error: "Error al obtener distribuidor",
+    });
   }
 };
 

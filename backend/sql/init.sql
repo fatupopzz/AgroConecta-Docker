@@ -197,8 +197,15 @@ CREATE INDEX IF NOT EXISTS idx_notificacion_agricultor_fecha
 CREATE INDEX IF NOT EXISTS idx_notificacion_tipo
     ON notificacion (tipo);
 
-
-
+CREATE TABLE IF NOT EXISTS resena_distribuidor (
+    id_resena SERIAL PRIMARY KEY,
+    id_agricultor INTEGER NOT NULL REFERENCES agricultor(id_agricultor),
+    id_distribuidor INTEGER NOT NULL REFERENCES distribuidor(id_distribuidor),
+    calificacion INTEGER NOT NULL CHECK (calificacion BETWEEN 1 AND 5),
+    comentario TEXT,
+    fecha_resena TIMESTAMP DEFAULT NOW(),
+    UNIQUE (id_agricultor, id_distribuidor)
+);
 
 INSERT INTO categoria (nombre, descripcion) VALUES
     ('Fertilizantes', 'Productos para nutrición del suelo y cultivos'),

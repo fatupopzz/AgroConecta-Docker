@@ -43,20 +43,24 @@ fun AppBottomBar(
             colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
         )
 
-        if (tipoUsuario == "distribuidor") {
-            NavigationBarItem(
-                selected = selectedTab == BottomNavTab.AGREGAR,
-                onClick = onAgregarClick,
-                icon = {
-                    NavIcon(
-                        selected = selectedTab == BottomNavTab.AGREGAR,
-                        icon = { tint -> Icon(Icons.Default.AddCircleOutline, contentDescription = "Publicar", tint = tint) }
-                    )
-                },
-                label = null,
-                colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
-            )
-        }
+        NavigationBarItem(
+            selected = selectedTab == BottomNavTab.AGREGAR,
+            onClick = onAgregarClick,
+            icon = {
+                NavIcon(
+                    selected = selectedTab == BottomNavTab.AGREGAR,
+                    icon = { tint ->
+                        if (tipoUsuario == "distribuidor") {
+                            Icon(Icons.Default.AddCircleOutline, contentDescription = "Publicar", tint = tint)
+                        } else {
+                            Icon(Icons.Default.Calculate, contentDescription = "Calculadora", tint = tint)
+                        }
+                    }
+                )
+            },
+            label = null,
+            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
+        )
 
         NavigationBarItem(
             selected = selectedTab == BottomNavTab.PEDIDOS,
