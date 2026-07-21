@@ -80,6 +80,30 @@ const runStartupMigrations = async () => {
        FROM pedido_tracking pt
        WHERE pt.id_pedido = p.id_pedido
      )`,
+    `CREATE TABLE IF NOT EXISTS producto_seguido (
+       id SERIAL PRIMARY KEY,
+       id_agricultor INT NOT NULL REFERENCES agricultor(id_agricultor) ON DELETE CASCADE,
+       id_producto INT NOT NULL REFERENCES producto(id_producto) ON DELETE CASCADE,
+       precio_al_seguir DECIMAL(10,2) NOT NULL,
+       fecha TIMESTAMP DEFAULT NOW(),
+       UNIQUE (id_agricultor, id_producto)
+     )`,
+    `CREATE INDEX IF NOT EXISTS idx_producto_seguido_agricultor_producto
+     ON producto_seguido (id_agricultor, id_producto)`,
+    `CREATE INDEX IF NOT EXISTS idx_producto_seguido_producto
+     ON producto_seguido (id_producto)`,
+    `CREATE TABLE IF NOT EXISTS notificacion (
+       id_notificacion SERIAL PRIMARY KEY,
+       id_agricultor INT REFERENCES agricultor(id_agricultor) ON DELETE CASCADE,
+       tipo VARCHAR(40),
+       contenido JSONB DEFAULT '{}'::jsonb,
+       leida BOOLEAN DEFAULT FALSE,
+       fecha TIMESTAMP DEFAULT NOW()
+     )`,
+    `CREATE INDEX IF NOT EXISTS idx_notificacion_agricultor_fecha
+     ON notificacion (id_agricultor, fecha DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_notificacion_tipo
+     ON notificacion (tipo)`,
   ];
 
   for (const statement of statements) {
