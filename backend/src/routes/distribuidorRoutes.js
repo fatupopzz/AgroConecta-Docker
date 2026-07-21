@@ -9,11 +9,13 @@ const {
   deleteDistributor,
   getDistributorRating,
   getDistributorReviews,
+  getDistributorProducts
 } = require("../controllers/distribuidorController");
 
 router.get("/", getDistributors);
 router.get("/:id/rating", getDistributorRating);
 router.get("/:id/reviews", getDistributorReviews);
+router.get("/:id/productos", getDistributorProducts);
 router.get("/:id", getDistributorById);
 router.post("/", createDistributor);
 router.put("/:id", updateDistributor);
