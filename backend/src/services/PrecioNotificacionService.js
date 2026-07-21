@@ -32,8 +32,56 @@ const parsePositivePrice = (value, fieldName) => {
 
 const roundMoney = (value) => Number(Number(value).toFixed(2));
 
-const calculateDiscountPercentage = (precioAnterior, precioNuevo) =>
-  Number((((precioAnterior - precioNuevo) / precioAnterior) * 100).toFixed(2));
+const normalizeOptionalMoney = (value) => {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+
+  return roundMoney(value);
+};
+
+const calculateDiscountPercentage = (precioAnterior, precioNuevo) => {
+  if (!Number.isFinite(precioAnterior) || precioAnterior <= 0 || !Number.isFinite(precioNuevo)) {
+    return 0;
+  }
+
+  const discountPercentage = ((precioAnterior - precioNuevo) / precioAnterior) * 100;
+  return Number(Math.max(discountPercentage, 0).toFixed(2));
+};
+
+const NOTIFICATION_BATCH_SIZE = 10;
+
+const createNotificationsWithLimit = async (
+  seguidores,
+  notificacionService,
+  productoId,
+  previousPrice,
+  newPrice,
+  porcentajeDescuento
+) => {
+  const results = [];
+
+  for (let index = 0; index < seguidores.length; index += NOTIFICATION_BATCH_SIZE) {
+    const batch = seguidores.slice(index, index + NOTIFICATION_BATCH_SIZE);
+    const batchResults = await Promise.allSettled(
+      batch.map((seguimiento) =>
+        notificacionService.crearNotificacionBajaPrecio(
+          seguimiento.idAgricultor,
+          productoId,
+          previousPrice,
+          newPrice,
+          porcentajeDescuento
+        )
+      )
+    );
+
+    batchResults.forEach((result, batchIndex) => {
+      results.push({ result, seguimiento: batch[batchIndex] });
+    });
+  }
+
+  return results;
+};
 
 class PrecioNotificacionService {
   constructor(
@@ -46,15 +94,15 @@ class PrecioNotificacionService {
 
   async verificarYNotificarBajaDePrecio(idProducto, precioAnterior, precioNuevo) {
     const productoId = parsePositiveInteger(idProducto, "id_producto");
-    const previousPrice = parsePositivePrice(precioAnterior, "precio_anterior");
+    const previousPrice = Number(precioAnterior);
     const newPrice = parsePositivePrice(precioNuevo, "precio_nuevo");
 
-    if (newPrice >= previousPrice) {
+    if (!Number.isFinite(previousPrice) || previousPrice <= 0 || newPrice >= previousPrice) {
       return {
         hay_baja_precio: false,
         tipo_notificacion: NOTIFICATION_TYPES.BAJA_PRECIO,
         id_producto: productoId,
-        precio_anterior: roundMoney(previousPrice),
+        precio_anterior: normalizeOptionalMoney(previousPrice),
         precio_nuevo: roundMoney(newPrice),
         porcentaje_descuento: 0,
         seguidores: [],
@@ -64,28 +112,24 @@ class PrecioNotificacionService {
 
     const seguidores = await this.productoSeguidoRepository.findByIdProducto(productoId);
     const porcentajeDescuento = calculateDiscountPercentage(previousPrice, newPrice);
-    const notificationResults = await Promise.allSettled(
-      seguidores.map((seguimiento) =>
-        this.notificacionService.crearNotificacionBajaPrecio(
-          seguimiento.idAgricultor,
-          productoId,
-          previousPrice,
-          newPrice,
-          porcentajeDescuento
-        )
-      )
+    const notificationResults = await createNotificationsWithLimit(
+      seguidores,
+      this.notificacionService,
+      productoId,
+      previousPrice,
+      newPrice,
+      porcentajeDescuento
     );
 
     const notificacionesCreadas = [];
     const notificacionesFallidas = [];
 
-    notificationResults.forEach((result, index) => {
+    notificationResults.forEach(({ result, seguimiento }) => {
       if (result.status === "fulfilled") {
         notificacionesCreadas.push(result.value);
         return;
       }
 
-      const seguimiento = seguidores[index];
       notificacionesFallidas.push({
         id_agricultor: seguimiento.idAgricultor,
         error: result.reason?.message || "Error al crear notificación",

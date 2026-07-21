@@ -100,16 +100,6 @@ const runStartupMigrations = async () => {
        leida BOOLEAN DEFAULT FALSE,
        fecha TIMESTAMP DEFAULT NOW()
      )`,
-    `ALTER TABLE notificacion
-     ADD COLUMN IF NOT EXISTS id_agricultor INT REFERENCES agricultor(id_agricultor) ON DELETE CASCADE`,
-    `ALTER TABLE notificacion
-     ADD COLUMN IF NOT EXISTS tipo VARCHAR(40)`,
-    `ALTER TABLE notificacion
-     ADD COLUMN IF NOT EXISTS contenido JSONB DEFAULT '{}'::jsonb`,
-    `ALTER TABLE notificacion
-     ADD COLUMN IF NOT EXISTS leida BOOLEAN DEFAULT FALSE`,
-    `ALTER TABLE notificacion
-     ADD COLUMN IF NOT EXISTS fecha TIMESTAMP DEFAULT NOW()`,
     `CREATE INDEX IF NOT EXISTS idx_notificacion_agricultor_fecha
      ON notificacion (id_agricultor, fecha DESC)`,
     `CREATE INDEX IF NOT EXISTS idx_notificacion_tipo
