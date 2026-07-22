@@ -1,5 +1,6 @@
 package com.uvg.agroconecta.ui.product
 
+import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -49,7 +50,6 @@ fun ProductDetailScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // ── Observables existentes ────────────────────────────────────────────────
     val product       by viewModel.productDetail.observeAsState()
     val comparison    by viewModel.comparison.observeAsState()
     val isLoading     by viewModel.isLoading.observeAsState(true)
@@ -63,7 +63,6 @@ fun ProductDetailScreen(
     val isLoadingDistributorRating by viewModel.isLoadingDistributorRating.observeAsState(false)
     val error         by viewModel.error.observeAsState()
 
-    // ── Observables de reseñas (NUEVO) ───────────────────────────────────────
     val reviews           by viewModel.reviews.observeAsState(emptyList())
     val reviewsPromedio   by viewModel.reviewsPromedio.observeAsState(null)
     val reviewsLoading    by viewModel.reviewsLoading.observeAsState(false)
@@ -72,7 +71,6 @@ fun ProductDetailScreen(
     var comparadorExpanded by remember { mutableStateOf(false) }
     var isFarmer by remember { mutableStateOf(false) }
 
-    // ── Cargar datos al entrar ────────────────────────────────────────────────
     LaunchedEffect(productId) {
         val token = SessionManager.getToken(context).first()
         isFarmer = SessionManager.getTipoUsuario(context).first() == "agricultor"
@@ -81,7 +79,7 @@ fun ProductDetailScreen(
         if (isFarmer) {
             viewModel.loadFollowStatus(productId, token)
         }
-        viewModel.loadReviews(productId, token)   // NUEVO
+        viewModel.loadReviews(productId, token)
     }
 
     LaunchedEffect(selectedOffer?.idDistribuidor) {
@@ -90,12 +88,11 @@ fun ProductDetailScreen(
         viewModel.loadDistributorRating(distributorId, token)
     }
 
-    // ── Snackbars ─────────────────────────────────────────────────────────────
     LaunchedEffect(cartSuccess) {
         cartSuccess?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessages()
-            onAddedToCart()   // <-- NUEVO
+            onAddedToCart()
         }
     }
     LaunchedEffect(followPriceMessage) {
@@ -125,6 +122,29 @@ fun ProductDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        product?.let { p ->
+                            val offer = selectedOffer
+                            val texto = buildString {
+                                append("Te recomiendo este producto en AgroConecta:\n\n")
+                                append("📦 ${p.nombre}\n")
+                                p.categoria?.let { append("📂 Categoría: $it\n") }
+                                p.marca?.let { append("🏷️ Marca: $it\n") }
+                                if (offer != null) {
+                                    append("💰 Precio: Q${"%.2f".format(offer.precio)}\n")
+                                    append("🏪 Distribuidor: ${offer.distribuidor}\n")
+                                }
+                                append("\n¡Descárgala y cuida mejor tus cultivos!")
+                            }
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, texto)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Recomendar producto"))
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Recomendar", tint = Color.White)
+                    }
                     IconButton(onClick = onNavigateToCart) {
                         Icon(Icons.Default.ShoppingCart, contentDescription = "Carrito", tint = Color.White)
                     }
@@ -182,7 +202,6 @@ fun ProductDetailScreen(
             contentPadding = PaddingValues(bottom = 8.dp)
         ) {
 
-            // ── Hero ──────────────────────────────────────────────────────
             item {
                 Column(
                     modifier = Modifier.fillMaxWidth().background(GreenSurface).padding(24.dp),
@@ -255,7 +274,6 @@ fun ProductDetailScreen(
                 }
             }
 
-            // ── Ficha técnica ─────────────────────────────────────────────
             item {
                 SectionCard(title = "Ficha técnica") {
                     val hayFicha = !p.descripcion.isNullOrBlank() || !p.composicion.isNullOrBlank()
@@ -271,7 +289,6 @@ fun ProductDetailScreen(
                 }
             }
 
-            // ── Distribuidores disponibles ────────────────────────────────
             item {
                 SectionCard(title = "Distribuidores disponibles") {
                     if (p.ofertas.isEmpty()) {
@@ -291,7 +308,6 @@ fun ProductDetailScreen(
                 }
             }
 
-            // ── Comparador de precios ─────────────────────────────────────
             item {
                 SectionCard(
                     title = "Comparar precios",
@@ -334,7 +350,6 @@ fun ProductDetailScreen(
                 }
             }
 
-            // ── Reseñas (NUEVO — KAN-48) ──────────────────────────────────
             item {
                 ReviewsSection(
                     reviews           = reviews,
@@ -355,8 +370,6 @@ fun ProductDetailScreen(
         }
     }
 }
-
-// ── Componentes privados (sin cambios) ────────────────────────────────────────
 
 @Composable
 private fun SectionCard(
