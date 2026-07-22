@@ -16,6 +16,7 @@ const paymentRoutes = require("./src/routes/paymentRoutes");
 const resenaRoutes = require("./src/routes/resenaRoutes");
 const inventoryRoutes = require("./src/routes/inventoryRoutes");
 const distribuidorReviewRoutes = require("./src/routes/distribuitorReviewRoutes");
+const notificationRoutes = require("./src/routes/notificationRoutes");
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api", verifyToken, qualityReportRoutes);
 app.use("/api/cart", verifyToken, cartRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/distribuidoresReview", distribuidorReviewRoutes);
 
 app.get("/", (req, res) => {

@@ -223,3 +223,17 @@ ON CONFLICT DO NOTHING;
 -- ─── Migraciones idempotentes para BDs existentes ───
 -- Estas sentencias usan IF NOT EXISTS para que sea seguro re-ejecutarlas.
 ALTER TABLE usuario ADD COLUMN IF NOT EXISTS apellido VARCHAR(100);
+
+-- =====================================================
+-- Migración: Notificaciones para distribuidores
+-- =====================================================
+
+ALTER TABLE notificacion
+ADD COLUMN IF NOT EXISTS id_distribuidor INT
+REFERENCES distribuidor(id_distribuidor)
+ON DELETE CASCADE;
+
+ALTER TABLE notificacion
+ADD COLUMN IF NOT EXISTS id_pedido INT
+REFERENCES pedido(id_pedido)
+ON DELETE CASCADE;
