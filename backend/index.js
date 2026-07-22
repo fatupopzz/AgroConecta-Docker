@@ -1,25 +1,8 @@
-const express = require("express");
-const { shutdownPool } = require("./src/config/db");
-const { pool } = require("./src/config/db");
+require("dotenv").config();
 
-const productRoutes = require("./src/routes/productRoutes");
-const categoryRoutes = require("./src/routes/categoryRoutes");
-const authRoutes = require("./src/routes/authRoutes");
-const cartRoutes = require("./src/routes/cartRoutes");
-const verifyToken = require("./src/middleware/authMiddleware");
-const agricultorRoutes = require("./src/routes/agricultorRoutes");
-const distribuidorRoutes = require("./src/routes/distribuidorRoutes");
-const farmerRoutes = require("./src/routes/farmerRoutes");
-const userRoutes = require("./src/routes/userRoutes");
-const orderRoutes = require("./src/routes/orderRoutes");
-const adminRoutes = require("./src/routes/adminRoutes");
-const qualityReportRoutes = require("./src/routes/qualityReportRoutes");
-const paymentRoutes = require("./src/routes/paymentRoutes");
-const resenaRoutes = require("./src/routes/resenaRoutes");
-const inventoryRoutes = require("./src/routes/inventoryRoutes");
-const distribuidorReviewRoutes = require("./src/routes/distribuitorReviewRoutes");
+const app = require("./app");
+const { shutdownPool, pool } = require("./src/config/db");
 
-const app = express();
 const PORT = process.env.PORT || 8080;
 
 const runStartupMigrations = async () => {
@@ -80,6 +63,30 @@ const runStartupMigrations = async () => {
        FROM pedido_tracking pt
        WHERE pt.id_pedido = p.id_pedido
      )`,
+    `CREATE TABLE IF NOT EXISTS producto_seguido (
+       id SERIAL PRIMARY KEY,
+       id_agricultor INT NOT NULL REFERENCES agricultor(id_agricultor) ON DELETE CASCADE,
+       id_producto INT NOT NULL REFERENCES producto(id_producto) ON DELETE CASCADE,
+       precio_al_seguir DECIMAL(10,2) NOT NULL,
+       fecha TIMESTAMP DEFAULT NOW(),
+       UNIQUE (id_agricultor, id_producto)
+     )`,
+    `CREATE INDEX IF NOT EXISTS idx_producto_seguido_agricultor_producto
+     ON producto_seguido (id_agricultor, id_producto)`,
+    `CREATE INDEX IF NOT EXISTS idx_producto_seguido_producto
+     ON producto_seguido (id_producto)`,
+    `CREATE TABLE IF NOT EXISTS notificacion (
+       id_notificacion SERIAL PRIMARY KEY,
+       id_agricultor INT REFERENCES agricultor(id_agricultor) ON DELETE CASCADE,
+       tipo VARCHAR(40),
+       contenido JSONB DEFAULT '{}'::jsonb,
+       leida BOOLEAN DEFAULT FALSE,
+       fecha TIMESTAMP DEFAULT NOW()
+     )`,
+    `CREATE INDEX IF NOT EXISTS idx_notificacion_agricultor_fecha
+     ON notificacion (id_agricultor, fecha DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_notificacion_tipo
+     ON notificacion (tipo)`,
   ];
 
   for (const statement of statements) {
@@ -87,52 +94,23 @@ const runStartupMigrations = async () => {
   }
 };
 
-app.use(express.json());
-
-app.use("/api/auth", authRoutes);
-
-app.get("/api/protected", verifyToken, (req, res) => {
-  res.json({
-    message: "Ruta protegida",
-    user: req.user,
-  });
-});
-
-app.use("/api/payments",verifyToken, paymentRoutes);
-app.use("/api/products/:id/reviews", resenaRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/agricultores", verifyToken, agricultorRoutes);
-app.use("/api/distribuidores",verifyToken, distribuidorRoutes);
-app.use("/api/usuarios",verifyToken, userRoutes);
-app.use("/api/farmers", farmerRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api", verifyToken, qualityReportRoutes);
-app.use("/api/cart", verifyToken, cartRoutes);
-app.use("/api/inventory", inventoryRoutes);
-
-app.use("/api/distribuidoresReview", distribuidorReviewRoutes);
-
-app.get("/", (req, res) => {
-  res.json({ status: "AgroConecta Backend corriendo", version: "1.0.0" });
-});
-
 const startServer = async () => {
-  try {
-    await runStartupMigrations();
-    app.listen(PORT, () => {
-      console.log(`Backend AgroConecta escuchando en puerto ${PORT}`);
-    });
-  } catch (error) {
-    console.error("Error al iniciar el backend:", error);
-    process.exit(1);
-  }
+    try {
+        await runStartupMigrations();
+
+        app.listen(PORT, () => {
+            console.log(`Backend AgroConecta escuchando en puerto ${PORT}`);
+        });
+
+    } catch (error) {
+        console.error(error);
+        process.exit(1);
+    }
 };
 
 startServer();
 
 process.on("SIGTERM", async () => {
-  await shutdownPool();
-  process.exit(0);
+    await shutdownPool();
+    process.exit(0);
 });

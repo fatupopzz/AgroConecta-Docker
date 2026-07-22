@@ -167,6 +167,36 @@ CREATE TABLE IF NOT EXISTS item_carrito (
   UNIQUE(id_carrito, id_inventario)
 );
 
+CREATE TABLE IF NOT EXISTS producto_seguido (
+    id SERIAL PRIMARY KEY,
+    id_agricultor INT NOT NULL REFERENCES agricultor(id_agricultor) ON DELETE CASCADE,
+    id_producto INT NOT NULL REFERENCES producto(id_producto) ON DELETE CASCADE,
+    precio_al_seguir DECIMAL(10,2) NOT NULL,
+    fecha TIMESTAMP DEFAULT NOW(),
+    UNIQUE (id_agricultor, id_producto)
+);
+
+CREATE INDEX IF NOT EXISTS idx_producto_seguido_agricultor_producto
+    ON producto_seguido (id_agricultor, id_producto);
+
+CREATE INDEX IF NOT EXISTS idx_producto_seguido_producto
+    ON producto_seguido (id_producto);
+
+CREATE TABLE IF NOT EXISTS notificacion (
+    id_notificacion SERIAL PRIMARY KEY,
+    id_agricultor INT REFERENCES agricultor(id_agricultor) ON DELETE CASCADE,
+    tipo VARCHAR(40),
+    contenido JSONB DEFAULT '{}'::jsonb,
+    leida BOOLEAN DEFAULT FALSE,
+    fecha TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notificacion_agricultor_fecha
+    ON notificacion (id_agricultor, fecha DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notificacion_tipo
+    ON notificacion (tipo);
+
 CREATE TABLE IF NOT EXISTS resena_distribuidor (
     id_resena SERIAL PRIMARY KEY,
     id_agricultor INTEGER NOT NULL REFERENCES agricultor(id_agricultor),
@@ -176,9 +206,6 @@ CREATE TABLE IF NOT EXISTS resena_distribuidor (
     fecha_resena TIMESTAMP DEFAULT NOW(),
     UNIQUE (id_agricultor, id_distribuidor)
 );
-
-
-
 
 INSERT INTO categoria (nombre, descripcion) VALUES
     ('Fertilizantes', 'Productos para nutrición del suelo y cultivos'),
@@ -196,3 +223,17 @@ ON CONFLICT DO NOTHING;
 -- ─── Migraciones idempotentes para BDs existentes ───
 -- Estas sentencias usan IF NOT EXISTS para que sea seguro re-ejecutarlas.
 ALTER TABLE usuario ADD COLUMN IF NOT EXISTS apellido VARCHAR(100);
+
+-- =====================================================
+-- Migración: Notificaciones para distribuidores
+-- =====================================================
+
+ALTER TABLE notificacion
+ADD COLUMN IF NOT EXISTS id_distribuidor INT
+REFERENCES distribuidor(id_distribuidor)
+ON DELETE CASCADE;
+
+ALTER TABLE notificacion
+ADD COLUMN IF NOT EXISTS id_pedido INT
+REFERENCES pedido(id_pedido)
+ON DELETE CASCADE;

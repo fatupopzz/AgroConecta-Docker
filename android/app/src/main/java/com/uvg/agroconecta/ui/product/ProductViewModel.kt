@@ -76,6 +76,15 @@ class ProductViewModel : ViewModel() {
     private val _isAddingToCart = MutableLiveData(false)
     val isAddingToCart: LiveData<Boolean> = _isAddingToCart
 
+    private val _isFollowingPrice = MutableLiveData(false)
+    val isFollowingPrice: LiveData<Boolean> = _isFollowingPrice
+
+    private val _isUpdatingFollow = MutableLiveData(false)
+    val isUpdatingFollow: LiveData<Boolean> = _isUpdatingFollow
+
+    private val _followPriceMessage = MutableLiveData<String?>()
+    val followPriceMessage: LiveData<String?> = _followPriceMessage
+
     fun loadProduct(id: Int, token: String?) {
         _isLoading.value = true
         viewModelScope.launch {
@@ -92,6 +101,69 @@ class ProductViewModel : ViewModel() {
                 _error.value = "Sin conexión. Verificá tu red."
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadFollowStatus(productoId: Int, token: String?) {
+        if (token.isNullOrBlank()) {
+            _isFollowingPrice.value = false
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.getService(token).getProductFollowStatus(productoId)
+                if (response.isSuccessful) {
+                    _isFollowingPrice.value = response.body()?.siguiendo == true
+                } else if (response.code() == 401 || response.code() == 403) {
+                    _isFollowingPrice.value = false
+                } else {
+                    _isFollowingPrice.value = false
+                }
+            } catch (_: Exception) {
+                _isFollowingPrice.value = false
+            }
+        }
+    }
+
+    fun toggleFollowPrice(productoId: Int, token: String?) {
+        if (token.isNullOrBlank()) {
+            _error.value = "Sesión inválida. Volvé a iniciar sesión."
+            return
+        }
+
+        val shouldFollow = _isFollowingPrice.value != true
+        _isUpdatingFollow.value = true
+
+        viewModelScope.launch {
+            try {
+                val service = RetrofitClient.getService(token)
+                val response = if (shouldFollow) {
+                    service.followProductPrice(productoId)
+                } else {
+                    service.unfollowProductPrice(productoId)
+                }
+
+                if (response.isSuccessful) {
+                    _isFollowingPrice.value = response.body()?.siguiendo ?: shouldFollow
+                    _followPriceMessage.value = if (shouldFollow) {
+                        "Ahora seguís el precio de este producto"
+                    } else {
+                        "Dejaste de seguir el precio"
+                    }
+                } else {
+                    _error.value = when (response.code()) {
+                        401 -> "Sesión expirada. Volvé a iniciar sesión."
+                        403 -> "Solo agricultores pueden seguir precios."
+                        409 -> "Este producto aún no tiene precio disponible."
+                        else -> "No se pudo actualizar el seguimiento (${response.code()})"
+                    }
+                }
+            } catch (e: Exception) {
+                _error.value = "Sin conexión. Verificá tu red."
+            } finally {
+                _isUpdatingFollow.value = false
             }
         }
     }
@@ -176,6 +248,7 @@ class ProductViewModel : ViewModel() {
     fun clearMessages() {
         _error.value = null
         _cartSuccess.value = null
+        _followPriceMessage.value = null
     }
 
     // ── Reseñas (KAN-48) ─────────────────────────────────────────────────────

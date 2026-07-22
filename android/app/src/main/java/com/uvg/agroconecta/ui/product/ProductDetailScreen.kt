@@ -56,6 +56,9 @@ fun ProductDetailScreen(
     val selectedOffer by viewModel.selectedOffer.observeAsState()
     val cartSuccess   by viewModel.cartSuccess.observeAsState()
     val isAddingToCart by viewModel.isAddingToCart.observeAsState(false)
+    val isFollowingPrice by viewModel.isFollowingPrice.observeAsState(false)
+    val isUpdatingFollow by viewModel.isUpdatingFollow.observeAsState(false)
+    val followPriceMessage by viewModel.followPriceMessage.observeAsState()
     val distributorRating by viewModel.distributorRating.observeAsState()
     val isLoadingDistributorRating by viewModel.isLoadingDistributorRating.observeAsState(false)
     val error         by viewModel.error.observeAsState()
@@ -66,11 +69,16 @@ fun ProductDetailScreen(
     val reviewSubmitState by viewModel.reviewSubmitState.observeAsState(ReviewSubmitState.Idle)
 
     var comparadorExpanded by remember { mutableStateOf(false) }
+    var isFarmer by remember { mutableStateOf(false) }
 
     LaunchedEffect(productId) {
         val token = SessionManager.getToken(context).first()
+        isFarmer = SessionManager.getTipoUsuario(context).first() == "agricultor"
         viewModel.loadProduct(productId, token)
         viewModel.loadComparison(productId, token)
+        if (isFarmer) {
+            viewModel.loadFollowStatus(productId, token)
+        }
         viewModel.loadReviews(productId, token)
     }
 
@@ -85,6 +93,12 @@ fun ProductDetailScreen(
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessages()
             onAddedToCart()
+        }
+    }
+    LaunchedEffect(followPriceMessage) {
+        followPriceMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessages()
         }
     }
     LaunchedEffect(error) {
@@ -220,6 +234,41 @@ fun ProductDetailScreen(
                             Spacer(Modifier.width(4.dp))
                             Text(text = "/ ${offer.unidadMedida ?: "unidad"}", style = MaterialTheme.typography.bodySmall,
                                 color = GrayMid, modifier = Modifier.padding(bottom = 3.dp))
+                        }
+                    }
+                    if (isFarmer) {
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    val token = SessionManager.getToken(context).first()
+                                    viewModel.toggleFollowPrice(productId, token)
+                                }
+                            },
+                            enabled = !isUpdatingFollow,
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (isFollowingPrice) GreenPrimaryDark else GreenPrimary
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            if (isUpdatingFollow) {
+                                CircularProgressIndicator(
+                                    color = GreenPrimary,
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (isFollowingPrice) Icons.Default.NotificationsActive else Icons.Default.NotificationsNone,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = if (isFollowingPrice) "Dejar de seguir precio" else "Seguir precio",
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
                     }
                 }

@@ -2,7 +2,10 @@
   "name": "agroconecta-backend",
   "version": "1.0.0",
   "scripts": {
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "coverage": "jest --coverage"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -10,5 +13,9 @@
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2"
   }
 }

@@ -311,6 +311,58 @@ const getDistributorReviews = async (req, res) => {
   }
 };
 
+const getDistributorProducts = async (req, res) => {
+
+    const { id } = req.params;
+
+    try {
+
+        const result = await pool.query(
+            `
+            SELECT
+                p.id_producto,
+                p.nombre,
+                p.marca,
+                p.descripcion,
+                p.composicion,
+                p.dosis_recomendada,
+                p.instrucciones_uso,
+                p.calificacion_promedio,
+                p.activo,
+                p.id_categoria,
+
+                i.precio,
+                i.stock_disponible,
+                i.unidad_medida,
+                i.tiempo_entrega_dias,
+                i.ultima_actualizacion
+
+            FROM inventario_distribuidor i
+
+            INNER JOIN producto p
+                ON p.id_producto = i.id_producto
+
+            WHERE i.id_distribuidor = $1
+
+            ORDER BY p.nombre ASC
+            `,
+            [Number(id)]
+        );
+
+        return res.json(result.rows);
+
+    } catch (error) {
+
+        console.error("Error en getDistributorProducts:", error);
+
+        return res.status(500).json({
+            error: "Error al obtener productos del distribuidor"
+        });
+
+    }
+
+};
+
 module.exports = {
   getDistributors,
   getDistributorById,
@@ -319,4 +371,5 @@ module.exports = {
   deleteDistributor,
   getDistributorRating,
   getDistributorReviews,
+  getDistributorProducts
 };

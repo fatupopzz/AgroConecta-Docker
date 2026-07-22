@@ -196,6 +196,12 @@ fun AgroConectaNavHost(
 
             var deliveryAddress by remember { mutableStateOf("") }
 
+            // ── KAN-60: pre-llenar dirección guardada ──
+            LaunchedEffect(Unit) {
+                val saved = SessionManager.getDeliveryAddress(context).first()
+                if (!saved.isNullOrBlank()) deliveryAddress = saved
+            }
+
             LaunchedEffect(successMessage) {
                 successMessage?.let {
                     orderViewModel.clearSuccessMessage()
@@ -239,6 +245,8 @@ fun AgroConectaNavHost(
                                 val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                                 val token = SessionManager.getToken(context).first() ?: return@launch
                                 if (farmerId == -1) return@launch
+                                // ── KAN-60: guardar dirección para futuras compras ──
+                                SessionManager.saveDeliveryAddress(context, deliveryAddress)
                                 orderViewModel.createCashOrder(
                                     idAgricultor = farmerId,
                                     items = cartItemsForOrder,

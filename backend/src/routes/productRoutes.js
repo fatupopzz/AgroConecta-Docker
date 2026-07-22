@@ -10,10 +10,18 @@ const {
   deleteProduct,
   comparePrices
 } = require("../controllers/productController");
+const {
+  followProductPrice,
+  unfollowProductPrice,
+  getProductFollowStatus,
+} = require("../controllers/productFollowController");
 
 router.get("/", getProducts);
 router.get("/compare", comparePrices);
 router.get("/:id/compare", getProductComparison);
+router.get("/:id/seguidos", verifyToken, getProductFollowStatus);
+router.post("/:id/seguir", verifyToken, followProductPrice);
+router.delete("/:id/seguir", verifyToken, unfollowProductPrice);
 router.get("/:id", getProductById);
 router.post("/", verifyToken, createProduct);
 router.put("/:id", verifyToken, updateProduct);
