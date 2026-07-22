@@ -362,12 +362,49 @@ const createOrder = async (req, res) => {
       [createdOrder.id_pedido, paymentMethod, totalPedido]
     );
 
+    const farmerInfo = await client.query(
+      `SELECT u.nombre
+      FROM agricultor a
+      JOIN usuario u ON a.id_usuario = u.id_usuario
+      WHERE a.id_agricultor = $1`,
+      [Number(id_agricultor)]
+    );
+
+    const agricultorNombre =
+      farmerInfo.rows.length > 0
+        ? farmerInfo.rows[0].nombre
+        : "Agricultor";
+
     await insertOrderTracking(
       client,
       createdOrder.id_pedido,
       ORDER_STATES.CONFIRMED,
       "Pedido confirmado"
     );
+
+    await client.query(
+      `INSERT INTO notificacion
+      (
+          id_distribuidor,
+          id_pedido,
+          tipo,
+          contenido,
+          leida
+      )
+      VALUES ($1, $2, $3, $4, FALSE)`,
+      [
+        Number(id_distribuidor),
+        createdOrder.id_pedido,
+        "nuevo_pedido",
+        JSON.stringify({
+          mensaje: "Nuevo pedido recibido",
+          agricultor: agricultorNombre,
+          monto: totalPedido,
+          pedido: createdOrder.id_pedido
+        })
+      ]
+    );
+
 
     await client.query("COMMIT");
 
