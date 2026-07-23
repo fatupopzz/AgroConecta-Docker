@@ -29,11 +29,14 @@ fun OrderConfirmationScreen(
     total: Double,
     selectedPaymentMethod: String,
     deliveryAddress: String,
+    tipoEntrega: String,
     onDeliveryAddressChange: (String) -> Unit,
+    onTipoEntregaChange: (String) -> Unit,
     onConfirmOrder: () -> Unit,
     onBack: () -> Unit
 ) {
-    val canConfirm = deliveryAddress.length >= 5 && items.isNotEmpty()
+    val canConfirm = items.isNotEmpty() &&
+    (tipoEntrega == "recogida" || deliveryAddress.length >= 5)
 
     Scaffold(
         topBar = {
@@ -113,10 +116,72 @@ fun OrderConfirmationScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
-            // ── Dirección de entrega ──────────────────────────────────────
+            // ── Tipo de entrega ──────────────────────────────────────────
             item {
                 Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            "Tipo de entrega",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = tipoEntrega == "domicilio",
+                                onClick = {
+                                    onTipoEntregaChange("domicilio")
+                                },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = GreenPrimary
+                                )
+                            )
+
+                            Text(
+                                "Entrega a domicilio",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = tipoEntrega == "recogida",
+                                onClick = {
+                                    onTipoEntregaChange("recogida")
+                                },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = GreenPrimary
+                                )
+                            )
+
+                            Text(
+                                "Recoger en punto",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
+            // ── Dirección de entrega ──────────────────────────────────────
+            if (tipoEntrega == "domicilio") {
+                item {
+                    Card(
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -171,7 +236,7 @@ fun OrderConfirmationScreen(
                     }
                 }
             }
-
+        }
             // ── Método de pago ────────────────────────────────────────────
             item {
                 Card(

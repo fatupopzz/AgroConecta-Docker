@@ -195,6 +195,7 @@ fun AgroConectaNavHost(
             val total by sharedCartViewModel.total.collectAsState()
 
             var deliveryAddress by remember { mutableStateOf("") }
+            var tipoEntrega by remember { mutableStateOf("domicilio") }
 
             // ── KAN-60: pre-llenar dirección guardada ──
             LaunchedEffect(Unit) {
@@ -239,24 +240,41 @@ fun AgroConectaNavHost(
                         total = total,
                         selectedPaymentMethod = "efectivo",
                         deliveryAddress = deliveryAddress,
+                        tipoEntrega = tipoEntrega,
                         onDeliveryAddressChange = { deliveryAddress = it },
+                        onTipoEntregaChange = { tipoEntrega = it },
                         onConfirmOrder = {
                             scope.launch {
-                                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
-                                val token = SessionManager.getToken(context).first() ?: return@launch
-                                if (farmerId == -1) return@launch
-                                // ── KAN-60: guardar dirección para futuras compras ──
-                                SessionManager.saveDeliveryAddress(context, deliveryAddress)
+                                val farmerId =
+                                    SessionManager.getFarmerId(context).first() ?: -1
+
+                                val token =
+                                    SessionManager.getToken(context).first()
+                                        ?: return@launch
+
+                                if (farmerId == -1) {
+                                    return@launch
+                                }
+
+                                if (tipoEntrega == "domicilio") {
+                                    SessionManager.saveDeliveryAddress(
+                                        context,
+                                        deliveryAddress
+                                    )
+                                }
+
                                 orderViewModel.createCashOrder(
                                     idAgricultor = farmerId,
                                     items = cartItemsForOrder,
                                     direccionEntrega = deliveryAddress,
-                                    tipoEntrega = "domicilio",
+                                    tipoEntrega = tipoEntrega,
                                     token = token
                                 )
                             }
                         },
-                        onBack = { navController.popBackStack() }
+                        onBack = {
+                            navController.popBackStack()
+                        }
                     )
                 }
             }
