@@ -224,14 +224,15 @@ data class AddItemRequest(
 )
 
 // ─── Order (HU-015 Entrega directa a la finca) ───────────────────────────────
-
 data class CreateOrderRequest(
     @SerializedName("id_agricultor") val idAgricultor: Int,
     @SerializedName("id_distribuidor") val idDistribuidor: Int,
     @SerializedName("direccion_entrega") val direccionEntrega: String,
+    @SerializedName("tipo_entrega") val tipoEntrega: String,
     val productos: List<OrderProduct>,
     @SerializedName("metodo_pago") val metodoPago: String = "contra_entrega"
 )
+
 
 data class OrderProduct(
     @SerializedName("id_inventario") val idInventario: Int,

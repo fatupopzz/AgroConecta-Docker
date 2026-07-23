@@ -251,6 +251,7 @@ fun AgroConectaNavHost(
                                     idAgricultor = farmerId,
                                     items = cartItemsForOrder,
                                     direccionEntrega = deliveryAddress,
+                                    tipoEntrega = "domicilio",
                                     token = token
                                 )
                             }
