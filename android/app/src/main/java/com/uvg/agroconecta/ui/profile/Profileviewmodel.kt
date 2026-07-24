@@ -34,6 +34,7 @@ data class DistributorProfile(
     val email: String?,
     val telefono: String?,
     val departamento: String?,
+    val direccion: String?,
     val nit: String?,
     @SerializedName("estado_verificacion")   val estadoVerificacion: String?,
     @SerializedName("calificacion_promedio") val calificacionPromedio: Double?

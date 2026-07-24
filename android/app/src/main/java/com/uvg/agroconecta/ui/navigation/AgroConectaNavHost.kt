@@ -23,6 +23,7 @@ import com.uvg.agroconecta.ui.auth.RegisterStep1Screen
 import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
+import com.uvg.agroconecta.data.api.RetrofitClient
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
@@ -197,11 +198,48 @@ fun AgroConectaNavHost(
             var deliveryAddress by remember { mutableStateOf("") }
             var tipoEntrega by remember { mutableStateOf("domicilio") }
 
+            var pickupAddress by remember {
+                mutableStateOf<String?>(null)
+            }
+
+            var isLoadingPickupAddress by remember {
+                mutableStateOf(false)
+            }
+
             // ── KAN-60: pre-llenar dirección guardada ──
             LaunchedEffect(Unit) {
                 val saved = SessionManager.getDeliveryAddress(context).first()
                 if (!saved.isNullOrBlank()) deliveryAddress = saved
             }
+                val distributorId = cartItemsForOrder
+        .firstOrNull()
+        ?.idDistribuidor
+
+    LaunchedEffect(distributorId) {
+        if (distributorId == null) {
+            pickupAddress = null
+            return@LaunchedEffect
+        }
+
+        isLoadingPickupAddress = true
+
+        try {
+            val token = SessionManager.getToken(context).first()
+            val api = RetrofitClient.getService(token)
+
+            val response = api.getDistributorById(distributorId)
+
+            pickupAddress = if (response.isSuccessful) {
+                response.body()?.direccion
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            pickupAddress = null
+        } finally {
+            isLoadingPickupAddress = false
+        }
+}
 
             LaunchedEffect(successMessage) {
                 successMessage?.let {
@@ -240,6 +278,8 @@ fun AgroConectaNavHost(
                         total = total,
                         selectedPaymentMethod = "efectivo",
                         deliveryAddress = deliveryAddress,
+                        pickupAddress = pickupAddress,
+                        isLoadingPickupAddress = isLoadingPickupAddress,
                         tipoEntrega = tipoEntrega,
                         onDeliveryAddressChange = { deliveryAddress = it },
                         onTipoEntregaChange = { tipoEntrega = it },
@@ -266,7 +306,11 @@ fun AgroConectaNavHost(
                                 orderViewModel.createCashOrder(
                                     idAgricultor = farmerId,
                                     items = cartItemsForOrder,
-                                    direccionEntrega = deliveryAddress,
+                                    direccionEntrega = if (tipoEntrega == "recogida") {
+                                        pickupAddress.orEmpty()
+                                    } else {
+                                        deliveryAddress
+        },
                                     tipoEntrega = tipoEntrega,
                                     token = token
                                 )

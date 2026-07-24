@@ -17,6 +17,7 @@ const register = async (req, res) => {
     municipio,
     nombre_negocio,
     nit,
+    direccion,
   } = req.body;
 
   if (!nombre || !apellido || !telefono || !email || !password || !tipo_usuario) {
@@ -86,13 +87,33 @@ const register = async (req, res) => {
       perfil = perfilResult.rows[0];
     } else if (tipo_usuario === "distribuidor") {
       const perfilResult = await client.query(
-        `INSERT INTO distribuidor (id_usuario, nombre_negocio, nit, departamento, estado_verificacion)
-         VALUES ($1, $2, $3, $4, 'pendiente')
-         RETURNING id_distribuidor, nombre_negocio, nit, departamento, estado_verificacion`,
-        [newUser.id_usuario, nombreNegocioNormalizado, nit || null, departamento || null]
+        `INSERT INTO distribuidor (
+          id_usuario,
+          nombre_negocio,
+          nit,
+          departamento,
+          direccion,
+          estado_verificacion
+        )
+        VALUES ($1, $2, $3, $4, $5, 'pendiente')
+        RETURNING
+          id_distribuidor,
+          nombre_negocio,
+          nit,
+          departamento,
+          direccion,
+          estado_verificacion`,
+        [
+          newUser.id_usuario,
+          nombreNegocioNormalizado,
+          nit || null,
+          departamento || null,
+          direccion || null,
+        ]
       );
+
       perfil = perfilResult.rows[0];
-    }
+}
 
     await client.query("COMMIT");
     inTransaction = false;
@@ -232,8 +253,8 @@ const getMe = async (req, res) => {
       perfil = r.rows[0] ?? null;
     } else if (tipo === "distribuidor") {
       const r = await pool.query(
-        `SELECT id_distribuidor, nombre_negocio, nit, departamento,
-                estado_verificacion, calificacion_promedio
+        `SELECT id_distribuidor, nombre_negocio, nit, departamento, direccion,
+          estado_verificacion, calificacion_promedio
          FROM distribuidor WHERE id_usuario = $1`,
         [Number(id)]
       );
