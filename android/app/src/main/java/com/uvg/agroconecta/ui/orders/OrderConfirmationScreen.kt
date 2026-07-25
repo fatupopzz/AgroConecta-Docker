@@ -29,11 +29,25 @@ fun OrderConfirmationScreen(
     total: Double,
     selectedPaymentMethod: String,
     deliveryAddress: String,
+    pickupAddress: String?,
+    isLoadingPickupAddress: Boolean,
+    tipoEntrega: String,
     onDeliveryAddressChange: (String) -> Unit,
+    onTipoEntregaChange: (String) -> Unit,
     onConfirmOrder: () -> Unit,
     onBack: () -> Unit
 ) {
-    val canConfirm = deliveryAddress.length >= 5 && items.isNotEmpty()
+    val canConfirm = items.isNotEmpty() &&
+        when (tipoEntrega) {
+        "domicilio" -> deliveryAddress.length >= 5
+
+        "recogida" -> {
+            !isLoadingPickupAddress &&
+            !pickupAddress.isNullOrBlank()
+        }
+
+        else -> false
+    }
 
     Scaffold(
         topBar = {
@@ -113,65 +127,221 @@ fun OrderConfirmationScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
-            // ── Dirección de entrega ──────────────────────────────────────
+            // ── Tipo de entrega ──────────────────────────────────────────
             item {
                 Card(
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            "Tipo de entrega",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
                         Row(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = GreenPrimary,
-                                modifier = Modifier.size(20.dp)
+                            RadioButton(
+                                selected = tipoEntrega == "domicilio",
+                                onClick = {
+                                    onTipoEntregaChange("domicilio")
+                                },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = GreenPrimary
+                                )
                             )
-                            Spacer(Modifier.width(8.dp))
+
                             Text(
-                                "Dirección de entrega",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
+                                "Entrega a domicilio",
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         }
-                        Spacer(Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = deliveryAddress,
-                            onValueChange = onDeliveryAddressChange,
-                            placeholder = {
-                                Text(
-                                    "Ej: Aldea El Tablón, Jalapa",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = GrayMid
-                                )
-                            },
+
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
-                            isError = deliveryAddress.isNotBlank() && deliveryAddress.length < 5,
-                            supportingText = {
-                                if (deliveryAddress.isNotBlank() && deliveryAddress.length < 5) {
-                                    Text(
-                                        "Ingresá una dirección más específica",
-                                        color = MaterialTheme.colorScheme.error,
-                                        style = MaterialTheme.typography.labelSmall
-                                    )
-                                }
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = GreenPrimary,
-                                unfocusedBorderColor = GrayLight,
-                                cursorColor = GreenPrimary
-                            ),
-                            maxLines = 3
-                        )
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = tipoEntrega == "recogida",
+                                onClick = {
+                                    onTipoEntregaChange("recogida")
+                                },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = GreenPrimary
+                                )
+                            )
+
+                            Text(
+                                "Recoger en punto",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
                 }
             }
+// ── Dirección de entrega a domicilio ──────────────────────────
+if (tipoEntrega == "domicilio") {
+    item {
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 2.dp
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = GreenPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
 
+                    Spacer(Modifier.width(8.dp))
+
+                    Text(
+                        "Dirección de entrega",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = deliveryAddress,
+                    onValueChange = onDeliveryAddressChange,
+                    placeholder = {
+                        Text(
+                            "Ej: Aldea El Tablón, Jalapa",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GrayMid
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    isError = deliveryAddress.isNotBlank() &&
+                            deliveryAddress.length < 5,
+                    supportingText = {
+                        if (
+                            deliveryAddress.isNotBlank() &&
+                            deliveryAddress.length < 5
+                        ) {
+                            Text(
+                                "Ingresá una dirección más específica",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        unfocusedBorderColor = GrayLight,
+                        cursorColor = GreenPrimary
+                    ),
+                    maxLines = 3
+                )
+            }
+        }
+    }
+}
+
+            // ── Dirección del punto de recogida ───────────────────────────
+            if (tipoEntrega == "recogida") {
+                item {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = GreenSurface
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = 2.dp
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Store,
+                                    contentDescription = null,
+                                    tint = GreenPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+
+                                Spacer(Modifier.width(8.dp))
+
+                                Text(
+                                    "Punto de recogida",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Spacer(Modifier.height(10.dp))
+
+                            when {
+                                isLoadingPickupAddress -> {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = GreenPrimary
+                                        )
+
+                                        Spacer(Modifier.width(8.dp))
+
+                                        Text(
+                                            "Cargando dirección...",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = GrayMid
+                                        )
+                                    }
+                                }
+
+                                pickupAddress.isNullOrBlank() -> {
+                                    Text(
+                                        "Dirección no disponible",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+
+                                else -> {
+                                    Text(
+                                        text = pickupAddress,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.DarkGray
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             // ── Método de pago ────────────────────────────────────────────
             item {
                 Card(

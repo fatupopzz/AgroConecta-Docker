@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS distribuidor (
     nombre_negocio    VARCHAR(150) NOT NULL,
     nit               VARCHAR(30)  UNIQUE,
     departamento      VARCHAR(100),
+    direccion         TEXT,
     estado_verificacion VARCHAR(20) DEFAULT 'pendiente' CHECK (estado_verificacion IN ('pendiente', 'verificado', 'suspendido')),
     calificacion_promedio DECIMAL(3,2) DEFAULT 0.0,
     fecha_verificacion TIMESTAMP
@@ -223,6 +224,8 @@ ON CONFLICT DO NOTHING;
 -- ─── Migraciones idempotentes para BDs existentes ───
 -- Estas sentencias usan IF NOT EXISTS para que sea seguro re-ejecutarlas.
 ALTER TABLE usuario ADD COLUMN IF NOT EXISTS apellido VARCHAR(100);
+ALTER TABLE distribuidor
+ADD COLUMN IF NOT EXISTS direccion TEXT;
 
 -- =====================================================
 -- Migración: Notificaciones para distribuidores

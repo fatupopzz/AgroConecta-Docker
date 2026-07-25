@@ -36,6 +36,7 @@ class OrderViewModel : ViewModel() {
         idAgricultor: Int,
         items: List<CartItemUI>,
         direccionEntrega: String,
+        tipoEntrega: String,
         token: String
     ) {
         if (items.isEmpty()) {
@@ -43,7 +44,12 @@ class OrderViewModel : ViewModel() {
             return
         }
 
-        if (direccionEntrega.isBlank()) {
+        if (tipoEntrega !in listOf("domicilio", "recogida")) {
+            _errorMessage.value = "Selecciona un tipo de entrega válido"
+            return
+        }
+
+        if (tipoEntrega == "domicilio" && direccionEntrega.isBlank()) {
             _errorMessage.value = "La dirección de entrega es obligatoria"
             return
         }
@@ -65,6 +71,7 @@ class OrderViewModel : ViewModel() {
                     idAgricultor = idAgricultor,
                     idDistribuidor = idDistribuidor,
                     direccionEntrega = direccionEntrega,
+                    tipoEntrega = tipoEntrega,
                     metodoPago = "efectivo",
                     productos = items.map {
                         OrderProduct(
