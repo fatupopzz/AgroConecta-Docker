@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS pedido (
     tipo_entrega        VARCHAR(20) CHECK (tipo_entrega IN ('domicilio', 'punto_recogida')),
     direccion_entrega   TEXT,
     es_urgente          BOOLEAN DEFAULT FALSE,
+    tipo_plaga          VARCHAR(100),
     total_pedido        DECIMAL(10,2),
     costo_envio         DECIMAL(10,2) DEFAULT 0.0,
     notas               TEXT

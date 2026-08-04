@@ -45,6 +45,7 @@ const getOrderDetailData = async (db, orderId) => {
         p.tipo_entrega,
         p.direccion_entrega,
         p.es_urgente,
+        p.tipo_plaga,
         p.total_pedido,
         p.costo_envio,
         p.notas,
@@ -179,6 +180,8 @@ const createOrder = async (req, res) => {
     direccion_entrega,
     productos,
     metodo_pago,
+    esUrgente = false,
+    tipoPlaga,
   } = req.body;
 
   const id_agricultor = req.agricultorId;
@@ -203,6 +206,23 @@ const createOrder = async (req, res) => {
       error: "Debe enviar al menos un producto en el pedido",
     });
   }
+
+  if (typeof esUrgente !== "boolean") {
+    return res.status(400).json({ error: "esUrgente debe ser boolean" });
+  }
+
+  if (
+    tipoPlaga !== undefined &&
+    tipoPlaga !== null &&
+    (typeof tipoPlaga !== "string" || tipoPlaga.trim().length === 0 || tipoPlaga.trim().length > 100)
+  ) {
+    return res.status(400).json({
+      error: "tipoPlaga debe ser un texto de 1 a 100 caracteres",
+    });
+  }
+
+  const normalizedPestType =
+    typeof tipoPlaga === "string" ? tipoPlaga.trim() : null;
 
   const paymentMethod = normalizeCashPaymentMethod(metodo_pago);
   if (!paymentMethod) {
@@ -325,14 +345,16 @@ const createOrder = async (req, res) => {
 
     const orderResult = await client.query(
       `INSERT INTO pedido
-       (id_agricultor, id_distribuidor, estado, tipo_entrega, direccion_entrega, es_urgente, total_pedido, costo_envio, notas)
-       VALUES ($1, $2, $3, 'domicilio', $4, false, $5, 0, NULL)
+       (id_agricultor, id_distribuidor, estado, tipo_entrega, direccion_entrega, es_urgente, tipo_plaga, total_pedido, costo_envio, notas)
+       VALUES ($1, $2, $3, 'domicilio', $4, $5, $6, $7, 0, NULL)
        RETURNING *`,
       [
         Number(id_agricultor),
         Number(id_distribuidor),
         ORDER_STATES.CONFIRMED,
         direccion_entrega.trim(),
+        esUrgente,
+        normalizedPestType,
         totalPedido,
       ]
     );
@@ -543,13 +565,15 @@ const getOrdersByFarmer = async (req, res) => {
           END AS estado,
           p.fecha_pedido,
           p.total_pedido,
+          p.es_urgente,
+          p.tipo_plaga,
           d.nombre_negocio     AS distribuidor_nombre,
           COALESCE(COUNT(dp.id_detalle), 0)::int AS cantidad_productos
        FROM pedido p
        JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
        LEFT JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
        WHERE ${whereClause}
-       GROUP BY p.id_pedido, p.estado, p.fecha_pedido, p.total_pedido, d.nombre_negocio
+       GROUP BY p.id_pedido, p.estado, p.fecha_pedido, p.total_pedido, p.es_urgente, p.tipo_plaga, d.nombre_negocio
        ORDER BY p.fecha_pedido DESC, p.id_pedido DESC
        LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
       dataParams

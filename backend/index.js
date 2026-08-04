@@ -26,6 +26,10 @@ const runStartupMigrations = async () => {
      DROP CONSTRAINT IF EXISTS pedido_estado_check`,
     `ALTER TABLE pedido
      ALTER COLUMN estado SET DEFAULT 'confirmado'`,
+    `ALTER TABLE pedido
+     ADD COLUMN IF NOT EXISTS es_urgente BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE pedido
+     ADD COLUMN IF NOT EXISTS tipo_plaga VARCHAR(100)`,
     `UPDATE pedido
      SET estado = 'confirmado'
      WHERE estado = 'pendiente'`,
