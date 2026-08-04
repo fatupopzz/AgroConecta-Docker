@@ -230,7 +230,9 @@ data class CreateOrderRequest(
     @SerializedName("direccion_entrega") val direccionEntrega: String,
     @SerializedName("tipo_entrega") val tipoEntrega: String,
     val productos: List<OrderProduct>,
-    @SerializedName("metodo_pago") val metodoPago: String = "contra_entrega"
+    @SerializedName("metodo_pago") val metodoPago: String = "contra_entrega",
+    val esUrgente: Boolean = false,
+    val tipoPlaga: String? = null
 )
 
 
@@ -250,6 +252,8 @@ data class Order(
     val estado: String,
     @SerializedName("tipo_entrega") val tipoEntrega: String?,
     @SerializedName("direccion_entrega") val direccionEntrega: String,
+    @SerializedName("es_urgente") val esUrgente: Boolean = false,
+    @SerializedName("tipo_plaga") val tipoPlaga: String? = null,
     @SerializedName("total_pedido") val total: Double,
     @SerializedName("agricultor_nombre") val agricultorNombre: String?,
     @SerializedName("distribuidor_nombre") val distribuidorNombre: String?,
@@ -271,7 +275,9 @@ data class OrderSummary(
     @SerializedName("fecha_pedido") val fechaPedido: String,
     @SerializedName("total_pedido") val totalPedido: Double,
     @SerializedName("distribuidor_nombre") val distribuidorNombre: String,
-    @SerializedName("cantidad_productos") val cantidadProductos: Int
+    @SerializedName("cantidad_productos") val cantidadProductos: Int,
+    @SerializedName("es_urgente") val esUrgente: Boolean = false,
+    @SerializedName("tipo_plaga") val tipoPlaga: String? = null
 )
 
 // ─── Order Tracking ─────────────────────────────────────────────────────────
