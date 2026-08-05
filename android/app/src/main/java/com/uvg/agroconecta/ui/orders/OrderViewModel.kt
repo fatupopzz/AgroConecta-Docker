@@ -69,9 +69,12 @@ class OrderViewModel : ViewModel() {
             return
         }
 
+        if (!_isLoading.compareAndSet(expect = false, update = true)) {
+            return
+        }
+
         viewModelScope.launch {
             try {
-                _isLoading.value = true
                 _errorMessage.value = null
 
                 val request = CreateOrderRequest(

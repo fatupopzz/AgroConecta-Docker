@@ -1,5 +1,6 @@
 package com.uvg.agroconecta.ui.orders
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -85,7 +86,7 @@ internal fun recommendUrgentProduct(
     if (cartItems.isEmpty()) return null
 
     val keywords = pestProductKeywords[pestType.normalizedForSearch()].orEmpty()
-    if (keywords.isEmpty()) return cartItems.first()
+    if (keywords.isEmpty()) return null
 
     val scoredItems = cartItems.map { item ->
         item to keywords.count { keyword ->
@@ -93,7 +94,7 @@ internal fun recommendUrgentProduct(
         }
     }
     val best = scoredItems.maxByOrNull { (_, score) -> score }
-    return if (best != null && best.second > 0) best.first else cartItems.first()
+    return best?.takeIf { (_, score) -> score > 0 }?.first
 }
 
 private fun String.normalizedForSearch(): String = Normalizer
@@ -116,6 +117,14 @@ fun UrgentOrderScreen(
     var selectedPest by rememberSaveable { mutableStateOf("") }
     var selectedInventoryId by rememberSaveable { mutableStateOf<Int?>(null) }
     var pestMenuExpanded by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler(enabled = isSubmitting) {
+        // Evita abandonar la pantalla mientras el servidor procesa el pedido.
+    }
+
+    LaunchedEffect(isSubmitting) {
+        if (isSubmitting) pestMenuExpanded = false
+    }
 
     val recommendedProduct = recommendUrgentProduct(cartItems, selectedPest)
     val selectedProduct = cartItems.firstOrNull {
@@ -147,7 +156,10 @@ fun UrgentOrderScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = onBack,
+                        enabled = !isSubmitting
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Volver",
@@ -236,6 +248,7 @@ fun UrgentOrderScreen(
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(
                         onClick = { pestMenuExpanded = true },
+                        enabled = !isSubmitting,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
@@ -245,13 +258,14 @@ fun UrgentOrderScreen(
                         Icon(Icons.Default.ExpandMore, contentDescription = null)
                     }
                     DropdownMenu(
-                        expanded = pestMenuExpanded,
+                        expanded = pestMenuExpanded && !isSubmitting,
                         onDismissRequest = { pestMenuExpanded = false },
                         modifier = Modifier.fillMaxWidth(0.9f)
                     ) {
                         urgentPestTypes.forEach { pest ->
                             DropdownMenuItem(
                                 text = { Text(pest) },
+                                enabled = !isSubmitting,
                                 onClick = {
                                     selectedPest = pest
                                     pestMenuExpanded = false
@@ -273,6 +287,15 @@ fun UrgentOrderScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = GrayMid
                 )
+                if (selectedPest.isNotBlank() && recommendedProduct == null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "No encontramos una coincidencia automática. Selecciona manualmente el producto adecuado.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = OrangeAccent,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             if (cartItems.isEmpty()) {
@@ -292,7 +315,9 @@ fun UrgentOrderScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { selectedInventoryId = product.idInventario },
+                            .clickable(enabled = !isSubmitting) {
+                                selectedInventoryId = product.idInventario
+                            },
                         colors = CardDefaults.cardColors(
                             containerColor = if (isSelected) OrangeLight else Color.White
                         ),
@@ -307,6 +332,7 @@ fun UrgentOrderScreen(
                         ) {
                             RadioButton(
                                 selected = isSelected,
+                                enabled = !isSubmitting,
                                 onClick = { selectedInventoryId = product.idInventario }
                             )
                             Column(modifier = Modifier.weight(1f)) {
@@ -363,6 +389,7 @@ fun UrgentOrderScreen(
                     },
                     singleLine = false,
                     minLines = 2,
+                    enabled = !isSubmitting,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

@@ -296,6 +296,26 @@ data class OrderTrackingChange(
     val notas: String?
 )
 
+// ─── Distributor notifications ───────────────────────────────────────────────
+
+data class DistributorNotification(
+    @SerializedName("id_notificacion") val id: Int,
+    val tipo: String,
+    val contenido: DistributorNotificationContent,
+    @SerializedName("id_pedido") val idPedido: Int? = null,
+    val leida: Boolean = false,
+    val fecha: String? = null
+)
+
+data class DistributorNotificationContent(
+    val mensaje: String? = null,
+    val agricultor: String? = null,
+    val monto: Double? = null,
+    val pedido: Int? = null,
+    val esUrgente: Boolean = false,
+    val tipoPlaga: String? = null
+)
+
 // ─── Publish Product (KAN-53) ─────────────────────────────────────────────
 
 data class CreateProductRequest(

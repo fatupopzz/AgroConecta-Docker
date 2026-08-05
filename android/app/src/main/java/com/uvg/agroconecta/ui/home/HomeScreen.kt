@@ -1,5 +1,6 @@
 package com.uvg.agroconecta.ui.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.Distributor
+import com.uvg.agroconecta.data.models.DistributorNotification
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
@@ -51,6 +53,8 @@ fun HomeScreen(
     onDistribuidorClick: (Int) -> Unit,
     tipoUsuario: String = "agricultor",
     cartItemCount: Int = 0,
+    urgentNotification: DistributorNotification? = null,
+    onUrgentNotificationClick: (DistributorNotification) -> Unit = {},
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -106,6 +110,16 @@ fun HomeScreen(
                     onCarritoClick = onCarritoClick
                 )
             }
+            if (tipoUsuario == "distribuidor") {
+                urgentNotification?.let { notification ->
+                    item(key = "urgent-notification-${notification.id}") {
+                        UrgentOrderNotificationAlert(
+                            notification = notification,
+                            onClick = { onUrgentNotificationClick(notification) }
+                        )
+                    }
+                }
+            }
             item {
                 SeccionCategorias(
                     categorias = uiState.categorias,
@@ -135,6 +149,61 @@ fun HomeScreen(
                     distribuidores = uiState.distribuidores,
                     isLoading = uiState.isLoadingDistribuidores,
                     onDistribuidorClick = onDistribuidorClick
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UrgentOrderNotificationAlert(
+    notification: DistributorNotification,
+    onClick: () -> Unit
+) {
+    val content = notification.contenido
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.error),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(30.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "PEDIDO URGENTE",
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = content.mensaje ?: "Pedido urgente por detección de plaga",
+                    fontWeight = FontWeight.SemiBold
+                )
+                content.tipoPlaga?.takeIf { it.isNotBlank() }?.let { pestType ->
+                    Text("Plaga detectada: $pestType")
+                }
+                content.agricultor?.takeIf { it.isNotBlank() }?.let { farmer ->
+                    Text("Agricultor: $farmer")
+                }
+                Text(
+                    text = "Toca para revisar los pedidos recibidos",
+                    color = TextoGris,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 6.dp)
                 )
             }
         }

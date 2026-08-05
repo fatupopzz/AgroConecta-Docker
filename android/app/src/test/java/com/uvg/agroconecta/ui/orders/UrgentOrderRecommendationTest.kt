@@ -21,13 +21,23 @@ class UrgentOrderRecommendationTest {
     }
 
     @Test
-    fun usesFirstCartProductWhenThereIsNoKeywordMatch() {
+    fun returnsNullWhenThereIsNoKeywordMatch() {
         val result = recommendUrgentProduct(
             cartItems = listOf(insecticide, fungicide),
             pestType = "Otra plaga"
         )
 
-        assertEquals(insecticide, result)
+        assertNull(result)
+    }
+
+    @Test
+    fun returnsNullWhenKnownPestDoesNotMatchAnyProduct() {
+        val result = recommendUrgentProduct(
+            cartItems = listOf(fungicide),
+            pestType = "Pulgón"
+        )
+
+        assertNull(result)
     }
 
     @Test

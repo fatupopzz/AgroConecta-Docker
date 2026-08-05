@@ -23,6 +23,7 @@ import com.uvg.agroconecta.ui.auth.RegisterStep1Screen
 import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
+import com.uvg.agroconecta.ui.notifications.DistributorNotificationViewModel
 import com.uvg.agroconecta.data.api.RetrofitClient
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
@@ -126,11 +127,22 @@ fun AgroConectaNavHost(
 
         composable(Screen.Home.route) {
             val homeViewModel: HomeViewModel = viewModel()
+            val notificationViewModel: DistributorNotificationViewModel = viewModel()
+            val urgentNotification by notificationViewModel.urgentNotification.collectAsState()
             val nombre by authViewModel.nombreUsuario.observeAsState("")
+            var sessionToken by remember { mutableStateOf<String?>(null) }
 
             LaunchedEffect(Unit) {
                 val token = SessionManager.getToken(context).first()
+                sessionToken = token
                 homeViewModel.init(token)
+            }
+
+            LaunchedEffect(tipoUsuario, sessionToken) {
+                val token = sessionToken
+                if (tipoUsuario == "distribuidor" && !token.isNullOrBlank()) {
+                    notificationViewModel.loadUrgentNotification(token)
+                }
             }
 
             LaunchedEffect(nombre) {
@@ -141,6 +153,13 @@ fun AgroConectaNavHost(
                 viewModel = homeViewModel,
                 tipoUsuario = tipoUsuario,
                 cartItemCount = cartItems.size,
+                urgentNotification = urgentNotification,
+                onUrgentNotificationClick = { notification ->
+                    sessionToken?.let { token ->
+                        notificationViewModel.markAsRead(notification, token)
+                    }
+                    navController.navigate(Screen.OrderHistory.route)
+                },
                 onProductoClick = { productoId ->
                     navController.navigate(Screen.ProductDetail.createRoute(productoId))
                 },
@@ -193,13 +212,16 @@ fun AgroConectaNavHost(
             val scope = rememberCoroutineScope()
             val orderViewModel: OrderViewModel = viewModel()
             val cartItemsForUrgency by sharedCartViewModel.cartItems.collectAsState()
-            val isSubmitting by orderViewModel.isLoading.collectAsState()
+            val isCreatingOrder by orderViewModel.isLoading.collectAsState()
             val successMessage by orderViewModel.successMessage.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()
             val createdOrderId by orderViewModel.createdOrderId.collectAsState()
 
             var deliveryAddress by remember { mutableStateOf("") }
             var submittedCartItemId by remember { mutableStateOf<Int?>(null) }
+            var submittedDeliveryAddress by remember { mutableStateOf<String?>(null) }
+            var isPreparingSubmission by remember { mutableStateOf(false) }
+            val isSubmitting = isPreparingSubmission || isCreatingOrder
 
             LaunchedEffect(Unit) {
                 deliveryAddress = SessionManager.getDeliveryAddress(context).first().orEmpty()
@@ -219,7 +241,9 @@ fun AgroConectaNavHost(
 
                 orderViewModel.clearSuccessMessage()
                 submittedCartItemId?.let(sharedCartViewModel::removeItem)
-                SessionManager.saveDeliveryAddress(context, deliveryAddress.trim())
+                submittedDeliveryAddress?.let { address ->
+                    SessionManager.saveDeliveryAddress(context, address)
+                }
 
                 val orderId = createdOrderId
                 orderViewModel.clearCreatedOrderId()
@@ -240,23 +264,33 @@ fun AgroConectaNavHost(
                 isSubmitting = isSubmitting,
                 errorMessage = errorMessage,
                 onDeliveryAddressChange = { deliveryAddress = it },
-                onConfirmUrgentOrder = { product, pestType ->
-                    submittedCartItemId = product.id
-                    scope.launch {
-                        val farmerId = SessionManager.getFarmerId(context).first() ?: -1
-                        val token = SessionManager.getToken(context).first()
-                            ?: return@launch
-                        if (farmerId == -1) return@launch
+                onConfirmUrgentOrder = onConfirm@{ product, pestType ->
+                    if (isSubmitting) return@onConfirm
 
-                        orderViewModel.createCashOrder(
-                            idAgricultor = farmerId,
-                            items = listOf(product),
-                            direccionEntrega = deliveryAddress.trim(),
-                            tipoEntrega = "domicilio",
-                            token = token,
-                            esUrgente = true,
-                            tipoPlaga = pestType
-                        )
+                    val addressSnapshot = deliveryAddress.trim()
+                    val pestSnapshot = pestType.trim()
+                    isPreparingSubmission = true
+                    submittedCartItemId = product.id
+                    submittedDeliveryAddress = addressSnapshot
+                    scope.launch {
+                        try {
+                            val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                            val token = SessionManager.getToken(context).first()
+                                ?: return@launch
+                            if (farmerId == -1) return@launch
+
+                            orderViewModel.createCashOrder(
+                                idAgricultor = farmerId,
+                                items = listOf(product),
+                                direccionEntrega = addressSnapshot,
+                                tipoEntrega = "domicilio",
+                                token = token,
+                                esUrgente = true,
+                                tipoPlaga = pestSnapshot
+                            )
+                        } finally {
+                            isPreparingSubmission = false
+                        }
                     }
                 },
                 onBack = { navController.popBackStack() }

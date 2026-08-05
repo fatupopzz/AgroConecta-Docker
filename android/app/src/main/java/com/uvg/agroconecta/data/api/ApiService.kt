@@ -103,6 +103,15 @@ interface ApiService {
         @Path("id") orderId: Int
     ): Response<OrderTrackingResponse>
 
+    // ── Distributor notifications ─────────────────────────────────────────
+    @GET("notifications")
+    suspend fun getDistributorNotifications(): Response<List<DistributorNotification>>
+
+    @PATCH("notifications/{id}/read")
+    suspend fun markDistributorNotificationAsRead(
+        @Path("id") notificationId: Int
+    ): Response<Map<String, String>>
+
     @GET("products/{id}/reviews")
     suspend fun getReviews(
         @Path("id")    productoId: Int,
