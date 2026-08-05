@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "node index.js",
-    "test": "jest",
+    "test": "npm run test:unit",
+    "test:unit": "node --test tests/adminMetrics.test.js tests/orderUrgency.test.js && jest tests/authController.mock.test.js --runInBand",
+    "test:integration": "jest tests/authController.test.js --runInBand",
     "test:watch": "jest --watch",
     "coverage": "jest --coverage"
   },
