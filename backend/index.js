@@ -9,6 +9,8 @@ const runStartupMigrations = async () => {
   const statements = [
     `ALTER TABLE reporte_calidad
      ADD COLUMN IF NOT EXISTS fecha_resolucion TIMESTAMP`,
+    `ALTER TABLE distribuidor
+     ADD COLUMN IF NOT EXISTS direccion TEXT`,
     `ALTER TABLE pago
      ADD COLUMN IF NOT EXISTS estado_pago VARCHAR(20) DEFAULT 'pendiente'
        CHECK (estado_pago IN ('pendiente', 'processing', 'completado', 'failed'))`,
@@ -87,6 +89,12 @@ const runStartupMigrations = async () => {
        leida BOOLEAN DEFAULT FALSE,
        fecha TIMESTAMP DEFAULT NOW()
      )`,
+    `ALTER TABLE notificacion
+     ADD COLUMN IF NOT EXISTS id_distribuidor INT
+       REFERENCES distribuidor(id_distribuidor) ON DELETE CASCADE`,
+    `ALTER TABLE notificacion
+     ADD COLUMN IF NOT EXISTS id_pedido INT
+       REFERENCES pedido(id_pedido) ON DELETE CASCADE`,
     `CREATE INDEX IF NOT EXISTS idx_notificacion_agricultor_fecha
      ON notificacion (id_agricultor, fecha DESC)`,
     `CREATE INDEX IF NOT EXISTS idx_notificacion_tipo
