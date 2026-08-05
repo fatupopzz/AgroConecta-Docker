@@ -131,6 +131,28 @@ class OrderViewModel : ViewModel() {
         }
     }
 
+    fun loadOrdersByDistributor(idDistribuidor: Int, token: String? = null) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _errorMessage.value = null
+
+                val response = RetrofitClient.getService(token)
+                    .getOrdersByDistributor(idDistribuidor)
+
+                if (response.isSuccessful) {
+                    _orders.value = response.body().orEmpty()
+                } else {
+                    _errorMessage.value = "No se pudieron cargar los pedidos recibidos"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error inesperado al cargar pedidos"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     fun loadOrderTracking(orderId: Int, token: String? = null) {
         viewModelScope.launch {
             try {

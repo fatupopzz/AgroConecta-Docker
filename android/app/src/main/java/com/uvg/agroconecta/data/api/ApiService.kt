@@ -93,6 +93,11 @@ interface ApiService {
         @Query("estado") estado: String? = null
     ): Response<OrdersByFarmerResponse>
 
+    @GET("orders/distributor/{id}")
+    suspend fun getOrdersByDistributor(
+        @Path("id") idDistribuidor: Int
+    ): Response<List<OrderSummary>>
+
     @GET("orders/{id}/tracking")
     suspend fun getOrderTracking(
         @Path("id") orderId: Int

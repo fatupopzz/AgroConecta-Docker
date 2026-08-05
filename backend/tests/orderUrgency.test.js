@@ -35,21 +35,7 @@ const validBody = {
   metodo_pago: "efectivo",
 };
 
-test("createOrder rejects non-boolean esUrgente before opening a transaction", async () => {
-  const pool = { connect: async () => assert.fail("must not connect") };
-  const { createOrder } = loadController(pool);
-  const res = response();
-
-  await createOrder(
-    { body: { ...validBody, esUrgente: "true" }, agricultorId: 2 },
-    res
-  );
-
-  assert.equal(res.statusCode, 400);
-  assert.deepEqual(res.body, { error: "esUrgente debe ser boolean" });
-});
-
-test("createOrder accepts omitted urgency fields for backwards compatibility", async () => {
+const runSuccessfulOrder = async (body) => {
   const queries = [];
   const client = {
     release() {},
@@ -79,10 +65,69 @@ test("createOrder accepts omitted urgency fields for backwards compatibility", a
   const { createOrder } = loadController({ connect: async () => client });
   const res = response();
 
-  await createOrder({ body: validBody, agricultorId: 2 }, res);
+  await createOrder({ body, agricultorId: 2 }, res);
+
+  return { queries, res };
+};
+
+test("createOrder rejects non-boolean esUrgente before opening a transaction", async () => {
+  const pool = { connect: async () => assert.fail("must not connect") };
+  const { createOrder } = loadController(pool);
+  const res = response();
+
+  await createOrder(
+    { body: { ...validBody, esUrgente: "true" }, agricultorId: 2 },
+    res
+  );
+
+  assert.equal(res.statusCode, 400);
+  assert.deepEqual(res.body, { error: "esUrgente debe ser boolean" });
+});
+
+test("createOrder accepts omitted urgency fields for backwards compatibility", async () => {
+  const { queries, res } = await runSuccessfulOrder(validBody);
 
   assert.equal(res.statusCode, 201);
   const insert = queries.find(({ sql }) => sql.includes("INSERT INTO pedido\n"));
   assert.equal(insert.params[4], false);
   assert.equal(insert.params[5], null);
+});
+
+test("createOrder creates a differentiated urgent notification", async () => {
+  const { queries, res } = await runSuccessfulOrder({
+    ...validBody,
+    esUrgente: true,
+    tipoPlaga: "Pulgón",
+  });
+
+  assert.equal(res.statusCode, 201);
+  const notification = queries.find(({ sql }) =>
+    sql.includes("INSERT INTO notificacion")
+  );
+  assert.equal(notification.params[2], "pedido_urgente");
+
+  const content = JSON.parse(notification.params[3]);
+  assert.equal(content.esUrgente, true);
+  assert.equal(content.tipoPlaga, "Pulgón");
+  assert.match(content.mensaje, /urgente/i);
+});
+
+test("getOrdersByDistributor returns urgency fields ordered first", async () => {
+  const queries = [];
+  const pool = {
+    async query(sql) {
+      queries.push(sql);
+      if (sql.includes("SELECT 1 FROM distribuidor")) return { rows: [{}] };
+      return { rows: [{ id: 11, es_urgente: true, tipo_plaga: "Trips" }] };
+    },
+  };
+  const { getOrdersByDistributor } = loadController(pool);
+  const res = response();
+
+  await getOrdersByDistributor({ params: { id: "3" } }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body[0].es_urgente, true);
+  assert.match(queries[1], /p\.es_urgente/);
+  assert.match(queries[1], /ORDER BY p\.es_urgente DESC/);
 });

@@ -409,15 +409,24 @@ fun AgroConectaNavHost(
             val errorMessage by orderViewModel.errorMessage.collectAsState()
 
             LaunchedEffect(Unit) {
-                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                 val token = SessionManager.getToken(context).first()
-                if (farmerId != -1) {
-                    orderViewModel.loadOrdersByFarmer(farmerId, token)
+                val role = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
+                if (role == "distribuidor") {
+                    val distributorId = SessionManager.getPerfilId(context).first() ?: -1
+                    if (distributorId != -1) {
+                        orderViewModel.loadOrdersByDistributor(distributorId, token)
+                    }
+                } else {
+                    val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                    if (farmerId != -1) {
+                        orderViewModel.loadOrdersByFarmer(farmerId, token)
+                    }
                 }
             }
 
             OrderHistoryScreen(
                 orders = orders,
+                tipoUsuario = tipoUsuario,
                 isLoading = isLoading,
                 errorMessage = errorMessage,
                 onTrackOrder = { orderId ->

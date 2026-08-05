@@ -274,7 +274,8 @@ data class OrderSummary(
     val estado: String,
     @SerializedName("fecha_pedido") val fechaPedido: String,
     @SerializedName("total_pedido") val totalPedido: Double,
-    @SerializedName("distribuidor_nombre") val distribuidorNombre: String,
+    @SerializedName("distribuidor_nombre") val distribuidorNombre: String? = null,
+    @SerializedName("agricultor_nombre") val agricultorNombre: String? = null,
     @SerializedName("cantidad_productos") val cantidadProductos: Int,
     @SerializedName("es_urgente") val esUrgente: Boolean = false,
     @SerializedName("tipo_plaga") val tipoPlaga: String? = null

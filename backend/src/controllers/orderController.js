@@ -6,6 +6,7 @@ const {
   ORDER_STATES_UPDATEABLE,
   normalizeOrderState,
 } = require("../constants/orderStates");
+const { NOTIFICATION_TYPES } = require("../constants/notificationTypes");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
@@ -417,12 +418,18 @@ const createOrder = async (req, res) => {
       [
         Number(id_distribuidor),
         createdOrder.id_pedido,
-        "nuevo_pedido",
+        esUrgente
+          ? NOTIFICATION_TYPES.PEDIDO_URGENTE
+          : NOTIFICATION_TYPES.NUEVO_PEDIDO,
         JSON.stringify({
-          mensaje: "Nuevo pedido recibido",
+          mensaje: esUrgente
+            ? "Pedido urgente por detección de plaga"
+            : "Nuevo pedido recibido",
           agricultor: agricultorNombre,
           monto: totalPedido,
-          pedido: createdOrder.id_pedido
+          pedido: createdOrder.id_pedido,
+          esUrgente,
+          tipoPlaga: normalizedPestType,
         })
       ]
     );
@@ -614,7 +621,7 @@ const getOrdersByDistributor = async (req, res) => {
 
     const result = await pool.query(
       `SELECT
-          p.id_pedido,
+          p.id_pedido AS id,
           p.fecha_pedido,
           CASE
             WHEN p.estado = '${LEGACY_ORDER_STATES.PENDING}' THEN '${ORDER_STATES.CONFIRMED}'
@@ -622,11 +629,14 @@ const getOrdersByDistributor = async (req, res) => {
             ELSE p.estado
           END AS estado,
           p.direccion_entrega,
+          p.es_urgente,
+          p.tipo_plaga,
           p.total_pedido,
           p.costo_envio,
           p.notas,
           a.id_agricultor,
           ua.nombre AS agricultor_nombre,
+          COALESCE(COUNT(dp.id_detalle), 0)::int AS cantidad_productos,
           ua.email AS agricultor_email,
           ua.telefono AS agricultor_telefono,
           pa.metodo_pago,
@@ -634,9 +644,12 @@ const getOrdersByDistributor = async (req, res) => {
        FROM pedido p
        JOIN agricultor a ON p.id_agricultor = a.id_agricultor
        JOIN usuario ua ON a.id_usuario = ua.id_usuario
+       LEFT JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
        LEFT JOIN pago pa ON p.id_pedido = pa.id_pedido
        WHERE p.id_distribuidor = $1
-       ORDER BY p.fecha_pedido DESC, p.id_pedido DESC`,
+       GROUP BY p.id_pedido, a.id_agricultor, ua.nombre, ua.email, ua.telefono,
+                pa.metodo_pago, pa.estado_pago
+       ORDER BY p.es_urgente DESC, p.fecha_pedido DESC, p.id_pedido DESC`,
       [distributorId]
     );
 

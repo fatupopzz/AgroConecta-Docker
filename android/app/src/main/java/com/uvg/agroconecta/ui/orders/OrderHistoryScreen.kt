@@ -3,6 +3,7 @@ package com.uvg.agroconecta.ui.orders
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material3.*
@@ -10,23 +11,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.OrderSummary
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.GreenPrimary
-import kotlinx.coroutines.flow.first
 
 private val GreenPrimary = Color(0xFF2E7D32)
+private val UrgentBackground = Color(0xFFFFEBEE)
+private val UrgentRed = Color(0xFFC62828)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderHistoryScreen(
     orders: List<OrderSummary>,
+    tipoUsuario: String,
     isLoading: Boolean,
     errorMessage: String?,
     onTrackOrder: (Int) -> Unit,
@@ -35,19 +35,14 @@ fun OrderHistoryScreen(
     onAgregarClick: () -> Unit,
     onPerfilClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    var tipoUsuario by remember { mutableStateOf("agricultor") }
-
-    LaunchedEffect(Unit) {
-        tipoUsuario = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
-    }
+    val isDistributor = tipoUsuario == "distribuidor"
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        "Mis pedidos",
+                        if (isDistributor) "Pedidos recibidos" else "Mis pedidos",
                         color = Color.White,
                         style = MaterialTheme.typography.titleMedium
                     )
@@ -92,7 +87,11 @@ fun OrderHistoryScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Aún no tienes pedidos registrados.",
+                        if (isDistributor) {
+                            "Aún no has recibido pedidos."
+                        } else {
+                            "Aún no tienes pedidos registrados."
+                        },
                         color = Color(0xFF78909C)
                     )
                 }
@@ -104,16 +103,74 @@ fun OrderHistoryScreen(
                     items(orders) { order ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (order.esUrgente) {
+                                    UrgentBackground
+                                } else {
+                                    Color.White
+                                }
+                            ),
+                            border = if (order.esUrgente) {
+                                BorderStroke(2.dp, UrgentRed)
+                            } else {
+                                null
+                            },
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Pedido #${order.id}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Pedido #${order.id}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (order.esUrgente) {
+                                        Surface(
+                                            color = UrgentRed,
+                                            shape = MaterialTheme.shapes.small
+                                        ) {
+                                            Text(
+                                                text = "URGENTE",
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                modifier = Modifier.padding(
+                                                    horizontal = 9.dp,
+                                                    vertical = 4.dp
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(4.dp))
+                                val counterparty = if (isDistributor) {
+                                    order.agricultorNombre
+                                } else {
+                                    order.distribuidorNombre
+                                }
+                                counterparty?.let {
+                                    Text(
+                                        text = if (isDistributor) {
+                                            "Agricultor: $it"
+                                        } else {
+                                            "Distribuidor: $it"
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                if (order.esUrgente && !order.tipoPlaga.isNullOrBlank()) {
+                                    Text(
+                                        text = "Plaga detectada: ${order.tipoPlaga}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = UrgentRed,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                                 Text(
                                     "Estado: ${order.estado}",
                                     style = MaterialTheme.typography.bodyMedium
