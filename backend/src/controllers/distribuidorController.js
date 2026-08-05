@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const { ORDER_STATES } = require("../constants/orderStates");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
@@ -380,6 +381,80 @@ const getDistributorProducts = async (req, res) => {
 
 };
 
+const getDistributorStats = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({ error: "ID inválido" });
+  }
+
+  const distributorId = Number(id);
+
+  try {
+    const [summaryResult, topProductsResult, ordersByStatusResult] =
+      await Promise.all([
+        pool.query(
+          `SELECT
+             COUNT(*)::int AS total_pedidos,
+             COALESCE(
+               SUM(total_pedido) FILTER (WHERE estado = $2),
+               0
+             ) AS ingresos_totales
+           FROM pedido
+           WHERE id_distribuidor = $1`,
+          [distributorId, ORDER_STATES.DELIVERED]
+        ),
+        pool.query(
+          `SELECT
+             pr.nombre,
+             SUM(dp.cantidad)::int AS cantidad,
+             COALESCE(SUM(dp.subtotal), 0) AS ingresos
+           FROM pedido pe
+           JOIN detalle_pedido dp ON pe.id_pedido = dp.id_pedido
+           JOIN inventario_distribuidor i ON dp.id_inventario = i.id_inventario
+           JOIN producto pr ON i.id_producto = pr.id_producto
+           WHERE pe.id_distribuidor = $1
+             AND pe.estado = $2
+           GROUP BY pr.id_producto, pr.nombre
+           ORDER BY cantidad DESC, ingresos DESC, pr.nombre ASC
+           LIMIT 5`,
+          [distributorId, ORDER_STATES.DELIVERED]
+        ),
+        pool.query(
+          `SELECT estado, COUNT(*)::int AS cantidad
+           FROM pedido
+           WHERE id_distribuidor = $1
+           GROUP BY estado`,
+          [distributorId]
+        ),
+      ]);
+
+    const ordersByStatus = new Map(
+      ordersByStatusResult.rows.map((row) => [row.estado, Number(row.cantidad)])
+    );
+    const summary = summaryResult.rows[0];
+
+    return res.json({
+      totalPedidos: Number(summary.total_pedidos),
+      ingresosTotales: Number(summary.ingresos_totales),
+      productosMasVendidos: topProductsResult.rows.map((product) => ({
+        nombre: product.nombre,
+        cantidad: Number(product.cantidad),
+        ingresos: Number(product.ingresos),
+      })),
+      pedidosPorEstado: Object.values(ORDER_STATES).map((estado) => ({
+        estado,
+        cantidad: ordersByStatus.get(estado) || 0,
+      })),
+    });
+  } catch (error) {
+    console.error("Error en getDistributorStats:", error);
+    return res.status(500).json({
+      error: "Error al obtener estadísticas del distribuidor",
+    });
+  }
+};
+
 module.exports = {
   getDistributors,
   getDistributorById,
@@ -388,5 +463,6 @@ module.exports = {
   deleteDistributor,
   getDistributorRating,
   getDistributorReviews,
-  getDistributorProducts
+  getDistributorProducts,
+  getDistributorStats
 };

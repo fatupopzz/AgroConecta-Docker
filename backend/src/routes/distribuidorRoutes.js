@@ -9,13 +9,18 @@ const {
   deleteDistributor,
   getDistributorRating,
   getDistributorReviews,
-  getDistributorProducts
+  getDistributorProducts,
+  getDistributorStats
 } = require("../controllers/distribuidorController");
+const {
+  canViewDistributorStats,
+} = require("../middleware/orderAuthorizationMiddleware");
 
 router.get("/", getDistributors);
 router.get("/:id/rating", getDistributorRating);
 router.get("/:id/reviews", getDistributorReviews);
 router.get("/:id/productos", getDistributorProducts);
+router.get("/:id/stats", canViewDistributorStats, getDistributorStats);
 router.get("/:id", getDistributorById);
 router.post("/", createDistributor);
 router.put("/:id", updateDistributor);

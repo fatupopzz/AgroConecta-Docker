@@ -45,6 +45,7 @@ fun ProfileScreen(
     onHomeClick: () -> Unit,
     onAgregarClick: () -> Unit,
     onPedidosClick: () -> Unit,
+    onStatsClick: () -> Unit,
     viewModel: ProfileViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -119,6 +120,7 @@ fun ProfileScreen(
                         )
                         is ProfileData.Distributor -> DistributorProfileContent(
                             data.profile,
+                            onStatsClick = onStatsClick,
                             onLogoutClick = { showLogoutDialog = true }
                         )
                     }
@@ -273,6 +275,7 @@ fun FarmerProfileContent(
 @Composable
 fun DistributorProfileContent(
     profile: DistributorProfile,
+    onStatsClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
     Column(
@@ -365,6 +368,27 @@ fun DistributorProfileContent(
             profile.calificacionPromedio?.let {
                 ProfileInfoRow(Icons.Default.Star, "Calificación promedio", "%.1f / 5.0".format(it))
             }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Button(
+            onClick = onStatsClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+        ) {
+            Icon(Icons.Default.Analytics, contentDescription = null)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = "Ver estadísticas de ventas",
+                modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.SemiBold
+            )
+            Icon(Icons.Default.ChevronRight, contentDescription = null)
         }
 
         Spacer(Modifier.height(24.dp))
