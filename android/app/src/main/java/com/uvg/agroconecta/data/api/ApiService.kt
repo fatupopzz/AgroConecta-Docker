@@ -145,6 +145,11 @@ interface ApiService {
         @Query("limit") limit: Int = 10
     ): Response<DistributorReviewsResponse>
 
+    @GET("distribuidores/{id}/stats")
+    suspend fun getDistributorStats(
+        @Path("id") id: Int
+    ): Response<DistributorStatsResponse>
+
     // ── Distributor by ID ─────────────────────────────────────────────────
     @GET("distribuidores/{id}")
     suspend fun getDistributorById(
