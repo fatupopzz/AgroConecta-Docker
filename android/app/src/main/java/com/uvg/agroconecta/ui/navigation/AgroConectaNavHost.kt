@@ -34,6 +34,7 @@ import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
 import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
 import com.uvg.agroconecta.ui.orders.OrderTrackingScreen
 import com.uvg.agroconecta.ui.orders.OrderViewModel
+import com.uvg.agroconecta.ui.orders.UrgentOrderScreen
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import com.uvg.agroconecta.ui.profile.ProfileScreen
 import kotlinx.coroutines.flow.first
@@ -178,10 +179,87 @@ fun AgroConectaNavHost(
                 onCheckout = {
                     navController.navigate(Screen.OrderConfirmation.route)
                 },
+                onUrgentOrder = {
+                    navController.navigate(Screen.UrgentOrder.route)
+                },
                 onGoToCatalog = {
                     navController.popBackStack(Screen.Home.route, inclusive = false)
                 },
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.UrgentOrder.route) {
+            val scope = rememberCoroutineScope()
+            val orderViewModel: OrderViewModel = viewModel()
+            val cartItemsForUrgency by sharedCartViewModel.cartItems.collectAsState()
+            val isSubmitting by orderViewModel.isLoading.collectAsState()
+            val successMessage by orderViewModel.successMessage.collectAsState()
+            val errorMessage by orderViewModel.errorMessage.collectAsState()
+            val createdOrderId by orderViewModel.createdOrderId.collectAsState()
+
+            var deliveryAddress by remember { mutableStateOf("") }
+            var submittedCartItemId by remember { mutableStateOf<Int?>(null) }
+
+            LaunchedEffect(Unit) {
+                deliveryAddress = SessionManager.getDeliveryAddress(context).first().orEmpty()
+
+                if (cartItemsForUrgency.isEmpty()) {
+                    val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                    val token = SessionManager.getToken(context).first()
+                        ?: return@LaunchedEffect
+                    if (farmerId != -1) {
+                        sharedCartViewModel.loadCart(farmerId, token)
+                    }
+                }
+            }
+
+            LaunchedEffect(successMessage) {
+                if (successMessage == null) return@LaunchedEffect
+
+                orderViewModel.clearSuccessMessage()
+                submittedCartItemId?.let(sharedCartViewModel::removeItem)
+                SessionManager.saveDeliveryAddress(context, deliveryAddress.trim())
+
+                val orderId = createdOrderId
+                orderViewModel.clearCreatedOrderId()
+                if (orderId != null) {
+                    navController.navigate(Screen.OrderTracking.createRoute(orderId)) {
+                        popUpTo(Screen.Cart.route) { inclusive = true }
+                    }
+                } else {
+                    navController.navigate(Screen.OrderHistory.route) {
+                        popUpTo(Screen.Cart.route) { inclusive = true }
+                    }
+                }
+            }
+
+            UrgentOrderScreen(
+                cartItems = cartItemsForUrgency,
+                deliveryAddress = deliveryAddress,
+                isSubmitting = isSubmitting,
+                errorMessage = errorMessage,
+                onDeliveryAddressChange = { deliveryAddress = it },
+                onConfirmUrgentOrder = { product, pestType ->
+                    submittedCartItemId = product.id
+                    scope.launch {
+                        val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                        val token = SessionManager.getToken(context).first()
+                            ?: return@launch
+                        if (farmerId == -1) return@launch
+
+                        orderViewModel.createCashOrder(
+                            idAgricultor = farmerId,
+                            items = listOf(product),
+                            direccionEntrega = deliveryAddress.trim(),
+                            tipoEntrega = "domicilio",
+                            token = token,
+                            esUrgente = true,
+                            tipoPlaga = pestType
+                        )
+                    }
+                },
+                onBack = { navController.popBackStack() }
             )
         }
 
