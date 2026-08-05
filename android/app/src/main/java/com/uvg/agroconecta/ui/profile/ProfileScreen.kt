@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.ErrorRed
@@ -35,7 +34,6 @@ import com.uvg.agroconecta.ui.theme.GreenSurface
 import com.uvg.agroconecta.ui.theme.OrangeAccent
 import com.uvg.agroconecta.ui.theme.OrangeLight
 import com.uvg.agroconecta.ui.theme.VerifiedBlue
-import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +44,7 @@ fun ProfileScreen(
     onAgregarClick: () -> Unit,
     onPedidosClick: () -> Unit,
     onStatsClick: () -> Unit,
+    tipoUsuario: String,
     viewModel: ProfileViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -53,10 +52,8 @@ fun ProfileScreen(
     val isLoggingOut by viewModel.isLoggingOut.collectAsState()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var tipoUsuario by remember { mutableStateOf("agricultor") }
 
     LaunchedEffect(Unit) {
-        tipoUsuario = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
         viewModel.loadProfile(context)
     }
 

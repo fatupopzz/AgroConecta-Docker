@@ -343,6 +343,7 @@ fun AgroConectaNavHost(
                 orders = orders,
                 isLoading = isLoading,
                 errorMessage = errorMessage,
+                tipoUsuario = tipoUsuario,
                 onTrackOrder = { orderId ->
                     navController.navigate(Screen.OrderTracking.createRoute(orderId))
                 },
@@ -429,7 +430,8 @@ fun AgroConectaNavHost(
                     }
                 },
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
-                onPerfilClick = { navController.navigate(Screen.Profile.route) }
+                onPerfilClick = { navController.navigate(Screen.Profile.route) },
+                tipoUsuario = tipoUsuario
             )
         }
 
@@ -463,6 +465,7 @@ fun AgroConectaNavHost(
                         launchSingleTop = true
                     }
                 },
+                tipoUsuario = tipoUsuario,
                 onLogout = {
                     authViewModel.resetLogin()
                     navController.navigate(Screen.Login.route) {
