@@ -15,6 +15,14 @@ class HomeCropCycleCardTest {
     }
 
     @Test
+    fun `normalizes recommended product before using it as catalog filter`() {
+        assertEquals(
+            "Fertilizante nitrogenado",
+            normalizeCatalogQuery("  Fertilizante   nitrogenado  ")
+        )
+    }
+
+    @Test
     fun `shows card only for farmer with an active phase`() {
         val cycle = cycleWithActivePhase()
 

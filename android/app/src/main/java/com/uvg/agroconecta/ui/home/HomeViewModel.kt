@@ -168,6 +168,18 @@ class HomeViewModel(
 
     fun onSearchSubmit() { loadProductos(reset = true) }
 
+    fun applyCatalogFilter(query: String) {
+        _uiState.update {
+            it.copy(
+                searchQuery = normalizeCatalogQuery(query),
+                categoriaSeleccionadaId = null,
+                currentPage = 1,
+                hasMore = true
+            )
+        }
+        loadProductos(reset = true)
+    }
+
     fun abrirFiltros() { _uiState.update { it.copy(filtrosAbiertos = true) } }
 
     fun cerrarFiltros() { _uiState.update { it.copy(filtrosAbiertos = false) } }
@@ -198,3 +210,6 @@ class HomeViewModel(
 
     fun clearError() { _uiState.update { it.copy(errorMessage = null) } }
 }
+
+internal fun normalizeCatalogQuery(query: String): String =
+    query.trim().replace(Regex("\\s+"), " ")

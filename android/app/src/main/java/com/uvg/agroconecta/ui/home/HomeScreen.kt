@@ -67,6 +67,7 @@ fun HomeScreen(
     cartItemCount: Int = 0,
     urgentNotification: DistributorNotification? = null,
     onUrgentNotificationClick: (DistributorNotification) -> Unit = {},
+    onRecommendedProductClick: (String) -> Unit = {},
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -135,7 +136,10 @@ fun HomeScreen(
             if (shouldShowCropCycleCard(tipoUsuario, uiState.cicloRelevante)) {
                 uiState.cicloRelevante?.let { cycle ->
                     item(key = "crop-cycle-${cycle.faseActual?.idCiclo}") {
-                        CropCycleInfoCard(cycle = cycle)
+                        CropCycleInfoCard(
+                            cycle = cycle,
+                            onRecommendedProductClick = onRecommendedProductClick
+                        )
                     }
                 }
             }
@@ -177,6 +181,7 @@ fun HomeScreen(
 @Composable
 internal fun CropCycleInfoCard(
     cycle: CropCycleResponse,
+    onRecommendedProductClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val currentPhase = cycle.faseActual ?: return
@@ -241,19 +246,31 @@ internal fun CropCycleInfoCard(
                     style = MaterialTheme.typography.labelLarge
                 )
                 currentPhase.productosRecomendados.take(3).forEach { product ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.Top
+                    TextButton(
+                        onClick = { onRecommendedProductClick(product) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("recommended-product-link"),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                     ) {
-                        Text(
-                            text = "•",
-                            color = VerdeClaro,
-                            fontWeight = FontWeight.Bold
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = VerdeClaro,
+                            modifier = Modifier.size(17.dp)
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = product,
                             color = Color(0xFF37474F),
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Start,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "Ver en catálogo",
+                            color = VerdeAgroConecta,
+                            style = MaterialTheme.typography.labelSmall
                         )
                     }
                 }
