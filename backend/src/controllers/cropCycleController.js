@@ -1,33 +1,7 @@
 const { pool } = require("../config/db");
+const { normalizeCropName } = require("../utils/cropNames");
 
 const GUATEMALA_TIME_ZONE = "America/Guatemala";
-const MAX_CROP_NAME_LENGTH = 80;
-const CROP_ALIASES = new Map([
-  ["maiz", "maíz"],
-  ["cafe", "café"],
-  ["frijol", "frijol"],
-  ["elote", "elote"],
-  ["tomate", "tomate"],
-]);
-
-const stripDiacritics = (value) =>
-  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-const normalizeCropName = (value) => {
-  if (typeof value !== "string") return null;
-
-  const normalized = value.trim().replace(/\s+/g, " ").toLocaleLowerCase("es-GT");
-  if (
-    normalized.length === 0 ||
-    normalized.length > MAX_CROP_NAME_LENGTH ||
-    !/^[\p{L}]+(?:[ '-][\p{L}]+)*$/u.test(normalized)
-  ) {
-    return null;
-  }
-
-  const aliasKey = stripDiacritics(normalized);
-  return CROP_ALIASES.get(aliasKey) || normalized;
-};
 
 const getGuatemalaMonth = (date = new Date()) =>
   Number(
