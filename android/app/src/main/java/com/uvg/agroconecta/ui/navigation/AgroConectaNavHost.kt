@@ -134,8 +134,9 @@ fun AgroConectaNavHost(
 
             LaunchedEffect(Unit) {
                 val token = SessionManager.getToken(context).first()
+                val sessionUserType = SessionManager.getTipoUsuario(context).first()
                 sessionToken = token
-                homeViewModel.init(token)
+                homeViewModel.init(token, sessionUserType)
             }
 
             LaunchedEffect(tipoUsuario, sessionToken) {
