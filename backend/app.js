@@ -17,6 +17,7 @@ const resenaRoutes = require("./src/routes/resenaRoutes");
 const inventoryRoutes = require("./src/routes/inventoryRoutes");
 const distribuidorReviewRoutes = require("./src/routes/distribuitorReviewRoutes");
 const notificationRoutes = require("./src/routes/notificationRoutes");
+const cropCycleRoutes = require("./src/routes/cropCycleRoutes");
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use("/api/payments", verifyToken, paymentRoutes);
 app.use("/api/products/:id/reviews", resenaRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/ciclos", cropCycleRoutes);
 app.use("/api/agricultores", verifyToken, agricultorRoutes);
 app.use("/api/distribuidores", verifyToken, distribuidorRoutes);
 app.use("/api/usuarios", verifyToken, userRoutes);
