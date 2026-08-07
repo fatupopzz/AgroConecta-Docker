@@ -1,5 +1,7 @@
 require("dotenv").config();
 
+const fs = require("node:fs/promises");
+const path = require("node:path");
 const app = require("./app");
 const { shutdownPool, pool } = require("./src/config/db");
 
@@ -104,6 +106,12 @@ const runStartupMigrations = async () => {
   for (const statement of statements) {
     await pool.query(statement);
   }
+
+  const cropCycleMigration = await fs.readFile(
+    path.join(__dirname, "sql", "hu026_crop_cycles_migration.sql"),
+    "utf8",
+  );
+  await pool.query(cropCycleMigration);
 };
 
 const startServer = async () => {
