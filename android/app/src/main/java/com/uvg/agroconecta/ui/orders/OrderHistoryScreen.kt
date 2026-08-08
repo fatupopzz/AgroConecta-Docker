@@ -10,18 +10,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.OrderSummary
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.GreenPrimary
-import kotlinx.coroutines.flow.first
-
-private val GreenPrimary = Color(0xFF2E7D32)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,19 +23,13 @@ fun OrderHistoryScreen(
     orders: List<OrderSummary>,
     isLoading: Boolean,
     errorMessage: String?,
+    tipoUsuario: String,
     onTrackOrder: (Int) -> Unit,
     onBack: () -> Unit,
     onHomeClick: () -> Unit,
     onAgregarClick: () -> Unit,
     onPerfilClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    var tipoUsuario by remember { mutableStateOf("agricultor") }
-
-    LaunchedEffect(Unit) {
-        tipoUsuario = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(

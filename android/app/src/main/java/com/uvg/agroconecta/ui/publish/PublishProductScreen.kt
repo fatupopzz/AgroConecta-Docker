@@ -30,6 +30,7 @@ fun PublishProductScreen(
     onHomeClick: () -> Unit,
     onPedidosClick: () -> Unit,
     onPerfilClick: () -> Unit,
+    tipoUsuario: String = "distribuidor",
     viewModel: PublishProductViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -74,7 +75,7 @@ fun PublishProductScreen(
         bottomBar = {
             AppBottomBar(
                 selectedTab = BottomNavTab.AGREGAR,
-                tipoUsuario = "distribuidor",
+                tipoUsuario = tipoUsuario,
                 onHomeClick = onHomeClick,
                 onAgregarClick = { },
                 onPedidosClick = onPedidosClick,
