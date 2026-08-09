@@ -54,8 +54,13 @@ interface ApiService {
     suspend fun getVerifiedDistributors(): Response<List<Distributor>>
 
     // ── Cart ─────────────────────────────────────────────────────────────
+    // Estos endpoints reciben el token como @Header porque CartViewModel usa el
+    // ApiService inyectado por Hilt, que no lleva interceptor de auth.
     @GET("cart/{id_agricultor}")
-    suspend fun getCart(@Path("id_agricultor") idAgricultor: Int): Response<CartResponse>
+    suspend fun getCart(
+        @Path("id_agricultor") idAgricultor: Int,
+        @Header("Authorization") token: String?
+    ): Response<CartResponse>
 
     @POST("cart/{id_agricultor}/items")
     suspend fun addToCart(
@@ -67,18 +72,21 @@ interface ApiService {
     suspend fun updateCartItem(
         @Path("id_agricultor") idAgricultor: Int,
         @Path("id_item") idItem: Int,
+        @Header("Authorization") token: String?,
         @Body body: Map<String, Int>
     ): Response<Map<String, Any>>
 
     @DELETE("cart/{id_agricultor}/items/{id_item}")
     suspend fun removeCartItem(
         @Path("id_agricultor") idAgricultor: Int,
-        @Path("id_item") idItem: Int
+        @Path("id_item") idItem: Int,
+        @Header("Authorization") token: String?
     ): Response<Map<String, Any>>
 
     @DELETE("cart/{id_agricultor}")
     suspend fun clearCart(
-        @Path("id_agricultor") idAgricultor: Int
+        @Path("id_agricultor") idAgricultor: Int,
+        @Header("Authorization") token: String?
     ): Response<Map<String, Any>>
 
     // ── Orders (HU-015) ──────────────────────────────────────────────────

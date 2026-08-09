@@ -8,6 +8,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -43,11 +44,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun AgroConectaNavHost(
     navController: NavHostController,
-    authViewModel: AuthViewModel = viewModel(),
+    authViewModel: AuthViewModel = hiltViewModel(),
     initialTrackingOrderId: Int? = null
 ) {
     val context = LocalContext.current
-    val sharedCartViewModel: CartViewModel = viewModel()
+    // Se crea fuera de cualquier composable de destino, asi que el owner es la
+    // MainActivity: una sola instancia compartida por todas las pantallas.
+    val sharedCartViewModel: CartViewModel = hiltViewModel()
     val cartItems by sharedCartViewModel.cartItems.collectAsState()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
 
@@ -490,5 +493,5 @@ private fun NavBackStackEntry.sharedAuthViewModel(
     val parentEntry = remember(this) {
         navController.getBackStackEntry(Screen.RegisterStep1.route)
     }
-    return viewModel(viewModelStoreOwner = parentEntry)
+    return hiltViewModel(viewModelStoreOwner = parentEntry)
 }

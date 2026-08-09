@@ -2,7 +2,11 @@ package com.uvg.agroconecta.ui.auth
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.uvg.agroconecta.MainDispatcherRule
+import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.models.TipoCuenta
+import io.mockk.Called
+import io.mockk.mockk
+import io.mockk.verify
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -16,11 +20,18 @@ class AuthViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    /**
+     * Mock estricto a proposito: no lleva `relaxed = true`, asi que cualquier
+     * llamada a la red que no este explicitamente stubbeada revienta el test en
+     * lugar de salir al backend real.
+     */
+    private lateinit var api: ApiService
     private lateinit var viewModel: AuthViewModel
 
     @Before
     fun setup() {
-        viewModel = AuthViewModel()
+        api = mockk()
+        viewModel = AuthViewModel(api)
     }
 
     @Test
@@ -88,6 +99,8 @@ class AuthViewModelTest {
         assertEquals("", draft?.nombre)
         assertEquals("", draft?.email)
         assertEquals(AuthState.Idle, viewModel.registerState.value)
+        // Editar y limpiar el draft es estado local: no debe tocar la red.
+        verify { api wasNot Called }
     }
 
     @Test
@@ -95,5 +108,6 @@ class AuthViewModelTest {
         viewModel.resetLogin()
         assertEquals(AuthState.Idle, viewModel.loginState.value)
         assertEquals("", viewModel.nombreUsuario.value)
+        verify { api wasNot Called }
     }
 }
