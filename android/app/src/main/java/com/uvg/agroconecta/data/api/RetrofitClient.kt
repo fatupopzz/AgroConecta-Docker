@@ -104,9 +104,17 @@ object RetrofitClient {
     private fun createAuthenticatedService(token: String): ApiService {
         val client = baseClient.newBuilder()
             .addInterceptor(Interceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .addHeader("Authorization", "Bearer $token")
-                    .build()
+                // Solo agrega la cabecera si el endpoint no la declaro ya con
+                // @Header. addHeader() acumula en vez de reemplazar, asi que sin
+                // esta guarda el request salia con dos Authorization.
+                val original = chain.request()
+                val request = if (original.header("Authorization") == null) {
+                    original.newBuilder()
+                        .addHeader("Authorization", "Bearer $token")
+                        .build()
+                } else {
+                    original
+                }
                 chain.proceed(request)
             })
             .build()
