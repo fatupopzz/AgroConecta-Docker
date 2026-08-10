@@ -2,12 +2,17 @@ package com.uvg.agroconecta.ui.cart
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class CartViewModel : ViewModel() {
+@HiltViewModel
+class CartViewModel @Inject constructor(
+    private val api: ApiService
+) : ViewModel() {
 
     private var currentFarmerId: Int = -1
     private var currentToken: String = ""
@@ -27,7 +32,7 @@ class CartViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService(token).getCart(idAgricultor)
+                val response = api.getCart(idAgricultor, token.toAuthHeader())
 
                 if (response.isSuccessful) {
                     val cart = response.body()
@@ -57,7 +62,7 @@ class CartViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val serviceToken = token ?: currentToken
-                RetrofitClient.getService(serviceToken).clearCart(idAgricultor)
+                api.clearCart(idAgricultor, serviceToken.toAuthHeader())
             } catch (_: Exception) { }
             // Limpiar estado local independientemente del resultado
             _cartItems.value = emptyList()
@@ -82,8 +87,11 @@ class CartViewModel : ViewModel() {
     fun removeItem(idItem: Int) {
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService(currentToken)
-                    .removeCartItem(currentFarmerId, idItem)
+                val response = api.removeCartItem(
+                    idAgricultor = currentFarmerId,
+                    idItem = idItem,
+                    token = currentToken.toAuthHeader()
+                )
                 if (response.isSuccessful) {
                     loadCart(currentFarmerId, currentToken)
                     _errorMessage.value = null
@@ -99,9 +107,10 @@ class CartViewModel : ViewModel() {
     private fun updateQuantity(idItem: Int, cantidad: Int) {
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService(currentToken).updateCartItem(
+                val response = api.updateCartItem(
                     idAgricultor = currentFarmerId,
                     idItem = idItem,
+                    token = currentToken.toAuthHeader(),
                     body = mapOf("cantidad" to cantidad)
                 )
                 if (response.isSuccessful) {
@@ -115,4 +124,12 @@ class CartViewModel : ViewModel() {
             }
         }
     }
+
+    /**
+     * Devuelve null cuando no hay token, para que Retrofit omita la cabecera.
+     * Replica el comportamiento del interceptor que usaba RetrofitClient, que
+     * solo agregaba Authorization si el token no estaba en blanco.
+     */
+    private fun String?.toAuthHeader(): String? =
+        if (isNullOrBlank()) null else "Bearer $this"
 }

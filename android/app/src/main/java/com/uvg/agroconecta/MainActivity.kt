@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.uvg.agroconecta.ui.navigation.AgroConectaNavHost
 import com.uvg.agroconecta.ui.theme.AgroConectaTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
