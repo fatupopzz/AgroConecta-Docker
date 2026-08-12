@@ -1,6 +1,7 @@
 const express = require("express");
 
 const productRoutes = require("./src/routes/productRoutes");
+const productRecommendationRoutes = require("./src/routes/productRecommendationRoutes");
 const categoryRoutes = require("./src/routes/categoryRoutes");
 const authRoutes = require("./src/routes/authRoutes");
 const cartRoutes = require("./src/routes/cartRoutes");
@@ -34,6 +35,7 @@ app.get("/api/protected", verifyToken, (req, res) => {
 app.use("/api/payments", verifyToken, paymentRoutes);
 app.use("/api/products/:id/reviews", resenaRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/productos", productRecommendationRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/agricultores", verifyToken, agricultorRoutes);
 app.use("/api/distribuidores", verifyToken, distribuidorRoutes);

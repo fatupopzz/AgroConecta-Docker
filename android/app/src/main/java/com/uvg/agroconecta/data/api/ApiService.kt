@@ -30,6 +30,9 @@ interface ApiService {
         @Query("id_categoria") idCategoria: Int? = null
     ): Response<ProductsResponse>
 
+    @GET("productos/recomendados")
+    suspend fun getRecommendedProducts(): Response<List<Product>>
+
     @GET("products/{id}")
     suspend fun getProductById(@Path("id") id: Int): Response<ProductDetail>
 
