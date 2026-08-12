@@ -16,6 +16,7 @@ data class HomeUiState(
     val nombreAgricultor: String = "",
     val categorias: List<Category> = emptyList(),
     val categoriaSeleccionadaId: Int? = null,
+    val productosRecomendados: List<Product> = emptyList(),
     val productos: List<Product> = emptyList(),
     val currentPage: Int = 1,
     val hasMore: Boolean = true,
@@ -27,6 +28,7 @@ data class HomeUiState(
     val ofertaDelDia: Product? = null,
     val distribuidores: List<Distributor> = emptyList(),
     val isLoadingProductos: Boolean = false,
+    val isLoadingRecomendados: Boolean = false,
     val isLoadingCategorias: Boolean = false,
     val isLoadingDistribuidores: Boolean = false,
     val errorMessage: String? = null
@@ -39,11 +41,38 @@ class HomeViewModel : ViewModel() {
 
     private var token: String? = null
 
-    fun init(token: String?) {
+    fun init(token: String?, tipoUsuario: String = "agricultor") {
         this.token = token
+        if (tipoUsuario == "agricultor" && !token.isNullOrBlank()) {
+            loadRecommendedProducts()
+        }
         loadCategorias()
         loadProductos(reset = true)
         loadDistribuidores()
+    }
+
+    fun loadRecommendedProducts() {
+        val currentToken = token ?: return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingRecomendados = true) }
+            try {
+                val response = RetrofitClient.getService(currentToken).getRecommendedProducts()
+                _uiState.update {
+                    it.copy(
+                        productosRecomendados = if (response.isSuccessful) {
+                            response.body().orEmpty().take(10)
+                        } else {
+                            emptyList()
+                        },
+                        isLoadingRecomendados = false
+                    )
+                }
+            } catch (_: Exception) {
+                // El catálogo general sigue disponible si las recomendaciones fallan.
+                _uiState.update { it.copy(isLoadingRecomendados = false) }
+            }
+        }
     }
 
     fun setNombreAgricultor(nombre: String) {

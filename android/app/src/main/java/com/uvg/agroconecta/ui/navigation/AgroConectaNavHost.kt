@@ -133,7 +133,7 @@ fun AgroConectaNavHost(
 
             LaunchedEffect(Unit) {
                 val token = SessionManager.getToken(context).first()
-                homeViewModel.init(token)
+                homeViewModel.init(token, tipoUsuario)
             }
 
             LaunchedEffect(nombre) {
