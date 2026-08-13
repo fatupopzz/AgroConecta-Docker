@@ -24,6 +24,109 @@ const parseRating = (value) => {
   return { valid: true, parsed };
 };
 
+const RELEVANT_CROP_CATEGORIES = [
+  "Semillas",
+  "Fertilizantes",
+  "Pesticidas",
+  "Herbicidas",
+];
+
+const parseCropTerms = (crops) =>
+  String(crops || "")
+    .split(/[,;\n/]+/)
+    .map((crop) => crop.trim().toLowerCase())
+    .filter((crop) => crop.length >= 2)
+    .slice(0, 20);
+
+const getRecommendedProducts = async (req, res) => {
+  try {
+    if (req.user.tipo !== "agricultor") {
+      return res.status(403).json({
+        error: "Las recomendaciones personalizadas son solo para agricultores",
+      });
+    }
+
+    const profileResult = await pool.query(
+      `SELECT departamento, cultivos_principales
+       FROM agricultor
+       WHERE id_usuario = $1`,
+      [req.user.id],
+    );
+
+    const profile = profileResult.rows[0];
+    const department = profile?.departamento?.trim() || null;
+    const cropTerms = parseCropTerms(profile?.cultivos_principales);
+    const hasCompleteProfile = Boolean(department && cropTerms.length > 0);
+
+    const params = hasCompleteProfile
+      ? [RELEVANT_CROP_CATEGORIES, cropTerms, department]
+      : [];
+
+    const personalizationFilter = hasCompleteProfile
+      ? "AND c.nombre = ANY($1::text[])"
+      : "";
+    const cropMatchExpression = hasCompleteProfile
+      ? `EXISTS (
+           SELECT 1
+           FROM unnest($2::text[]) AS crop(term)
+           WHERE LOWER(CONCAT_WS(' ', p.nombre, p.descripcion, p.composicion))
+                 LIKE '%' || crop.term || '%'
+         )`
+      : "FALSE";
+    const localInventoryExpression = hasCompleteProfile
+      ? "COALESCE(inv.has_local_inventory, FALSE)"
+      : "FALSE";
+
+    const productsResult = await pool.query(
+      `WITH sales AS (
+         SELECT inventory.id_producto, COALESCE(SUM(detail.cantidad), 0) AS units_sold
+         FROM detalle_pedido detail
+         JOIN inventario_distribuidor inventory
+           ON inventory.id_inventario = detail.id_inventario
+         JOIN pedido orders ON orders.id_pedido = detail.id_pedido
+         WHERE orders.estado = 'entregado'
+         GROUP BY inventory.id_producto
+       ), inventory_summary AS (
+         SELECT inventory.id_producto,
+                MIN(inventory.precio) FILTER (WHERE inventory.stock_disponible > 0) AS precio_desde,
+                COUNT(DISTINCT inventory.id_distribuidor)
+                  FILTER (WHERE inventory.stock_disponible > 0) AS num_distribuidores,
+                ${hasCompleteProfile
+                  ? "BOOL_OR(inventory.stock_disponible > 0 AND LOWER(distributor.departamento) = LOWER($3))"
+                  : "FALSE"} AS has_local_inventory
+         FROM inventario_distribuidor inventory
+         JOIN distribuidor distributor
+           ON distributor.id_distribuidor = inventory.id_distribuidor
+         GROUP BY inventory.id_producto
+       )
+       SELECT p.id_producto, p.nombre, p.marca, p.descripcion,
+              p.composicion, p.dosis_recomendada, p.instrucciones_uso,
+              p.calificacion_promedio, c.nombre AS categoria,
+              inv.precio_desde,
+              COALESCE(inv.num_distribuidores, 0)::int AS num_distribuidores
+       FROM producto p
+       JOIN categoria c ON c.id_categoria = p.id_categoria
+       LEFT JOIN sales ON sales.id_producto = p.id_producto
+       LEFT JOIN inventory_summary inv ON inv.id_producto = p.id_producto
+       WHERE p.activo = TRUE
+         ${personalizationFilter}
+       ORDER BY
+         CASE WHEN ${cropMatchExpression} THEN 1 ELSE 0 END DESC,
+         CASE WHEN ${localInventoryExpression} THEN 1 ELSE 0 END DESC,
+         COALESCE(sales.units_sold, 0) DESC,
+         p.calificacion_promedio DESC,
+         p.id_producto ASC
+       LIMIT 10`,
+      params,
+    );
+
+    return res.json(productsResult.rows.slice(0, 10));
+  } catch (error) {
+    console.error("Error en getRecommendedProducts:", error);
+    return res.status(500).json({ error: "Error al obtener productos recomendados" });
+  }
+};
+
 const getProducts = async (req, res) => {
   try {
     const { nombre, id_categoria, page = 1, limit = 10 } = req.query;
@@ -514,6 +617,7 @@ const comparePrices = async (req, res) => {
 
 module.exports = {
   getProducts,
+  getRecommendedProducts,
   getProductById,
   getProductComparison,
   createProduct,

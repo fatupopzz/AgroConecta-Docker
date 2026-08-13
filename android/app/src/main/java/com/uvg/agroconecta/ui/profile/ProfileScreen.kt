@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.ErrorRed
@@ -35,7 +34,6 @@ import com.uvg.agroconecta.ui.theme.GreenSurface
 import com.uvg.agroconecta.ui.theme.OrangeAccent
 import com.uvg.agroconecta.ui.theme.OrangeLight
 import com.uvg.agroconecta.ui.theme.VerifiedBlue
-import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +43,8 @@ fun ProfileScreen(
     onHomeClick: () -> Unit,
     onAgregarClick: () -> Unit,
     onPedidosClick: () -> Unit,
+    onStatsClick: () -> Unit,
+    tipoUsuario: String,
     viewModel: ProfileViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -52,10 +52,8 @@ fun ProfileScreen(
     val isLoggingOut by viewModel.isLoggingOut.collectAsState()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var tipoUsuario by remember { mutableStateOf("agricultor") }
 
     LaunchedEffect(Unit) {
-        tipoUsuario = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
         viewModel.loadProfile(context)
     }
 
@@ -119,6 +117,7 @@ fun ProfileScreen(
                         )
                         is ProfileData.Distributor -> DistributorProfileContent(
                             data.profile,
+                            onStatsClick = onStatsClick,
                             onLogoutClick = { showLogoutDialog = true }
                         )
                     }
@@ -273,6 +272,7 @@ fun FarmerProfileContent(
 @Composable
 fun DistributorProfileContent(
     profile: DistributorProfile,
+    onStatsClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
     Column(
@@ -365,6 +365,27 @@ fun DistributorProfileContent(
             profile.calificacionPromedio?.let {
                 ProfileInfoRow(Icons.Default.Star, "Calificación promedio", "%.1f / 5.0".format(it))
             }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Button(
+            onClick = onStatsClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+        ) {
+            Icon(Icons.Default.Analytics, contentDescription = null)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = "Ver estadísticas de ventas",
+                modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.SemiBold
+            )
+            Icon(Icons.Default.ChevronRight, contentDescription = null)
         }
 
         Spacer(Modifier.height(24.dp))

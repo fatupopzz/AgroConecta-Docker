@@ -18,7 +18,6 @@ import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.GreenPrimary
 
-private val GreenPrimary = Color(0xFF2E7D32)
 private val UrgentBackground = Color(0xFFFFEBEE)
 private val UrgentRed = Color(0xFFC62828)
 
@@ -26,9 +25,9 @@ private val UrgentRed = Color(0xFFC62828)
 @Composable
 fun OrderHistoryScreen(
     orders: List<OrderSummary>,
-    tipoUsuario: String,
     isLoading: Boolean,
     errorMessage: String?,
+    tipoUsuario: String,
     onTrackOrder: (Int) -> Unit,
     onBack: () -> Unit,
     onHomeClick: () -> Unit,

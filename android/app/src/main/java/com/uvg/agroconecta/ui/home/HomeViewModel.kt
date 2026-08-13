@@ -19,6 +19,7 @@ data class HomeUiState(
     val nombreAgricultor: String = "",
     val categorias: List<Category> = emptyList(),
     val categoriaSeleccionadaId: Int? = null,
+    val productosRecomendados: List<Product> = emptyList(),
     val productos: List<Product> = emptyList(),
     val currentPage: Int = 1,
     val hasMore: Boolean = true,
@@ -31,6 +32,7 @@ data class HomeUiState(
     val distribuidores: List<Distributor> = emptyList(),
     val cicloRelevante: CropCycleResponse? = null,
     val isLoadingProductos: Boolean = false,
+    val isLoadingRecomendados: Boolean = false,
     val isLoadingCategorias: Boolean = false,
     val isLoadingDistribuidores: Boolean = false,
     val isLoadingCiclo: Boolean = false,
@@ -46,8 +48,11 @@ class HomeViewModel(
 
     private var token: String? = null
 
-    fun init(token: String?, tipoUsuario: String?) {
+    fun init(token: String?, tipoUsuario: String = "agricultor") {
         this.token = token
+        if (tipoUsuario == "agricultor" && !token.isNullOrBlank()) {
+            loadRecommendedProducts()
+        }
         loadCategorias()
         loadProductos(reset = true)
         loadDistribuidores()
@@ -66,6 +71,30 @@ class HomeViewModel(
             }.getOrNull()
             _uiState.update {
                 it.copy(cicloRelevante = cycle, isLoadingCiclo = false)
+            }
+        }
+    }
+
+    fun loadRecommendedProducts() {
+        val currentToken = token ?: return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingRecomendados = true) }
+            try {
+                val response = RetrofitClient.getService(currentToken).getRecommendedProducts()
+                _uiState.update {
+                    it.copy(
+                        productosRecomendados = if (response.isSuccessful) {
+                            response.body().orEmpty().take(10)
+                        } else {
+                            emptyList()
+                        },
+                        isLoadingRecomendados = false
+                    )
+                }
+            } catch (_: Exception) {
+                // El catálogo general sigue disponible si las recomendaciones fallan.
+                _uiState.update { it.copy(isLoadingRecomendados = false) }
             }
         }
     }

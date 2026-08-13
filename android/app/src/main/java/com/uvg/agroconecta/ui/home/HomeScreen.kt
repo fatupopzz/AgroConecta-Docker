@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -141,6 +143,15 @@ fun HomeScreen(
                             onRecommendedProductClick = onRecommendedProductClick
                         )
                     }
+                }
+            }
+            item {
+                if (tipoUsuario == "agricultor") {
+                    RecommendedProductsSection(
+                        productos = uiState.productosRecomendados,
+                        isLoading = uiState.isLoadingRecomendados,
+                        onProductoClick = onProductoClick
+                    )
                 }
             }
             item {
@@ -377,6 +388,51 @@ private fun UrgentOrderNotificationAlert(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 6.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecommendedProductsSection(
+    productos: List<Product>,
+    isLoading: Boolean,
+    onProductoClick: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp, bottom = 4.dp)
+    ) {
+        Text(
+            text = "Recomendados para ti",
+            fontWeight = FontWeight.Bold,
+            fontSize = 17.sp,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        when {
+            isLoading && productos.isEmpty() -> Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = VerdeAgroConecta)
+            }
+
+            productos.isNotEmpty() -> LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(productos, key = { it.id }) { producto ->
+                    ProductCard(
+                        producto = producto,
+                        onClick = { onProductoClick(producto.id) },
+                        modifier = Modifier.width(190.dp)
+                    )
+                }
             }
         }
     }

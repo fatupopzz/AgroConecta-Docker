@@ -7,16 +7,11 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.google.gson.GsonBuilder
-import com.uvg.agroconecta.BuildConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import java.util.concurrent.TimeUnit
 
 // ─── Session / Token Storage ─────────────────────────────────────────────────
 
@@ -84,26 +79,18 @@ object SessionManager {
 
 // ─── Retrofit Client ─────────────────────────────────────────────────────────
 
+/**
+ * Acceso al ApiService para los ViewModels que todavia no estan migrados a Hilt.
+ *
+ * Los ViewModels migrados reciben el ApiService por constructor desde
+ * `di.NetworkModule`. Ambos caminos se construyen con [ApiClientFactory], asi
+ * que producen clientes equivalentes.
+ */
 object RetrofitClient {
 
-    private val baseUrl = BuildConfig.API_BASE_URL.ensureTrailingSlash()
+    private val gson = ApiClientFactory.createGson()
 
-    private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        redactHeader("Authorization")
-        level = if (BuildConfig.DEBUG) {
-            HttpLoggingInterceptor.Level.BODY
-        } else {
-            HttpLoggingInterceptor.Level.NONE
-        }
-    }
-
-    private val gson = GsonBuilder().setLenient().create()
-
-    private val baseClient: OkHttpClient = OkHttpClient.Builder()
-        .addInterceptor(loggingInterceptor)
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private val baseClient: OkHttpClient = ApiClientFactory.createOkHttpClient()
 
     private val publicService: ApiService by lazy { createPublicService() }
 
@@ -117,9 +104,17 @@ object RetrofitClient {
     private fun createAuthenticatedService(token: String): ApiService {
         val client = baseClient.newBuilder()
             .addInterceptor(Interceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .addHeader("Authorization", "Bearer $token")
-                    .build()
+                // Solo agrega la cabecera si el endpoint no la declaro ya con
+                // @Header. addHeader() acumula en vez de reemplazar, asi que sin
+                // esta guarda el request salia con dos Authorization.
+                val original = chain.request()
+                val request = if (original.header("Authorization") == null) {
+                    original.newBuilder()
+                        .addHeader("Authorization", "Bearer $token")
+                        .build()
+                } else {
+                    original
+                }
                 chain.proceed(request)
             })
             .build()
@@ -128,20 +123,8 @@ object RetrofitClient {
     }
 
     private fun createRetrofit(client: OkHttpClient): Retrofit =
-        Retrofit.Builder()
-            .baseUrl(baseUrl)
-            .client(client)
-            .addConverterFactory(GsonConverterFactory.create(gson))
-            .build()
+        ApiClientFactory.createRetrofit(client, gson)
 
     private fun createPublicService(): ApiService =
         createRetrofit(baseClient).create(ApiService::class.java)
-
-    private fun String.ensureTrailingSlash(): String {
-        val normalized = trimEnd('/')
-        require(normalized.isNotBlank()) {
-            "API_BASE_URL is not configured. Set AGROCONECTA_API_BASE_URL in gradle.properties or as an environment variable."
-        }
-        return "$normalized/"
-    }
 }
