@@ -345,3 +345,23 @@ data class CreateInventoryRequest(
     @SerializedName("unidad_medida") val unidadMedida: String?,
     @SerializedName("tiempo_entrega_dias") val tiempoEntrega: Int?
 )
+
+// ─── Distributor Stats (HU-032) ─────────────────────────────────────────────
+
+data class DistributorStatsResponse(
+    val totalPedidos: Int,
+    val ingresosTotales: Double,
+    val productosMasVendidos: List<TopSellingProduct>,
+    val pedidosPorEstado: List<OrdersByStatus>
+)
+
+data class TopSellingProduct(
+    val nombre: String,
+    val cantidad: Int,
+    val ingresos: Double
+)
+
+data class OrdersByStatus(
+    val estado: String,
+    val cantidad: Int
+)

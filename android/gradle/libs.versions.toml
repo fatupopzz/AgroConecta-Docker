@@ -12,6 +12,13 @@ gson = "2.10.1"
 coroutines = "1.8.1"
 datastore = "1.1.1"
 
+# DI — Hilt 2.51.1 es la ultima serie compatible con Kotlin 1.9.23 + kapt
+hilt = "2.51.1"
+hiltNavigationCompose = "1.2.0"
+# KSP en lugar de kapt: kapt 1.9.23 usa Configuration.fileCollection(Spec),
+# API que Gradle 9 elimino. La version de KSP va atada a la de Kotlin.
+ksp = "1.9.23-1.0.20"
+
 # Compose — fixed versions (no BOM) compatible con AGP 8.3.2 + compileSdk 34
 composeCompiler = "1.5.11"
 composeUi = "1.6.8"
@@ -58,6 +65,13 @@ androidx-datastore = { group = "androidx.datastore", name = "datastore-preferenc
 # Image loading
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilCompose" }
 
+# DI — Hilt
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

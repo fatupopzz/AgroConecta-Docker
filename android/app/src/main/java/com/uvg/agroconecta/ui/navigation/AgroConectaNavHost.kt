@@ -8,6 +8,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -30,6 +31,7 @@ import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
 import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
+import com.uvg.agroconecta.ui.distributor.DistributorStatsScreen
 import com.uvg.agroconecta.ui.dosecalculator.DoseCalculatorScreen
 import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
 import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
@@ -44,11 +46,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun AgroConectaNavHost(
     navController: NavHostController,
-    authViewModel: AuthViewModel = viewModel(),
+    authViewModel: AuthViewModel = hiltViewModel(),
     initialTrackingOrderId: Int? = null
 ) {
     val context = LocalContext.current
-    val sharedCartViewModel: CartViewModel = viewModel()
+    // Se crea fuera de cualquier composable de destino, asi que el owner es la
+    // MainActivity: una sola instancia compartida por todas las pantallas.
+    val sharedCartViewModel: CartViewModel = hiltViewModel()
     val cartItems by sharedCartViewModel.cartItems.collectAsState()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
 
@@ -135,7 +139,7 @@ fun AgroConectaNavHost(
             LaunchedEffect(Unit) {
                 val token = SessionManager.getToken(context).first()
                 sessionToken = token
-                homeViewModel.init(token)
+                homeViewModel.init(token, tipoUsuario)
             }
 
             LaunchedEffect(tipoUsuario, sessionToken) {
@@ -460,9 +464,9 @@ fun AgroConectaNavHost(
 
             OrderHistoryScreen(
                 orders = orders,
-                tipoUsuario = tipoUsuario,
                 isLoading = isLoading,
                 errorMessage = errorMessage,
+                tipoUsuario = tipoUsuario,
                 onTrackOrder = { orderId ->
                     navController.navigate(Screen.OrderTracking.createRoute(orderId))
                 },
@@ -549,7 +553,8 @@ fun AgroConectaNavHost(
                     }
                 },
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
-                onPerfilClick = { navController.navigate(Screen.Profile.route) }
+                onPerfilClick = { navController.navigate(Screen.Profile.route) },
+                tipoUsuario = tipoUsuario
             )
         }
 
@@ -578,12 +583,24 @@ fun AgroConectaNavHost(
                 },
                 onAgregarClick = onAgregarClick,
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
+                onStatsClick = {
+                    navController.navigate(Screen.DistributorStats.route) {
+                        launchSingleTop = true
+                    }
+                },
+                tipoUsuario = tipoUsuario,
                 onLogout = {
                     authViewModel.resetLogin()
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable(Screen.DistributorStats.route) {
+            DistributorStatsScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
@@ -596,5 +613,5 @@ private fun NavBackStackEntry.sharedAuthViewModel(
     val parentEntry = remember(this) {
         navController.getBackStackEntry(Screen.RegisterStep1.route)
     }
-    return viewModel(viewModelStoreOwner = parentEntry)
+    return hiltViewModel(viewModelStoreOwner = parentEntry)
 }

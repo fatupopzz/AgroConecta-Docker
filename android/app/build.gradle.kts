@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
 }
 
 val configuredApiBaseUrl = providers.gradleProperty("AGROCONECTA_API_BASE_URL")
@@ -68,6 +70,7 @@ android {
     }
 }
 
+
 dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
@@ -79,6 +82,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("io.mockk:mockk:1.13.11")
 
     // Compose UI (versiones fijas, sin BOM)
     implementation(libs.androidx.compose.ui)
@@ -101,6 +105,11 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.gson)
     implementation(libs.coroutines.android)
+
+    // Dependency injection
+    implementation(libs.hilt.android)
+    implementation(libs.androidx.hilt.navigation.compose)
+    ksp(libs.hilt.compiler)
 
     // Storage
     implementation(libs.androidx.datastore)

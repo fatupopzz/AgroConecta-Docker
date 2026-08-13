@@ -97,7 +97,7 @@ const canManageOrderStatus = async (req, res, next) => {
   return next();
 };
 
-const canViewDistributorOrders = async (req, res, next) => {
+const authorizeDistributorOwner = ({ allowAdmin, forbiddenMessage }) => async (req, res, next) => {
   const usuarioAutenticado = req.user;
   const { id } = req.params;
 
@@ -109,12 +109,12 @@ const canViewDistributorOrders = async (req, res, next) => {
     return res.status(400).json({ error: "ID de distribuidor inválido" });
   }
 
-  if (usuarioAutenticado.tipo === "administrador") {
+  if (allowAdmin && usuarioAutenticado.tipo === "administrador") {
     return next();
   }
 
   if (usuarioAutenticado.tipo !== "distribuidor") {
-    return res.status(403).json({ error: "Solo un distribuidor puede consultar estos pedidos" });
+    return res.status(403).json({ error: forbiddenMessage });
   }
 
   const distributorResult = await pool.query(
@@ -130,15 +130,27 @@ const canViewDistributorOrders = async (req, res, next) => {
 
   if (distributorId !== Number(id)) {
     return res.status(403).json({
-      error: "Solo puedes consultar los pedidos de tu propio distribuidor",
+      error: forbiddenMessage,
     });
   }
 
+  req.distributorId = distributorId;
   return next();
 };
+
+const canViewDistributorOrders = authorizeDistributorOwner({
+  allowAdmin: true,
+  forbiddenMessage: "Solo puedes consultar los pedidos de tu propio distribuidor",
+});
+
+const canViewDistributorStats = authorizeDistributorOwner({
+  allowAdmin: false,
+  forbiddenMessage: "Solo puedes consultar las estadísticas de tu propio distribuidor",
+});
 
 module.exports = {
   canCreateOrder,
   canManageOrderStatus,
   canViewDistributorOrders,
+  canViewDistributorStats,
 };

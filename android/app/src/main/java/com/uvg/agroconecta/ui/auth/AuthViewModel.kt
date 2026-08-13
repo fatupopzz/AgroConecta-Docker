@@ -5,12 +5,14 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.LoginRequest
 import com.uvg.agroconecta.data.models.RegisterRequest
 import com.uvg.agroconecta.data.models.TipoCuenta
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed class AuthState {
     data object Idle : AuthState()
@@ -32,7 +34,10 @@ data class RegisterDraft(
     val nit: String? = null
 )
 
-class AuthViewModel : ViewModel() {
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val api: ApiService
+) : ViewModel() {
 
     private val _loginState = MutableLiveData<AuthState>(AuthState.Idle)
     val loginState: LiveData<AuthState> = _loginState
@@ -59,13 +64,11 @@ class AuthViewModel : ViewModel() {
         _loginState.value = AuthState.Loading
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService()
-                    .login(LoginRequest(email, password))
+                val response = api.login(LoginRequest(email, password))
 
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
-                    val meResponse = RetrofitClient.getService()
-                        .getMe("Bearer ${body.token}")
+                    val meResponse = api.getMe("Bearer ${body.token}")
 
                     val farmerId: Int
                     val perfilId: Int
@@ -134,7 +137,7 @@ class AuthViewModel : ViewModel() {
                     nit = draft.nit?.trim()?.ifBlank { null }
                 )
 
-                val response = RetrofitClient.getService().register(request)
+                val response = api.register(request)
 
                 if (response.isSuccessful) {
                     _registerState.value = AuthState.Success
