@@ -7,8 +7,12 @@ sealed class Screen(val route: String) {
     data object RegisterStep2 : Screen("register_step2")
 
     data object Home : Screen("home")
-    data object Catalog : Screen("catalog")
+    data object Catalog : Screen("catalog?query={query}") {
+        fun createRoute(query: String = "") =
+            "catalog?query=${android.net.Uri.encode(query)}"
+    }
     data object Cart : Screen("cart")
+    data object UrgentOrder : Screen("urgent_order")
     data object PaymentMethod : Screen("payment_method")
     data object OrderConfirmation : Screen("order_confirmation")
     data object OrderHistory : Screen("order_history")

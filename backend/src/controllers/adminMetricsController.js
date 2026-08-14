@@ -67,7 +67,7 @@ const getAdminMetrics = async (req, res) => {
     });
   } catch (error) {
     console.error("Error en getAdminMetrics:", error);
-    return res.status(500).json({ error: "Error al obtener metricas administrativas" });
+    return res.status(500).json({ error: "Error al obtener métricas administrativas" });
   }
 };
 

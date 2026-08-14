@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const { pool } = require("../config/db");
 const jwt = require("jsonwebtoken");
+const { withCropList } = require("../utils/cropNames");
 
 const TIPOS_VALIDOS = ["agricultor", "distribuidor"];
 
@@ -250,7 +251,7 @@ const getMe = async (req, res) => {
          FROM agricultor WHERE id_usuario = $1`,
         [Number(id)]
       );
-      perfil = r.rows[0] ?? null;
+      perfil = withCropList(r.rows[0] ?? null);
     } else if (tipo === "distribuidor") {
       const r = await pool.query(
         `SELECT id_distribuidor, nombre_negocio, nit, departamento, direccion,

@@ -37,7 +37,9 @@ class OrderViewModel : ViewModel() {
         items: List<CartItemUI>,
         direccionEntrega: String,
         tipoEntrega: String,
-        token: String
+        token: String,
+        esUrgente: Boolean = false,
+        tipoPlaga: String? = null
     ) {
         if (items.isEmpty()) {
             _errorMessage.value = "El carrito está vacío"
@@ -54,6 +56,11 @@ class OrderViewModel : ViewModel() {
             return
         }
 
+        if (esUrgente && tipoPlaga.isNullOrBlank()) {
+            _errorMessage.value = "Selecciona el tipo de plaga"
+            return
+        }
+
         val idDistribuidor = items.first().idDistribuidor
         val hasSingleDistributor = items.all { it.idDistribuidor == idDistribuidor }
 
@@ -62,9 +69,12 @@ class OrderViewModel : ViewModel() {
             return
         }
 
+        if (!_isLoading.compareAndSet(expect = false, update = true)) {
+            return
+        }
+
         viewModelScope.launch {
             try {
-                _isLoading.value = true
                 _errorMessage.value = null
 
                 val request = CreateOrderRequest(
@@ -73,6 +83,8 @@ class OrderViewModel : ViewModel() {
                     direccionEntrega = direccionEntrega,
                     tipoEntrega = tipoEntrega,
                     metodoPago = "efectivo",
+                    esUrgente = esUrgente,
+                    tipoPlaga = tipoPlaga?.trim(),
                     productos = items.map {
                         OrderProduct(
                             idInventario = it.idInventario,
@@ -85,7 +97,11 @@ class OrderViewModel : ViewModel() {
 
                 if (response.isSuccessful) {
                     _createdOrderId.value = response.body()?.pedido?.id
-                    _successMessage.value = "Pedido creado exitosamente"
+                    _successMessage.value = if (esUrgente) {
+                        "Pedido urgente enviado al distribuidor"
+                    } else {
+                        "Pedido creado exitosamente"
+                    }
                 } else {
                     _errorMessage.value = "No se pudo crear el pedido (${response.code()})"
                 }
@@ -109,6 +125,28 @@ class OrderViewModel : ViewModel() {
                     _orders.value = response.body()?.data ?: emptyList()
                 } else {
                     _errorMessage.value = "No se pudo cargar el historial de pedidos"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error inesperado al cargar pedidos"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadOrdersByDistributor(idDistribuidor: Int, token: String? = null) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _errorMessage.value = null
+
+                val response = RetrofitClient.getService(token)
+                    .getOrdersByDistributor(idDistribuidor)
+
+                if (response.isSuccessful) {
+                    _orders.value = response.body().orEmpty()
+                } else {
+                    _errorMessage.value = "No se pudieron cargar los pedidos recibidos"
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Error inesperado al cargar pedidos"

@@ -1,5 +1,7 @@
 require("dotenv").config();
 
+const fs = require("node:fs/promises");
+const path = require("node:path");
 const app = require("./app");
 const { shutdownPool, pool } = require("./src/config/db");
 
@@ -9,6 +11,8 @@ const runStartupMigrations = async () => {
   const statements = [
     `ALTER TABLE reporte_calidad
      ADD COLUMN IF NOT EXISTS fecha_resolucion TIMESTAMP`,
+    `ALTER TABLE distribuidor
+     ADD COLUMN IF NOT EXISTS direccion TEXT`,
     `ALTER TABLE pago
      ADD COLUMN IF NOT EXISTS estado_pago VARCHAR(20) DEFAULT 'pendiente'
        CHECK (estado_pago IN ('pendiente', 'processing', 'completado', 'failed'))`,
@@ -26,6 +30,10 @@ const runStartupMigrations = async () => {
      DROP CONSTRAINT IF EXISTS pedido_estado_check`,
     `ALTER TABLE pedido
      ALTER COLUMN estado SET DEFAULT 'confirmado'`,
+    `ALTER TABLE pedido
+     ADD COLUMN IF NOT EXISTS es_urgente BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE pedido
+     ADD COLUMN IF NOT EXISTS tipo_plaga VARCHAR(100)`,
     `UPDATE pedido
      SET estado = 'confirmado'
      WHERE estado = 'pendiente'`,
@@ -83,6 +91,12 @@ const runStartupMigrations = async () => {
        leida BOOLEAN DEFAULT FALSE,
        fecha TIMESTAMP DEFAULT NOW()
      )`,
+    `ALTER TABLE notificacion
+     ADD COLUMN IF NOT EXISTS id_distribuidor INT
+       REFERENCES distribuidor(id_distribuidor) ON DELETE CASCADE`,
+    `ALTER TABLE notificacion
+     ADD COLUMN IF NOT EXISTS id_pedido INT
+       REFERENCES pedido(id_pedido) ON DELETE CASCADE`,
     `CREATE INDEX IF NOT EXISTS idx_notificacion_agricultor_fecha
      ON notificacion (id_agricultor, fecha DESC)`,
     `CREATE INDEX IF NOT EXISTS idx_notificacion_tipo
@@ -92,6 +106,12 @@ const runStartupMigrations = async () => {
   for (const statement of statements) {
     await pool.query(statement);
   }
+
+  const cropCycleMigration = await fs.readFile(
+    path.join(__dirname, "sql", "hu026_crop_cycles_migration.sql"),
+    "utf8",
+  );
+  await pool.query(cropCycleMigration);
 };
 
 const startServer = async () => {

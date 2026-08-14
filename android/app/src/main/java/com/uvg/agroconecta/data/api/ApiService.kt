@@ -21,6 +21,11 @@ interface ApiService {
         @Header("Authorization") token: String
     ): Response<MeResponse>
 
+    @GET("ciclos/{cultivo}")
+    suspend fun getCropCycles(
+        @Path("cultivo") cultivo: String
+    ): Response<CropCycleResponse>
+
     // ── Products ─────────────────────────────────────────────────────────
     @GET("products")
     suspend fun getProducts(
@@ -104,10 +109,24 @@ interface ApiService {
         @Query("estado") estado: String? = null
     ): Response<OrdersByFarmerResponse>
 
+    @GET("orders/distributor/{id}")
+    suspend fun getOrdersByDistributor(
+        @Path("id") idDistribuidor: Int
+    ): Response<List<OrderSummary>>
+
     @GET("orders/{id}/tracking")
     suspend fun getOrderTracking(
         @Path("id") orderId: Int
     ): Response<OrderTrackingResponse>
+
+    // ── Distributor notifications ─────────────────────────────────────────
+    @GET("notifications")
+    suspend fun getDistributorNotifications(): Response<List<DistributorNotification>>
+
+    @PATCH("notifications/{id}/read")
+    suspend fun markDistributorNotificationAsRead(
+        @Path("id") notificationId: Int
+    ): Response<Map<String, String>>
 
     @GET("products/{id}/reviews")
     suspend fun getReviews(

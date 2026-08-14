@@ -47,7 +47,26 @@ data class PerfilInfo(
     @SerializedName("id_distribuidor") val idDistribuidor: Int? = null,
     @SerializedName("nombre_negocio") val nombreNegocio: String? = null,
     @SerializedName("estado_verificacion") val estadoVerificacion: String? = null,
-    @SerializedName("calificacion_promedio") val calificacionPromedio: Double? = null
+    @SerializedName("calificacion_promedio") val calificacionPromedio: Double? = null,
+    @SerializedName("cultivos_principales") val cultivosPrincipales: String? = null,
+    val cultivos: List<String> = emptyList()
+)
+
+data class CropPhase(
+    @SerializedName("id_ciclo") val idCiclo: Int,
+    val fase: String,
+    @SerializedName("mes_inicio") val mesInicio: Int,
+    @SerializedName("mes_fin") val mesFin: Int,
+    val descripcion: String,
+    @SerializedName("productos_recomendados") val productosRecomendados: List<String>
+)
+
+data class CropCycleResponse(
+    val cultivo: String,
+    @SerializedName("mes_actual") val mesActual: Int,
+    @SerializedName("fase_actual") val faseActual: CropPhase?,
+    @SerializedName("fases_activas") val fasesActivas: List<CropPhase> = emptyList(),
+    @SerializedName("proxima_fase") val proximaFase: CropPhase?
 )
 
 enum class TipoCuenta(val apiValue: String, val displayName: String) {
@@ -230,7 +249,9 @@ data class CreateOrderRequest(
     @SerializedName("direccion_entrega") val direccionEntrega: String,
     @SerializedName("tipo_entrega") val tipoEntrega: String,
     val productos: List<OrderProduct>,
-    @SerializedName("metodo_pago") val metodoPago: String = "contra_entrega"
+    @SerializedName("metodo_pago") val metodoPago: String = "contra_entrega",
+    val esUrgente: Boolean = false,
+    val tipoPlaga: String? = null
 )
 
 
@@ -250,6 +271,8 @@ data class Order(
     val estado: String,
     @SerializedName("tipo_entrega") val tipoEntrega: String?,
     @SerializedName("direccion_entrega") val direccionEntrega: String,
+    @SerializedName("es_urgente") val esUrgente: Boolean = false,
+    @SerializedName("tipo_plaga") val tipoPlaga: String? = null,
     @SerializedName("total_pedido") val total: Double,
     @SerializedName("agricultor_nombre") val agricultorNombre: String?,
     @SerializedName("distribuidor_nombre") val distribuidorNombre: String?,
@@ -270,8 +293,11 @@ data class OrderSummary(
     val estado: String,
     @SerializedName("fecha_pedido") val fechaPedido: String,
     @SerializedName("total_pedido") val totalPedido: Double,
-    @SerializedName("distribuidor_nombre") val distribuidorNombre: String,
-    @SerializedName("cantidad_productos") val cantidadProductos: Int
+    @SerializedName("distribuidor_nombre") val distribuidorNombre: String? = null,
+    @SerializedName("agricultor_nombre") val agricultorNombre: String? = null,
+    @SerializedName("cantidad_productos") val cantidadProductos: Int,
+    @SerializedName("es_urgente") val esUrgente: Boolean = false,
+    @SerializedName("tipo_plaga") val tipoPlaga: String? = null
 )
 
 // ─── Order Tracking ─────────────────────────────────────────────────────────
@@ -287,6 +313,26 @@ data class OrderTrackingChange(
     val estado: String,
     val timestamp: String,
     val notas: String?
+)
+
+// ─── Distributor notifications ───────────────────────────────────────────────
+
+data class DistributorNotification(
+    @SerializedName("id_notificacion") val id: Int,
+    val tipo: String,
+    val contenido: DistributorNotificationContent,
+    @SerializedName("id_pedido") val idPedido: Int? = null,
+    val leida: Boolean = false,
+    val fecha: String? = null
+)
+
+data class DistributorNotificationContent(
+    val mensaje: String? = null,
+    val agricultor: String? = null,
+    val monto: Double? = null,
+    val pedido: Int? = null,
+    val esUrgente: Boolean = false,
+    val tipoPlaga: String? = null
 )
 
 // ─── Publish Product (KAN-53) ─────────────────────────────────────────────

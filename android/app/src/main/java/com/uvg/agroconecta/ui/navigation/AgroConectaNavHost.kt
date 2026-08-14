@@ -24,6 +24,8 @@ import com.uvg.agroconecta.ui.auth.RegisterStep1Screen
 import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
+import com.uvg.agroconecta.ui.home.CatalogScreen
+import com.uvg.agroconecta.ui.notifications.DistributorNotificationViewModel
 import com.uvg.agroconecta.data.api.RetrofitClient
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
@@ -36,6 +38,7 @@ import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
 import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
 import com.uvg.agroconecta.ui.orders.OrderTrackingScreen
 import com.uvg.agroconecta.ui.orders.OrderViewModel
+import com.uvg.agroconecta.ui.orders.UrgentOrderScreen
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import com.uvg.agroconecta.ui.profile.ProfileScreen
 import kotlinx.coroutines.flow.first
@@ -129,11 +132,23 @@ fun AgroConectaNavHost(
 
         composable(Screen.Home.route) {
             val homeViewModel: HomeViewModel = viewModel()
+            val notificationViewModel: DistributorNotificationViewModel = viewModel()
+            val urgentNotification by notificationViewModel.urgentNotification.collectAsState()
             val nombre by authViewModel.nombreUsuario.observeAsState("")
+            var sessionToken by remember { mutableStateOf<String?>(null) }
 
             LaunchedEffect(Unit) {
                 val token = SessionManager.getToken(context).first()
-                homeViewModel.init(token, tipoUsuario)
+                val sessionUserType = SessionManager.getTipoUsuario(context).first() ?: tipoUsuario
+                sessionToken = token
+                homeViewModel.init(token, sessionUserType)
+            }
+
+            LaunchedEffect(tipoUsuario, sessionToken) {
+                val token = sessionToken
+                if (tipoUsuario == "distribuidor" && !token.isNullOrBlank()) {
+                    notificationViewModel.loadUrgentNotification(token)
+                }
             }
 
             LaunchedEffect(nombre) {
@@ -144,17 +159,49 @@ fun AgroConectaNavHost(
                 viewModel = homeViewModel,
                 tipoUsuario = tipoUsuario,
                 cartItemCount = cartItems.size,
+                urgentNotification = urgentNotification,
+                onUrgentNotificationClick = { notification ->
+                    sessionToken?.let { token ->
+                        notificationViewModel.markAsRead(notification, token)
+                    }
+                    navController.navigate(Screen.OrderHistory.route)
+                },
+                onRecommendedProductClick = { productName ->
+                    navController.navigate(Screen.Catalog.createRoute(productName))
+                },
                 onProductoClick = { productoId ->
                     navController.navigate(Screen.ProductDetail.createRoute(productoId))
                 },
-                onVerMasProductos = { },
-                onVerTodasCategorias = { },
+                onVerMasProductos = {
+                    navController.navigate(Screen.Catalog.createRoute())
+                },
+                onVerTodasCategorias = {
+                    navController.navigate(Screen.Catalog.createRoute())
+                },
                 onCarritoClick = { navController.navigate(Screen.Cart.route) },
                 onPerfilClick = { navController.navigate(Screen.Profile.route) },
                 onAgregarClick = onAgregarClick,
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
                 onDistribuidorClick = { distribuidorId ->
                     navController.navigate(Screen.DistributorProfile.createRoute(distribuidorId))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.Catalog.route,
+            arguments = listOf(
+                navArgument("query") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            CatalogScreen(
+                initialQuery = backStackEntry.arguments?.getString("query").orEmpty(),
+                onBack = { navController.popBackStack() },
+                onProductClick = { productId ->
+                    navController.navigate(Screen.ProductDetail.createRoute(productId))
                 }
             )
         }
@@ -182,10 +229,102 @@ fun AgroConectaNavHost(
                 onCheckout = {
                     navController.navigate(Screen.OrderConfirmation.route)
                 },
+                onUrgentOrder = {
+                    navController.navigate(Screen.UrgentOrder.route)
+                },
                 onGoToCatalog = {
                     navController.popBackStack(Screen.Home.route, inclusive = false)
                 },
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.UrgentOrder.route) {
+            val scope = rememberCoroutineScope()
+            val orderViewModel: OrderViewModel = viewModel()
+            val cartItemsForUrgency by sharedCartViewModel.cartItems.collectAsState()
+            val isCreatingOrder by orderViewModel.isLoading.collectAsState()
+            val successMessage by orderViewModel.successMessage.collectAsState()
+            val errorMessage by orderViewModel.errorMessage.collectAsState()
+            val createdOrderId by orderViewModel.createdOrderId.collectAsState()
+
+            var deliveryAddress by remember { mutableStateOf("") }
+            var submittedCartItemId by remember { mutableStateOf<Int?>(null) }
+            var submittedDeliveryAddress by remember { mutableStateOf<String?>(null) }
+            var isPreparingSubmission by remember { mutableStateOf(false) }
+            val isSubmitting = isPreparingSubmission || isCreatingOrder
+
+            LaunchedEffect(Unit) {
+                deliveryAddress = SessionManager.getDeliveryAddress(context).first().orEmpty()
+
+                if (cartItemsForUrgency.isEmpty()) {
+                    val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                    val token = SessionManager.getToken(context).first()
+                        ?: return@LaunchedEffect
+                    if (farmerId != -1) {
+                        sharedCartViewModel.loadCart(farmerId, token)
+                    }
+                }
+            }
+
+            LaunchedEffect(successMessage) {
+                if (successMessage == null) return@LaunchedEffect
+
+                orderViewModel.clearSuccessMessage()
+                submittedCartItemId?.let(sharedCartViewModel::removeItem)
+                submittedDeliveryAddress?.let { address ->
+                    SessionManager.saveDeliveryAddress(context, address)
+                }
+
+                val orderId = createdOrderId
+                orderViewModel.clearCreatedOrderId()
+                if (orderId != null) {
+                    navController.navigate(Screen.OrderTracking.createRoute(orderId)) {
+                        popUpTo(Screen.Cart.route) { inclusive = true }
+                    }
+                } else {
+                    navController.navigate(Screen.OrderHistory.route) {
+                        popUpTo(Screen.Cart.route) { inclusive = true }
+                    }
+                }
+            }
+
+            UrgentOrderScreen(
+                cartItems = cartItemsForUrgency,
+                deliveryAddress = deliveryAddress,
+                isSubmitting = isSubmitting,
+                errorMessage = errorMessage,
+                onDeliveryAddressChange = { deliveryAddress = it },
+                onConfirmUrgentOrder = onConfirm@{ product, pestType ->
+                    if (isSubmitting) return@onConfirm
+
+                    val addressSnapshot = deliveryAddress.trim()
+                    val pestSnapshot = pestType.trim()
+                    isPreparingSubmission = true
+                    submittedCartItemId = product.id
+                    submittedDeliveryAddress = addressSnapshot
+                    scope.launch {
+                        try {
+                            val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                            val token = SessionManager.getToken(context).first()
+                                ?: return@launch
+                            if (farmerId == -1) return@launch
+
+                            orderViewModel.createCashOrder(
+                                idAgricultor = farmerId,
+                                items = listOf(product),
+                                direccionEntrega = addressSnapshot,
+                                tipoEntrega = "domicilio",
+                                token = token,
+                                esUrgente = true,
+                                tipoPlaga = pestSnapshot
+                            )
+                        } finally {
+                            isPreparingSubmission = false
+                        }
+                    }
+                },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -335,10 +474,18 @@ fun AgroConectaNavHost(
             val errorMessage by orderViewModel.errorMessage.collectAsState()
 
             LaunchedEffect(Unit) {
-                val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                 val token = SessionManager.getToken(context).first()
-                if (farmerId != -1) {
-                    orderViewModel.loadOrdersByFarmer(farmerId, token)
+                val role = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
+                if (role == "distribuidor") {
+                    val distributorId = SessionManager.getPerfilId(context).first() ?: -1
+                    if (distributorId != -1) {
+                        orderViewModel.loadOrdersByDistributor(distributorId, token)
+                    }
+                } else {
+                    val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                    if (farmerId != -1) {
+                        orderViewModel.loadOrdersByFarmer(farmerId, token)
+                    }
                 }
             }
 

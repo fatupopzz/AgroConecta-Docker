@@ -1,10 +1,12 @@
 package com.uvg.agroconecta.ui.cart
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -37,6 +39,7 @@ fun CartScreen(
     onDecreaseQuantity: (Int) -> Unit,
     onRemoveItem: (Int) -> Unit,
     onCheckout: () -> Unit,
+    onUrgentOrder: () -> Unit,
     onGoToCatalog: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
@@ -88,6 +91,25 @@ fun CartScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedButton(
+                            onClick = onUrgentOrder,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Solicitar entrega urgente")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = onCheckout,
                             modifier = Modifier
