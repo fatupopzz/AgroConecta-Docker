@@ -21,6 +21,11 @@ interface ApiService {
         @Header("Authorization") token: String
     ): Response<MeResponse>
 
+    @GET("ciclos/{cultivo}")
+    suspend fun getCropCycles(
+        @Path("cultivo") cultivo: String
+    ): Response<CropCycleResponse>
+
     // ── Products ─────────────────────────────────────────────────────────
     @GET("products")
     suspend fun getProducts(

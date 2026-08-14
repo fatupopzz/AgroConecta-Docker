@@ -47,7 +47,26 @@ data class PerfilInfo(
     @SerializedName("id_distribuidor") val idDistribuidor: Int? = null,
     @SerializedName("nombre_negocio") val nombreNegocio: String? = null,
     @SerializedName("estado_verificacion") val estadoVerificacion: String? = null,
-    @SerializedName("calificacion_promedio") val calificacionPromedio: Double? = null
+    @SerializedName("calificacion_promedio") val calificacionPromedio: Double? = null,
+    @SerializedName("cultivos_principales") val cultivosPrincipales: String? = null,
+    val cultivos: List<String> = emptyList()
+)
+
+data class CropPhase(
+    @SerializedName("id_ciclo") val idCiclo: Int,
+    val fase: String,
+    @SerializedName("mes_inicio") val mesInicio: Int,
+    @SerializedName("mes_fin") val mesFin: Int,
+    val descripcion: String,
+    @SerializedName("productos_recomendados") val productosRecomendados: List<String>
+)
+
+data class CropCycleResponse(
+    val cultivo: String,
+    @SerializedName("mes_actual") val mesActual: Int,
+    @SerializedName("fase_actual") val faseActual: CropPhase?,
+    @SerializedName("fases_activas") val fasesActivas: List<CropPhase> = emptyList(),
+    @SerializedName("proxima_fase") val proximaFase: CropPhase?
 )
 
 enum class TipoCuenta(val apiValue: String, val displayName: String) {

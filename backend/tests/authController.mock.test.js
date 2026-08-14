@@ -11,7 +11,8 @@ jest.mock("bcrypt", () => ({
 }));
 
 jest.mock("jsonwebtoken", () => ({
-    sign: jest.fn()
+    sign: jest.fn(),
+    verify: jest.fn()
 }));
 
 const bcrypt = require("bcrypt");
@@ -183,6 +184,35 @@ describe("Auth Controller - Mock Database", () => {
         expect(response.body).toEqual({
             error: "Contraseña incorrecta"
         });
+
+    });
+
+    test("Debe retornar los cultivos normalizados en el perfil autenticado", async () => {
+
+        jwt.verify.mockReturnValue({ id: 1, tipo: "agricultor" });
+
+        pool.query
+            .mockResolvedValueOnce({
+                rows: [{
+                    id_usuario: 1,
+                    nombre: "Juan",
+                    tipo_usuario: "agricultor"
+                }]
+            })
+            .mockResolvedValueOnce({
+                rows: [{
+                    id_agricultor: 10,
+                    cultivos_principales: "Maiz, Café, maíz"
+                }]
+            });
+
+        const response = await request(app)
+            .get("/api/auth/me")
+            .set("Authorization", "Bearer token-falso");
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body.perfil.cultivos_principales).toBe("Maiz, Café, maíz");
+        expect(response.body.perfil.cultivos).toEqual(["maíz", "café"]);
 
     });
 

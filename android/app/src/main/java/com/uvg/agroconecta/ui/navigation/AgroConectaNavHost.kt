@@ -24,6 +24,7 @@ import com.uvg.agroconecta.ui.auth.RegisterStep1Screen
 import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
+import com.uvg.agroconecta.ui.home.CatalogScreen
 import com.uvg.agroconecta.ui.notifications.DistributorNotificationViewModel
 import com.uvg.agroconecta.data.api.RetrofitClient
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
@@ -138,8 +139,9 @@ fun AgroConectaNavHost(
 
             LaunchedEffect(Unit) {
                 val token = SessionManager.getToken(context).first()
+                val sessionUserType = SessionManager.getTipoUsuario(context).first() ?: tipoUsuario
                 sessionToken = token
-                homeViewModel.init(token, tipoUsuario)
+                homeViewModel.init(token, sessionUserType)
             }
 
             LaunchedEffect(tipoUsuario, sessionToken) {
@@ -164,17 +166,42 @@ fun AgroConectaNavHost(
                     }
                     navController.navigate(Screen.OrderHistory.route)
                 },
+                onRecommendedProductClick = { productName ->
+                    navController.navigate(Screen.Catalog.createRoute(productName))
+                },
                 onProductoClick = { productoId ->
                     navController.navigate(Screen.ProductDetail.createRoute(productoId))
                 },
-                onVerMasProductos = { },
-                onVerTodasCategorias = { },
+                onVerMasProductos = {
+                    navController.navigate(Screen.Catalog.createRoute())
+                },
+                onVerTodasCategorias = {
+                    navController.navigate(Screen.Catalog.createRoute())
+                },
                 onCarritoClick = { navController.navigate(Screen.Cart.route) },
                 onPerfilClick = { navController.navigate(Screen.Profile.route) },
                 onAgregarClick = onAgregarClick,
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
                 onDistribuidorClick = { distribuidorId ->
                     navController.navigate(Screen.DistributorProfile.createRoute(distribuidorId))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.Catalog.route,
+            arguments = listOf(
+                navArgument("query") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            CatalogScreen(
+                initialQuery = backStackEntry.arguments?.getString("query").orEmpty(),
+                onBack = { navController.popBackStack() },
+                onProductClick = { productId ->
+                    navController.navigate(Screen.ProductDetail.createRoute(productId))
                 }
             )
         }

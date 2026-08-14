@@ -4,6 +4,11 @@
  */
 
 const { pool } = require("../config/db");
+const {
+  parseCropNames,
+  serializeCropNames,
+  withCropList,
+} = require("../utils/cropNames");
 
 /**
  * POST /api/farmers/profile
@@ -22,7 +27,7 @@ const { pool } = require("../config/db");
  * @body {string}  [municipio]            - Municipio donde opera (opcional)
  * @body {string}  [tipo_agricultor]      - Escala: pequena_escala | mediana_escala | industrial
  * @body {number}  [tamano_terreno_ha]    - Tamaño del terreno en hectáreas (opcional)
- * @body {string}  [cultivos_principales] - Lista de cultivos principales (opcional)
+ * @body {string|string[]} [cultivos_principales] - Cultivos principales (opcional)
  *
  * @returns {201} Perfil creado exitosamente
  * @returns {200} Perfil actualizado exitosamente
@@ -60,6 +65,23 @@ const upsertFarmerProfile = async (req, res) => {
     }
   }
 
+  const hasMainCrops = Object.prototype.hasOwnProperty.call(
+    req.body,
+    "cultivos_principales",
+  );
+  const normalizedCrops = hasMainCrops
+    ? parseCropNames(cultivos_principales)
+    : [];
+  if (normalizedCrops === null) {
+    return res.status(400).json({
+      error:
+        "cultivos_principales debe ser texto separado por comas o una lista de nombres válidos",
+    });
+  }
+  const serializedCrops = hasMainCrops
+    ? serializeCropNames(normalizedCrops)
+    : null;
+
   try {
     const result = await pool.query(
       `INSERT INTO agricultor (id_usuario, departamento, municipio, tipo_agricultor, tamano_terreno_ha, cultivos_principales)
@@ -69,7 +91,10 @@ const upsertFarmerProfile = async (req, res) => {
              municipio            = COALESCE(EXCLUDED.municipio, agricultor.municipio),
              tipo_agricultor      = COALESCE(EXCLUDED.tipo_agricultor, agricultor.tipo_agricultor),
              tamano_terreno_ha    = COALESCE(EXCLUDED.tamano_terreno_ha, agricultor.tamano_terreno_ha),
-             cultivos_principales = COALESCE(EXCLUDED.cultivos_principales, agricultor.cultivos_principales)
+             cultivos_principales = CASE
+               WHEN $7 THEN EXCLUDED.cultivos_principales
+               ELSE agricultor.cultivos_principales
+             END
        RETURNING id_agricultor, id_usuario, departamento, municipio,
                  tipo_agricultor, tamano_terreno_ha, cultivos_principales, tiene_membresia`,
       [
@@ -78,11 +103,12 @@ const upsertFarmerProfile = async (req, res) => {
         municipio || null,
         tipo_agricultor || null,
         tamano_terreno_ha !== undefined ? Number(tamano_terreno_ha) : null,
-        cultivos_principales || null,
+        serializedCrops,
+        hasMainCrops,
       ]
     );
 
-    const perfil = result.rows[0];
+    const perfil = withCropList(result.rows[0]);
 
     return res.status(201).json({
       message: "Perfil guardado exitosamente.",
@@ -162,7 +188,7 @@ const getFarmerProfile = async (req, res) => {
       });
     }
 
-    return res.status(200).json({ perfil: result.rows[0] });
+    return res.status(200).json({ perfil: withCropList(result.rows[0]) });
   } catch (error) {
     console.error("Error en getFarmerProfile:", error);
     return res.status(500).json({ error: "Error interno del servidor" });

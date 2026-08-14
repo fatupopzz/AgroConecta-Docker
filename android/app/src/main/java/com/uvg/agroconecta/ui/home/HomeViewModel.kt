@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.RetrofitClient
 import com.uvg.agroconecta.data.models.Category
+import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.Distributor
 import com.uvg.agroconecta.data.models.Product
+import com.uvg.agroconecta.data.repository.CropCycleRepository
+import com.uvg.agroconecta.data.repository.RemoteCropCycleRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,14 +30,18 @@ data class HomeUiState(
     val filtrosAbiertos: Boolean = false,
     val ofertaDelDia: Product? = null,
     val distribuidores: List<Distributor> = emptyList(),
+    val cicloRelevante: CropCycleResponse? = null,
     val isLoadingProductos: Boolean = false,
     val isLoadingRecomendados: Boolean = false,
     val isLoadingCategorias: Boolean = false,
     val isLoadingDistribuidores: Boolean = false,
+    val isLoadingCiclo: Boolean = false,
     val errorMessage: String? = null
 )
 
-class HomeViewModel : ViewModel() {
+class HomeViewModel(
+    private val cropCycleRepository: CropCycleRepository = RemoteCropCycleRepository()
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -49,6 +56,23 @@ class HomeViewModel : ViewModel() {
         loadCategorias()
         loadProductos(reset = true)
         loadDistribuidores()
+        if (tipoUsuario == "agricultor" && !token.isNullOrBlank()) {
+            loadRelevantCropCycle(token)
+        } else {
+            _uiState.update { it.copy(cicloRelevante = null, isLoadingCiclo = false) }
+        }
+    }
+
+    internal fun loadRelevantCropCycle(token: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingCiclo = true) }
+            val cycle = runCatching {
+                cropCycleRepository.getRelevantCycle(token)
+            }.getOrNull()
+            _uiState.update {
+                it.copy(cicloRelevante = cycle, isLoadingCiclo = false)
+            }
+        }
     }
 
     fun loadRecommendedProducts() {
@@ -173,6 +197,18 @@ class HomeViewModel : ViewModel() {
 
     fun onSearchSubmit() { loadProductos(reset = true) }
 
+    fun applyCatalogFilter(query: String) {
+        _uiState.update {
+            it.copy(
+                searchQuery = normalizeCatalogQuery(query),
+                categoriaSeleccionadaId = null,
+                currentPage = 1,
+                hasMore = true
+            )
+        }
+        loadProductos(reset = true)
+    }
+
     fun abrirFiltros() { _uiState.update { it.copy(filtrosAbiertos = true) } }
 
     fun cerrarFiltros() { _uiState.update { it.copy(filtrosAbiertos = false) } }
@@ -203,3 +239,6 @@ class HomeViewModel : ViewModel() {
 
     fun clearError() { _uiState.update { it.copy(errorMessage = null) } }
 }
+
+internal fun normalizeCatalogQuery(query: String): String =
+    query.trim().replace(Regex("\\s+"), " ")

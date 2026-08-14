@@ -21,13 +21,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.uvg.agroconecta.data.models.Category
+import com.uvg.agroconecta.data.models.CropCycleResponse
+import com.uvg.agroconecta.data.models.CropPhase
 import com.uvg.agroconecta.data.models.Distributor
 import com.uvg.agroconecta.data.models.DistributorNotification
 import com.uvg.agroconecta.data.models.Product
@@ -41,6 +45,14 @@ private val NaranjaOferta = Color(0xFFE65100)
 private val NaranjaOfertaClaro = Color(0xFFFFF3E0)
 private val GrisFondo = Color(0xFFF5F5F5)
 private val TextoGris = Color(0xFF757575)
+
+internal fun shouldShowCropCycleCard(
+    userType: String,
+    cycle: CropCycleResponse?
+): Boolean = userType == "agricultor" && cycle?.faseActual != null
+
+internal fun cropCycleTitle(crop: String): String =
+    "Tu cultivo: ${crop.replaceFirstChar { character -> character.titlecase() }}"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +69,7 @@ fun HomeScreen(
     cartItemCount: Int = 0,
     urgentNotification: DistributorNotification? = null,
     onUrgentNotificationClick: (DistributorNotification) -> Unit = {},
+    onRecommendedProductClick: (String) -> Unit = {},
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -122,6 +135,16 @@ fun HomeScreen(
                     }
                 }
             }
+            if (shouldShowCropCycleCard(tipoUsuario, uiState.cicloRelevante)) {
+                uiState.cicloRelevante?.let { cycle ->
+                    item(key = "crop-cycle-${cycle.faseActual?.idCiclo}") {
+                        CropCycleInfoCard(
+                            cycle = cycle,
+                            onRecommendedProductClick = onRecommendedProductClick
+                        )
+                    }
+                }
+            }
             item {
                 if (tipoUsuario == "agricultor") {
                     RecommendedProductsSection(
@@ -163,6 +186,155 @@ fun HomeScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+internal fun CropCycleInfoCard(
+    cycle: CropCycleResponse,
+    modifier: Modifier = Modifier,
+    onRecommendedProductClick: (String) -> Unit = {}
+) {
+    val currentPhase = cycle.faseActual ?: return
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .testTag("crop-cycle-card"),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9)),
+        border = BorderStroke(1.5.dp, VerdeClaro.copy(alpha = 0.65f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = VerdeAgroConecta
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Eco,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.padding(9.dp).size(24.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = cropCycleTitle(cycle.cultivo),
+                        color = VerdeAgroConecta,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "Fase actual: ${currentPhase.fase}",
+                        color = Color(0xFF1B5E20),
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+
+            Text(
+                text = currentPhase.descripcion,
+                color = Color(0xFF37474F),
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            if (currentPhase.productosRecomendados.isNotEmpty()) {
+                HorizontalDivider(color = VerdeClaro.copy(alpha = 0.3f))
+                Text(
+                    text = "Productos recomendados para esta fase",
+                    color = VerdeAgroConecta,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelLarge
+                )
+                currentPhase.productosRecomendados.take(3).forEach { product ->
+                    TextButton(
+                        onClick = { onRecommendedProductClick(product) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("recommended-product-link"),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = VerdeClaro,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = product,
+                            color = Color(0xFF37474F),
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Start,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "Ver en catálogo",
+                            color = VerdeAgroConecta,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+
+            cycle.proximaFase?.let { nextPhase ->
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.White.copy(alpha = 0.7f)
+                ) {
+                    Text(
+                        text = "Próxima fase: ${nextPhase.fase} · mes ${nextPhase.mesInicio}",
+                        color = TextoGris,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.fillMaxWidth().padding(10.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF5F5F5)
+@Composable
+private fun CropCycleInfoCardPreview() {
+    MaterialTheme {
+        CropCycleInfoCard(
+            cycle = CropCycleResponse(
+                cultivo = "maíz",
+                mesActual = 8,
+                faseActual = CropPhase(
+                    idCiclo = 3,
+                    fase = "Desarrollo vegetativo",
+                    mesInicio = 7,
+                    mesFin = 9,
+                    descripcion = "Crecimiento activo y monitoreo de nutrición, plagas y enfermedades.",
+                    productosRecomendados = listOf(
+                        "Fertilizante nitrogenado",
+                        "Insecticida para gusano cogollero",
+                        "Fungicida agrícola"
+                    )
+                ),
+                fasesActivas = emptyList(),
+                proximaFase = CropPhase(
+                    idCiclo = 4,
+                    fase = "Cosecha y postcosecha",
+                    mesInicio = 10,
+                    mesFin = 12,
+                    descripcion = "Cosecha y almacenamiento.",
+                    productosRecomendados = emptyList()
+                )
+            )
+        )
     }
 }
 
