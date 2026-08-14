@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS ciclo_cultivo (
     mes_inicio SMALLINT NOT NULL CHECK (mes_inicio BETWEEN 1 AND 12),
     mes_fin SMALLINT NOT NULL CHECK (mes_fin BETWEEN 1 AND 12),
     descripcion TEXT NOT NULL,
-    productos_recomendados TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    productos_recomendados TEXT[] NOT NULL,
     CONSTRAINT ciclo_cultivo_cultivo_no_vacio CHECK (BTRIM(cultivo) <> ''),
     CONSTRAINT ciclo_cultivo_fase_no_vacia CHECK (BTRIM(fase) <> ''),
     CONSTRAINT ciclo_cultivo_productos_no_vacios
