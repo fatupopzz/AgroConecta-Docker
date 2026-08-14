@@ -192,8 +192,8 @@ fun HomeScreen(
 @Composable
 internal fun CropCycleInfoCard(
     cycle: CropCycleResponse,
-    onRecommendedProductClick: (String) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRecommendedProductClick: (String) -> Unit = {}
 ) {
     val currentPhase = cycle.faseActual ?: return
 
