@@ -7,14 +7,33 @@ const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 const getDistributors = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT d.*, u.nombre, u.telefono, u.email
+      `SELECT d.*, u.nombre, u.telefono, u.email,
+              COALESCE(reviews.calificacion_promedio, 0) AS promedio_resenas,
+              COALESCE(reviews.cantidad_resenas, 0)::int AS cantidad_resenas
        FROM distribuidor d
        JOIN usuario u ON d.id_usuario = u.id_usuario
+       LEFT JOIN (
+         SELECT id_distribuidor,
+                ROUND(AVG(calificacion)::numeric, 2) AS calificacion_promedio,
+                COUNT(*)::int AS cantidad_resenas
+         FROM resena_distribuidor
+         GROUP BY id_distribuidor
+       ) reviews ON reviews.id_distribuidor = d.id_distribuidor
        WHERE d.estado_verificacion = 'verificado'
        ORDER BY d.nombre_negocio ASC`
     );
 
-    res.json(result.rows);
+    const distributors = result.rows.map(({
+      promedio_resenas,
+      cantidad_resenas,
+      ...distributor
+    }) => ({
+      ...distributor,
+      calificacion_promedio: Number(promedio_resenas ?? 0),
+      cantidad_resenas: Number(cantidad_resenas ?? 0),
+    }));
+
+    res.json(distributors);
   } catch (error) {
     console.error("Error en getDistributors:", error);
     res.status(500).json({ error: "Error al obtener distribuidores" });
