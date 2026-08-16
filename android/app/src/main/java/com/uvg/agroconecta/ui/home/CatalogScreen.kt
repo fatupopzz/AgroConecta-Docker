@@ -39,7 +39,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 
 private val CatalogGreen = Color(0xFF2D6A1F)
 private val CatalogBackground = Color(0xFFF5F5F5)
@@ -50,7 +50,7 @@ fun CatalogScreen(
     initialQuery: String,
     onBack: () -> Unit,
     onProductClick: (Int) -> Unit,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current

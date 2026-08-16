@@ -8,12 +8,19 @@ import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.Distributor
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.data.repository.CropCycleRepository
-import com.uvg.agroconecta.data.repository.RemoteCropCycleRepository
+import com.uvg.agroconecta.data.repository.ProductCacheState
+import com.uvg.agroconecta.data.repository.ProductCatalogRepository
+import com.uvg.agroconecta.data.repository.ProductLoadResult
+import com.uvg.agroconecta.data.repository.ProductRequest
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class HomeUiState(
     val nombreAgricultor: String = "",
@@ -36,19 +43,34 @@ data class HomeUiState(
     val isLoadingCategorias: Boolean = false,
     val isLoadingDistribuidores: Boolean = false,
     val isLoadingCiclo: Boolean = false,
+    val isOffline: Boolean = false,
+    val productCacheState: ProductCacheState = ProductCacheState.EMPTY,
     val errorMessage: String? = null
 )
 
-class HomeViewModel(
-    private val cropCycleRepository: CropCycleRepository = RemoteCropCycleRepository()
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val cropCycleRepository: CropCycleRepository,
+    private val productCatalogRepository: ProductCatalogRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var token: String? = null
+    private var initialized = false
+    private var productLoadJob: Job? = null
+    private var lastConnectivity: Boolean? = null
+    private var cachedProducts: List<Product> = emptyList()
+
+    init {
+        observeCachedProducts()
+        observeConnectivity()
+    }
 
     fun init(token: String?, tipoUsuario: String = "agricultor") {
+        if (initialized) return
+        initialized = true
         this.token = token
         if (tipoUsuario == "agricultor" && !token.isNullOrBlank()) {
             loadRecommendedProducts()
@@ -131,40 +153,70 @@ class HomeViewModel(
 
     fun loadProductos(reset: Boolean = false) {
         val state = _uiState.value
-        if (state.isLoadingProductos) return
+        if (!reset && productLoadJob?.isActive == true) return
         if (!reset && !state.hasMore) return
 
         val page = if (reset) 1 else state.currentPage
+        val request = ProductRequest(
+            page = page,
+            limit = 10,
+            name = state.searchQuery.ifBlank { null },
+            categoryId = state.categoriaSeleccionadaId
+        )
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingProductos = true) }
-            try {
-                val response = RetrofitClient.getService().getProducts(
-                    page = page,
-                    limit = 10,
-                    nombre = state.searchQuery.ifBlank { null },
-                    idCategoria = state.categoriaSeleccionadaId
-                )
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    val nuevos = body?.products ?: emptyList()
-                    val lista = if (reset) nuevos else state.productos + nuevos
-                    val total = body?.total ?: 0
+        if (reset) {
+            productLoadJob?.cancel()
+        }
+        _uiState.update { it.copy(isLoadingProductos = true, errorMessage = null) }
+
+        productLoadJob = viewModelScope.launch {
+            when (val result = productCatalogRepository.loadProducts(request)) {
+                is ProductLoadResult.Success -> {
                     _uiState.update {
+                        val products = if (reset) {
+                            result.products
+                        } else {
+                            (it.productos + result.products).distinctBy(Product::id)
+                        }
                         it.copy(
-                            productos = lista,
+                            productos = products,
                             currentPage = page + 1,
-                            hasMore = lista.size < total,
+                            hasMore = products.size < result.total,
                             isLoadingProductos = false,
-                            ofertaDelDia = if (reset) nuevos.firstOrNull() else it.ofertaDelDia
+                            ofertaDelDia = if (reset) result.products.firstOrNull() else it.ofertaDelDia
                         )
                     }
-                } else {
-                    _uiState.update { it.copy(isLoadingProductos = false) }
                 }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoadingProductos = false, errorMessage = e.message) }
+
+                ProductLoadResult.Offline -> {
+                    _uiState.update {
+                        val fallback = if (reset) filterCachedProducts(it) else it.productos
+                        it.copy(
+                            productos = fallback,
+                            ofertaDelDia = if (reset) fallback.firstOrNull() else it.ofertaDelDia,
+                            hasMore = false,
+                            isLoadingProductos = false
+                        )
+                    }
+                }
+
+                is ProductLoadResult.Failure -> {
+                    _uiState.update {
+                        val fallback = if (reset && it.productos.isEmpty()) {
+                            filterCachedProducts(it)
+                        } else {
+                            it.productos
+                        }
+                        it.copy(
+                            productos = fallback,
+                            ofertaDelDia = it.ofertaDelDia ?: fallback.firstOrNull(),
+                            isLoadingProductos = false,
+                            errorMessage = result.message
+                        )
+                    }
+                }
             }
+            refreshCacheState()
         }
     }
 
@@ -238,6 +290,67 @@ class HomeViewModel(
     }
 
     fun clearError() { _uiState.update { it.copy(errorMessage = null) } }
+
+    private fun observeCachedProducts() {
+        viewModelScope.launch {
+            productCatalogRepository.observeCachedProducts().collectLatest { products ->
+                cachedProducts = products
+                _uiState.update { state ->
+                    val isDefaultCatalog = state.searchQuery.isBlank() &&
+                        state.categoriaSeleccionadaId == null
+                    if (isDefaultCatalog && (state.productos.isEmpty() || state.isOffline)) {
+                        state.copy(
+                            productos = products,
+                            ofertaDelDia = products.firstOrNull()
+                        )
+                    } else {
+                        state
+                    }
+                }
+                refreshCacheState()
+            }
+        }
+    }
+
+    private fun observeConnectivity() {
+        viewModelScope.launch {
+            productCatalogRepository.connectivity.collectLatest { online ->
+                val previous = lastConnectivity
+                lastConnectivity = online
+                _uiState.update { it.copy(isOffline = !online) }
+                if (previous == false && online) {
+                    loadProductos(reset = true)
+                }
+            }
+        }
+    }
+
+    private fun refreshCacheState() {
+        viewModelScope.launch {
+            val cacheState = productCatalogRepository.cacheState()
+            _uiState.update { it.copy(productCacheState = cacheState) }
+        }
+    }
+
+    private fun filterCachedProducts(state: HomeUiState): List<Product> {
+        val query = state.searchQuery.trim()
+        val categoryName = state.categoriaSeleccionadaId?.let { selectedId ->
+            state.categorias.firstOrNull { it.id == selectedId }?.nombre
+        }
+
+        return cachedProducts.filter { product ->
+            val matchesQuery = query.isBlank() ||
+                product.nombre.contains(query, ignoreCase = true) ||
+                product.descripcion.orEmpty().contains(query, ignoreCase = true)
+            val matchesCategory = categoryName == null ||
+                product.categoria.equals(categoryName, ignoreCase = true)
+            val matchesMinimum = state.filtroPrecioMin == null ||
+                (product.precioDesde ?: Double.NEGATIVE_INFINITY) >= state.filtroPrecioMin.toDouble()
+            val matchesMaximum = state.filtroPrecioMax == null ||
+                (product.precioDesde ?: Double.POSITIVE_INFINITY) <= state.filtroPrecioMax.toDouble()
+            matchesQuery && matchesCategory && matchesMinimum && matchesMaximum
+        }
+    }
 }
 
 internal fun normalizeCatalogQuery(query: String): String =

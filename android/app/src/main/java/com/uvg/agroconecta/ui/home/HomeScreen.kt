@@ -22,13 +22,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.CropPhase
@@ -46,6 +48,7 @@ private val NaranjaOferta = Color(0xFFE65100)
 private val NaranjaOfertaClaro = Color(0xFFFFF3E0)
 private val GrisFondo = Color(0xFFF5F5F5)
 private val TextoGris = Color(0xFF757575)
+internal const val OFFLINE_INDICATOR_TEXT = "Sin conexión"
 
 internal fun shouldShowCropCycleCard(
     userType: String,
@@ -54,6 +57,9 @@ internal fun shouldShowCropCycleCard(
 
 internal fun cropCycleTitle(crop: String): String =
     "Tu cultivo: ${crop.replaceFirstChar { character -> character.titlecase() }}"
+
+internal fun offlineIndicatorText(isOffline: Boolean): String? =
+    OFFLINE_INDICATOR_TEXT.takeIf { isOffline }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,7 +77,7 @@ fun HomeScreen(
     urgentNotification: DistributorNotification? = null,
     onUrgentNotificationClick: (DistributorNotification) -> Unit = {},
     onRecommendedProductClick: (String) -> Unit = {},
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -125,6 +131,11 @@ fun HomeScreen(
                     onFiltrosClick = { viewModel.abrirFiltros() },
                     onCarritoClick = onCarritoClick
                 )
+            }
+            if (uiState.isOffline) {
+                item(key = "offline-indicator") {
+                    OfflineModeIndicator()
+                }
             }
             if (tipoUsuario == "distribuidor") {
                 urgentNotification?.let { notification ->
@@ -186,6 +197,39 @@ fun HomeScreen(
                     onDistribuidorClick = onDistribuidorClick
                 )
             }
+        }
+    }
+}
+
+@Composable
+internal fun OfflineModeIndicator(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .testTag("offline-indicator")
+            .semantics(mergeDescendants = true) {
+                contentDescription = OFFLINE_INDICATOR_TEXT
+            },
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFFFF3E0),
+        border = BorderStroke(1.dp, Color(0xFFF57C00))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.WifiOff,
+                contentDescription = null,
+                tint = Color(0xFFE65100)
+            )
+            Text(
+                text = OFFLINE_INDICATOR_TEXT,
+                color = Color(0xFF8A3B00),
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
