@@ -11,6 +11,7 @@ okhttp = "4.12.0"
 gson = "2.10.1"
 coroutines = "1.8.1"
 datastore = "1.1.1"
+room = "2.6.1"
 
 # DI — Hilt 2.51.1 es la ultima serie compatible con Kotlin 1.9.23 + kapt
 hilt = "2.51.1"
@@ -61,6 +62,9 @@ coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutin
 
 # Storage
 androidx-datastore = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
 # Image loading
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilCompose" }

@@ -35,6 +35,10 @@ android {
         versionName = "1.0"
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     buildTypes {
         debug {
             buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
@@ -83,6 +87,8 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation("androidx.arch.core:core-testing:2.2.0")
     testImplementation("io.mockk:mockk:1.13.11")
+    testImplementation("androidx.test:core-ktx:1.5.0")
+    testImplementation("org.robolectric:robolectric:4.12.2")
 
     // Compose UI (versiones fijas, sin BOM)
     implementation(libs.androidx.compose.ui)
@@ -113,6 +119,9 @@ dependencies {
 
     // Storage
     implementation(libs.androidx.datastore)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     // Image loading
     implementation(libs.coil.compose)

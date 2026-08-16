@@ -18,7 +18,10 @@ class HomeViewModelCropCycleTest {
     @Test
     fun `loads relevant crop cycle into home state`() {
         val expected = cycle()
-        val viewModel = HomeViewModel(FakeCropCycleRepository(result = expected))
+        val viewModel = HomeViewModel(
+            FakeCropCycleRepository(result = expected),
+            FakeHomeProductCatalogRepository()
+        )
 
         viewModel.loadRelevantCropCycle("token")
 
@@ -29,7 +32,8 @@ class HomeViewModelCropCycleTest {
     @Test
     fun `keeps cycle empty when repository fails`() {
         val viewModel = HomeViewModel(
-            FakeCropCycleRepository(error = IllegalStateException("sin conexión"))
+            FakeCropCycleRepository(error = IllegalStateException("sin conexión")),
+            FakeHomeProductCatalogRepository()
         )
 
         viewModel.loadRelevantCropCycle("token")

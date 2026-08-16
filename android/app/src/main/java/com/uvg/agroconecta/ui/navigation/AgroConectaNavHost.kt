@@ -131,7 +131,7 @@ fun AgroConectaNavHost(
         }
 
         composable(Screen.Home.route) {
-            val homeViewModel: HomeViewModel = viewModel()
+            val homeViewModel: HomeViewModel = hiltViewModel()
             val notificationViewModel: DistributorNotificationViewModel = viewModel()
             val urgentNotification by notificationViewModel.urgentNotification.collectAsState()
             val nombre by authViewModel.nombreUsuario.observeAsState("")
