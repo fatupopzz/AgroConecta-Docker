@@ -174,7 +174,8 @@ data class Distributor(
     @SerializedName("nombre_negocio") val nombreNegocio: String,
     val departamento: String?,
     @SerializedName("estado_verificacion") val estadoVerificacion: String,
-    @SerializedName("calificacion_promedio") val calificacion: Double,
+    @SerializedName("calificacion_promedio") val calificacion: Double? = null,
+    @SerializedName("cantidad_resenas") val cantidadResenas: Int? = null,
     // joined from usuario
     val nombre: String?,
     val email: String?,

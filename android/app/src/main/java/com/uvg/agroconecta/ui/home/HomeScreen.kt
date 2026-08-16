@@ -37,6 +37,7 @@ import com.uvg.agroconecta.data.models.DistributorNotification
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
+import com.uvg.agroconecta.ui.components.StarRating
 import androidx.compose.ui.draw.clip
 
 private val VerdeAgroConecta = Color(0xFF2D6A1F)
@@ -827,6 +828,10 @@ private fun DistribuidorCard(
     distribuidor: Distributor,
     onClick: () -> Unit
 ) {
+    val hasReviews = distribuidor.cantidadResenas?.let { it > 0 }
+        ?: ((distribuidor.calificacion ?: 0.0) > 0.0)
+    val displayedRating = distribuidor.calificacion.takeIf { hasReviews } ?: 0.0
+
     Card(
         modifier = Modifier
             .width(180.dp)
@@ -868,18 +873,15 @@ private fun DistribuidorCard(
                 Text(it, color = TextoGris, fontSize = 11.sp)
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                for (i in 1..5) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = null,
-                        tint = if (i <= distribuidor.calificacion) Color(0xFFFFC107)
-                        else Color(0xFFDDDDDD),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
+            StarRating(rating = displayedRating)
+            if (!hasReviews) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Sin reseñas",
+                    color = TextoGris,
+                    fontSize = 10.sp
+                )
             }
         }
     }
 }
-
