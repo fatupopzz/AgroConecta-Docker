@@ -35,8 +35,13 @@ interface ApiService {
         @Query("id_categoria") idCategoria: Int? = null
     ): Response<ProductsResponse>
 
+    // Recomendados y distribuidores llevan el token como @Header porque
+    // HomeViewModel ya consume el ApiService inyectado por Hilt, que no tiene
+    // interceptor de auth.
     @GET("productos/recomendados")
-    suspend fun getRecommendedProducts(): Response<List<Product>>
+    suspend fun getRecommendedProducts(
+        @Header("Authorization") token: String?
+    ): Response<List<Product>>
 
     @GET("products/{id}")
     suspend fun getProductById(@Path("id") id: Int): Response<ProductDetail>
@@ -59,7 +64,9 @@ interface ApiService {
 
     // ── Distributors ─────────────────────────────────────────────────────
     @GET("distribuidores")
-    suspend fun getVerifiedDistributors(): Response<List<Distributor>>
+    suspend fun getVerifiedDistributors(
+        @Header("Authorization") token: String? = null
+    ): Response<List<Distributor>>
 
     // ── Cart ─────────────────────────────────────────────────────────────
     // Estos endpoints reciben el token como @Header porque CartViewModel usa el

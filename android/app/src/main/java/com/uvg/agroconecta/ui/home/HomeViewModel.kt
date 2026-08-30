@@ -2,7 +2,7 @@ package com.uvg.agroconecta.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.Distributor
@@ -50,6 +50,7 @@ data class HomeUiState(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    private val api: ApiService,
     private val cropCycleRepository: CropCycleRepository,
     private val productCatalogRepository: ProductCatalogRepository
 ) : ViewModel() {
@@ -103,7 +104,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingRecomendados = true) }
             try {
-                val response = RetrofitClient.getService(currentToken).getRecommendedProducts()
+                val response = api.getRecommendedProducts(bearer(currentToken))
                 _uiState.update {
                     it.copy(
                         productosRecomendados = if (response.isSuccessful) {
@@ -129,7 +130,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingCategorias = true) }
             try {
-                val response = RetrofitClient.getService().getCategories()
+                val response = api.getCategories()
                 if (response.isSuccessful) {
                     _uiState.update {
                         it.copy(
@@ -224,7 +225,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingDistribuidores = true) }
             try {
-                val response = RetrofitClient.getService(token).getVerifiedDistributors()
+                val response = api.getVerifiedDistributors(bearer(token))
                 if (response.isSuccessful) {
                     val verificados = (response.body() ?: emptyList())
                         .filter { it.estadoVerificacion == "verificado" }
@@ -331,6 +332,12 @@ class HomeViewModel @Inject constructor(
             _uiState.update { it.copy(productCacheState = cacheState) }
         }
     }
+
+    // El listado de distribuidores tambien lo ve quien entra sin sesion, asi que
+    // la cabecera se arma solo cuando hay token y si no se manda null (Retrofit
+    // omite el header) en lugar de un "Bearer " vacio.
+    private fun bearer(token: String?): String? =
+        token?.takeIf { it.isNotBlank() }?.let { "Bearer $it" }
 
     private fun filterCachedProducts(state: HomeUiState): List<Product> {
         val query = state.searchQuery.trim()
