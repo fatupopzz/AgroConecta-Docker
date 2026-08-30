@@ -2,13 +2,16 @@ package com.uvg.agroconecta.ui.distributor
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.DistributorStatsResponse
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class DistributorStatsUiState(
     val stats: DistributorStatsResponse? = null,
@@ -16,7 +19,10 @@ data class DistributorStatsUiState(
     val errorMessage: String? = null
 )
 
-class DistributorStatsViewModel : ViewModel() {
+@HiltViewModel
+class DistributorStatsViewModel @Inject constructor(
+    private val api: ApiService
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DistributorStatsUiState())
     val uiState: StateFlow<DistributorStatsUiState> = _uiState.asStateFlow()
@@ -35,8 +41,7 @@ class DistributorStatsViewModel : ViewModel() {
             }
 
             try {
-                val response = RetrofitClient.getService(token)
-                    .getDistributorStats(distributorId)
+                val response = api.getDistributorStats(distributorId, token.toAuthHeader())
 
                 if (response.isSuccessful) {
                     val stats = response.body()

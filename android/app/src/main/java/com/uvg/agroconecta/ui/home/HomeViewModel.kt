@@ -3,6 +3,7 @@ package com.uvg.agroconecta.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.Distributor
@@ -104,7 +105,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingRecomendados = true) }
             try {
-                val response = api.getRecommendedProducts(bearer(currentToken))
+                val response = api.getRecommendedProducts(currentToken.toAuthHeader())
                 _uiState.update {
                     it.copy(
                         productosRecomendados = if (response.isSuccessful) {
@@ -225,7 +226,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingDistribuidores = true) }
             try {
-                val response = api.getVerifiedDistributors(bearer(token))
+                val response = api.getVerifiedDistributors(token.toAuthHeader())
                 if (response.isSuccessful) {
                     val verificados = (response.body() ?: emptyList())
                         .filter { it.estadoVerificacion == "verificado" }
@@ -332,12 +333,6 @@ class HomeViewModel @Inject constructor(
             _uiState.update { it.copy(productCacheState = cacheState) }
         }
     }
-
-    // El listado de distribuidores tambien lo ve quien entra sin sesion, asi que
-    // la cabecera se arma solo cuando hay token y si no se manda null (Retrofit
-    // omite el header) en lugar de un "Bearer " vacio.
-    private fun bearer(token: String?): String? =
-        token?.takeIf { it.isNotBlank() }?.let { "Bearer $it" }
 
     private fun filterCachedProducts(state: HomeUiState): List<Product> {
         val query = state.searchQuery.trim()

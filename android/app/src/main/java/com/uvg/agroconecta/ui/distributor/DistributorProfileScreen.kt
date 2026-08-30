@@ -22,7 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.DistributorReview
 import com.uvg.agroconecta.data.models.Product
@@ -36,7 +36,7 @@ fun DistributorProfileScreen(
     distributorId: Int,
     onNavigateBack: () -> Unit,
     onProductoClick: (Int) -> Unit,
-    viewModel: DistributorViewModel = viewModel()
+    viewModel: DistributorViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

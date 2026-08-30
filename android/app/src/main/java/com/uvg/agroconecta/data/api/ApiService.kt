@@ -153,11 +153,14 @@ interface ApiService {
 
     // ── Distributor notifications ─────────────────────────────────────────
     @GET("notifications")
-    suspend fun getDistributorNotifications(): Response<List<DistributorNotification>>
+    suspend fun getDistributorNotifications(
+        @Header("Authorization") token: String?
+    ): Response<List<DistributorNotification>>
 
     @PATCH("notifications/{id}/read")
     suspend fun markDistributorNotificationAsRead(
-        @Path("id") notificationId: Int
+        @Path("id") notificationId: Int,
+        @Header("Authorization") token: String?
     ): Response<Map<String, String>>
 
     @GET("products/{id}/reviews")
@@ -211,7 +214,8 @@ interface ApiService {
 
     @GET("distribuidores/{id}/stats")
     suspend fun getDistributorStats(
-        @Path("id") id: Int
+        @Path("id") id: Int,
+        @Header("Authorization") token: String?
     ): Response<DistributorStatsResponse>
 
     // ── Distributor by ID ─────────────────────────────────────────────────

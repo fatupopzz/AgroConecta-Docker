@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
@@ -333,12 +334,4 @@ class ProductViewModel @Inject constructor(
         _reviewSubmitState.value = ReviewSubmitState.Idle
     }
 
-    /**
-     * Devuelve null cuando no hay token, para que Retrofit omita la cabecera.
-     * Antes esto lo resolvia el interceptor de RetrofitClient; con el ApiService
-     * de Hilt la unica Authorization que sale es esta, asi que ya no puede
-     * duplicarse como pasaba en las reseñas (KAN-69).
-     */
-    private fun String?.toAuthHeader(): String? =
-        if (isNullOrBlank()) null else "Bearer $this"
 }

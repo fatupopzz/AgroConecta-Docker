@@ -52,7 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.DistributorStatsResponse
 import com.uvg.agroconecta.data.models.OrdersByStatus
@@ -74,7 +74,7 @@ import java.util.Locale
 @Composable
 fun DistributorStatsScreen(
     onNavigateBack: () -> Unit,
-    viewModel: DistributorStatsViewModel = viewModel()
+    viewModel: DistributorStatsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()

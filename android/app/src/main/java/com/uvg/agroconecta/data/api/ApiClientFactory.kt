@@ -10,14 +10,11 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 /**
- * Fuente unica de la configuracion de red.
+ * Fuente unica de la configuracion de red: URL base, gson, timeouts y logging.
  *
- * La consumen dos caminos que conviven durante la migracion a Hilt:
- *  - [RetrofitClient], que siguen usando los ViewModels aun no migrados.
- *  - `di.NetworkModule`, que expone lo mismo al grafo de Hilt.
- *
- * Asi la URL base, el gson y los timeouts se definen en un solo lugar y ambos
- * caminos producen clientes identicos.
+ * La consume `di.NetworkModule`, que es quien arma el ApiService del grafo de
+ * Hilt. Sigue separada del modulo para que la configuracion se pueda leer y
+ * probar sin arrastrar Hilt.
  */
 internal object ApiClientFactory {
 

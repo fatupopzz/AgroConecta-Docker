@@ -3,6 +3,7 @@ package com.uvg.agroconecta.ui.orders
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.CreateOrderRequest
 import com.uvg.agroconecta.data.models.OrderProduct
 import com.uvg.agroconecta.data.models.OrderSummary
@@ -36,6 +37,40 @@ class OrderViewModel @Inject constructor(
 
     private val _createdOrderId = MutableStateFlow<Int?>(null)
     val createdOrderId: StateFlow<Int?> = _createdOrderId
+
+    private val _pickupAddress = MutableStateFlow<String?>(null)
+    val pickupAddress: StateFlow<String?> = _pickupAddress
+
+    private val _isLoadingPickupAddress = MutableStateFlow(false)
+    val isLoadingPickupAddress: StateFlow<Boolean> = _isLoadingPickupAddress
+
+    /**
+     * Direccion del distribuidor, para mostrarla cuando la entrega es por
+     * recogida. Recibe el id como nullable porque la pantalla lo saca del
+     * carrito y puede venir vacio.
+     */
+    fun loadPickupAddress(idDistribuidor: Int?, token: String?) {
+        if (idDistribuidor == null) {
+            _pickupAddress.value = null
+            return
+        }
+
+        viewModelScope.launch {
+            _isLoadingPickupAddress.value = true
+            try {
+                val response = api.getDistributorById(idDistribuidor, token.toAuthHeader())
+                _pickupAddress.value = if (response.isSuccessful) {
+                    response.body()?.direccion
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                _pickupAddress.value = null
+            } finally {
+                _isLoadingPickupAddress.value = false
+            }
+        }
+    }
 
     fun createCashOrder(
         idAgricultor: Int,
@@ -190,11 +225,4 @@ class OrderViewModel @Inject constructor(
         _createdOrderId.value = null
     }
 
-    /**
-     * Devuelve null cuando no hay token, para que Retrofit omita la cabecera.
-     * Replica lo que hacia el interceptor de RetrofitClient, que solo agregaba
-     * Authorization si venia un token.
-     */
-    private fun String?.toAuthHeader(): String? =
-        if (isNullOrBlank()) null else "Bearer $this"
 }

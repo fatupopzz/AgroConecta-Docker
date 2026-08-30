@@ -9,11 +9,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import okhttp3.Interceptor
-import okhttp3.OkHttpClient
-import retrofit2.Retrofit
-
-// ─── Session / Token Storage ─────────────────────────────────────────────────
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "session")
 
@@ -75,56 +70,4 @@ object SessionManager {
 
     fun getDeliveryAddress(context: Context): Flow<String?> =
         context.dataStore.data.map { it[DELIVERY_ADDRESS_KEY] }
-}
-
-// ─── Retrofit Client ─────────────────────────────────────────────────────────
-
-/**
- * Acceso al ApiService para los ViewModels que todavia no estan migrados a Hilt.
- *
- * Los ViewModels migrados reciben el ApiService por constructor desde
- * `di.NetworkModule`. Ambos caminos se construyen con [ApiClientFactory], asi
- * que producen clientes equivalentes.
- */
-object RetrofitClient {
-
-    private val gson = ApiClientFactory.createGson()
-
-    private val baseClient: OkHttpClient = ApiClientFactory.createOkHttpClient()
-
-    private val publicService: ApiService by lazy { createPublicService() }
-
-    fun getService(token: String? = null): ApiService =
-        if (token.isNullOrBlank()) {
-            publicService
-        } else {
-            createAuthenticatedService(token)
-        }
-
-    private fun createAuthenticatedService(token: String): ApiService {
-        val client = baseClient.newBuilder()
-            .addInterceptor(Interceptor { chain ->
-                // Solo agrega la cabecera si el endpoint no la declaro ya con
-                // @Header. addHeader() acumula en vez de reemplazar, asi que sin
-                // esta guarda el request salia con dos Authorization.
-                val original = chain.request()
-                val request = if (original.header("Authorization") == null) {
-                    original.newBuilder()
-                        .addHeader("Authorization", "Bearer $token")
-                        .build()
-                } else {
-                    original
-                }
-                chain.proceed(request)
-            })
-            .build()
-
-        return createRetrofit(client).create(ApiService::class.java)
-    }
-
-    private fun createRetrofit(client: OkHttpClient): Retrofit =
-        ApiClientFactory.createRetrofit(client, gson)
-
-    private fun createPublicService(): ApiService =
-        createRetrofit(baseClient).create(ApiService::class.java)
 }
