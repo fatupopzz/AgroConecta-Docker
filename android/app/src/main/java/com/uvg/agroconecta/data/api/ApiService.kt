@@ -217,7 +217,8 @@ interface ApiService {
     // ── Distributor by ID ─────────────────────────────────────────────────
     @GET("distribuidores/{id}")
     suspend fun getDistributorById(
-        @Path("id") id: Int
+        @Path("id") id: Int,
+        @Header("Authorization") token: String? = null
     ): Response<DistributorProfile>
 
 
