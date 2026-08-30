@@ -2,17 +2,22 @@ package com.uvg.agroconecta.ui.orders
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.models.CreateOrderRequest
 import com.uvg.agroconecta.data.models.OrderProduct
 import com.uvg.agroconecta.data.models.OrderSummary
 import com.uvg.agroconecta.data.models.OrderTrackingResponse
 import com.uvg.agroconecta.ui.cart.CartItemUI
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class OrderViewModel : ViewModel() {
+@HiltViewModel
+class OrderViewModel @Inject constructor(
+    private val api: ApiService
+) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -93,7 +98,7 @@ class OrderViewModel : ViewModel() {
                     }
                 )
 
-                val response = RetrofitClient.getService(token).createOrder(request)
+                val response = api.createOrder(token.toAuthHeader(), request)
 
                 if (response.isSuccessful) {
                     _createdOrderId.value = response.body()?.pedido?.id
@@ -119,7 +124,7 @@ class OrderViewModel : ViewModel() {
                 _isLoading.value = true
                 _errorMessage.value = null
 
-                val response = RetrofitClient.getService(token).getOrdersByFarmer(idAgricultor)
+                val response = api.getOrdersByFarmer(idAgricultor, token.toAuthHeader())
 
                 if (response.isSuccessful) {
                     _orders.value = response.body()?.data ?: emptyList()
@@ -140,8 +145,7 @@ class OrderViewModel : ViewModel() {
                 _isLoading.value = true
                 _errorMessage.value = null
 
-                val response = RetrofitClient.getService(token)
-                    .getOrdersByDistributor(idDistribuidor)
+                val response = api.getOrdersByDistributor(idDistribuidor, token.toAuthHeader())
 
                 if (response.isSuccessful) {
                     _orders.value = response.body().orEmpty()
@@ -163,7 +167,7 @@ class OrderViewModel : ViewModel() {
                 _errorMessage.value = null
                 _tracking.value = null
 
-                val response = RetrofitClient.getService(token).getOrderTracking(orderId)
+                val response = api.getOrderTracking(orderId, token.toAuthHeader())
 
                 if (response.isSuccessful) {
                     _tracking.value = response.body()
@@ -185,4 +189,12 @@ class OrderViewModel : ViewModel() {
     fun clearCreatedOrderId() {
         _createdOrderId.value = null
     }
+
+    /**
+     * Devuelve null cuando no hay token, para que Retrofit omita la cabecera.
+     * Replica lo que hacia el interceptor de RetrofitClient, que solo agregaba
+     * Authorization si venia un token.
+     */
+    private fun String?.toAuthHeader(): String? =
+        if (isNullOrBlank()) null else "Bearer $this"
 }

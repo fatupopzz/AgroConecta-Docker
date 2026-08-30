@@ -4,11 +4,16 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.models.*
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class ProductViewModel : ViewModel() {
+@HiltViewModel
+class ProductViewModel @Inject constructor(
+    private val api: ApiService
+) : ViewModel() {
 
     // ── Catálogo ──────────────────────────────────────────────────────────────
 
@@ -29,8 +34,11 @@ class ProductViewModel : ViewModel() {
         _isLoadingCatalog.value = true
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService(token)
-                    .getProducts(nombre = nombre, idCategoria = idCategoria)
+                val response = api.getProducts(
+                    nombre = nombre,
+                    idCategoria = idCategoria,
+                    token = token.toAuthHeader()
+                )
                 if (response.isSuccessful) {
                     _products.value = response.body()?.products ?: emptyList()
                 } else {
@@ -89,7 +97,7 @@ class ProductViewModel : ViewModel() {
         _isLoading.value = true
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService(token).getProductById(id)
+                val response = api.getProductById(id, token.toAuthHeader())
                 if (response.isSuccessful) {
                     val product = response.body()!!
                     _productDetail.value = product
@@ -113,7 +121,7 @@ class ProductViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService(token).getProductFollowStatus(productoId)
+                val response = api.getProductFollowStatus(productoId, token.toAuthHeader())
                 if (response.isSuccessful) {
                     _isFollowingPrice.value = response.body()?.siguiendo == true
                 } else if (response.code() == 401 || response.code() == 403) {
@@ -138,11 +146,11 @@ class ProductViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                val service = RetrofitClient.getService(token)
+                val auth = token.toAuthHeader()
                 val response = if (shouldFollow) {
-                    service.followProductPrice(productoId)
+                    api.followProductPrice(productoId, auth)
                 } else {
-                    service.unfollowProductPrice(productoId)
+                    api.unfollowProductPrice(productoId, auth)
                 }
 
                 if (response.isSuccessful) {
@@ -171,7 +179,7 @@ class ProductViewModel : ViewModel() {
     fun loadComparison(productoId: Int, token: String?) {
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService(token).compareProductPrices(productoId)
+                val response = api.compareProductPrices(productoId, token.toAuthHeader())
                 if (response.isSuccessful) {
                     _comparison.value = response.body()
                 }
@@ -188,9 +196,14 @@ class ProductViewModel : ViewModel() {
         _isLoadingDistributorRating.value = true
         viewModelScope.launch {
             try {
-                val service = RetrofitClient.getService(token)
-                val ratingResponse = service.getDistributorRating(requestedDistributorId)
-                val reviewsResponse = service.getDistributorReviews(requestedDistributorId, page = 1, limit = 5)
+                val auth = token.toAuthHeader()
+                val ratingResponse = api.getDistributorRating(requestedDistributorId, auth)
+                val reviewsResponse = api.getDistributorReviews(
+                    requestedDistributorId,
+                    auth,
+                    page = 1,
+                    limit = 5
+                )
 
                 if (_selectedOffer.value?.idDistribuidor != requestedDistributorId) {
                     return@launch
@@ -225,8 +238,9 @@ class ProductViewModel : ViewModel() {
         _isAddingToCart.value = true
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService(token).addToCart(
+                val response = api.addToCart(
                     idAgricultor = idAgricultor,
+                    token = token.toAuthHeader(),
                     request = AddItemRequest(
                         idInventario = offer.idInventario,
                         cantidad = 1
@@ -269,8 +283,7 @@ class ProductViewModel : ViewModel() {
         _reviewsLoading.value = true
         viewModelScope.launch {
             try {
-                val auth = token?.let { "Bearer $it" }
-                val response = RetrofitClient.getService(token).getReviews(productoId, auth)
+                val response = api.getReviews(productoId, token.toAuthHeader())
                 if (response.isSuccessful) {
                     val body = response.body()
                     _reviews.value         = body?.reviews ?: emptyList()
@@ -294,7 +307,7 @@ class ProductViewModel : ViewModel() {
         _reviewSubmitState.value = ReviewSubmitState.Loading
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.getService(token).createReview(
+                val response = api.createReview(
                     productoId = productoId,
                     token      = "Bearer $token",
                     body       = CreateReviewRequest(calificacion = calificacion, comentario = comentario)
@@ -319,4 +332,13 @@ class ProductViewModel : ViewModel() {
     fun clearReviewMessages() {
         _reviewSubmitState.value = ReviewSubmitState.Idle
     }
+
+    /**
+     * Devuelve null cuando no hay token, para que Retrofit omita la cabecera.
+     * Antes esto lo resolvia el interceptor de RetrofitClient; con el ApiService
+     * de Hilt la unica Authorization que sale es esta, asi que ya no puede
+     * duplicarse como pasaba en las reseñas (KAN-69).
+     */
+    private fun String?.toAuthHeader(): String? =
+        if (isNullOrBlank()) null else "Bearer $this"
 }

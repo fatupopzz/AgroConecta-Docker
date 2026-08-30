@@ -241,7 +241,7 @@ fun AgroConectaNavHost(
 
         composable(Screen.UrgentOrder.route) {
             val scope = rememberCoroutineScope()
-            val orderViewModel: OrderViewModel = viewModel()
+            val orderViewModel: OrderViewModel = hiltViewModel()
             val cartItemsForUrgency by sharedCartViewModel.cartItems.collectAsState()
             val isCreatingOrder by orderViewModel.isLoading.collectAsState()
             val successMessage by orderViewModel.successMessage.collectAsState()
@@ -330,7 +330,7 @@ fun AgroConectaNavHost(
 
         composable(Screen.OrderConfirmation.route) {
             val scope = rememberCoroutineScope()
-            val orderViewModel: OrderViewModel = viewModel()
+            val orderViewModel: OrderViewModel = hiltViewModel()
             val successMessage by orderViewModel.successMessage.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()
             val createdOrderId by orderViewModel.createdOrderId.collectAsState()
@@ -468,7 +468,7 @@ fun AgroConectaNavHost(
         }
 
         composable(Screen.OrderHistory.route) {
-            val orderViewModel: OrderViewModel = viewModel()
+            val orderViewModel: OrderViewModel = hiltViewModel()
             val orders by orderViewModel.orders.collectAsState()
             val isLoading by orderViewModel.isLoading.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()
@@ -514,7 +514,7 @@ fun AgroConectaNavHost(
             arguments = listOf(navArgument("orderId") { type = NavType.IntType })
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getInt("orderId") ?: return@composable
-            val orderViewModel: OrderViewModel = viewModel()
+            val orderViewModel: OrderViewModel = hiltViewModel()
             val tracking by orderViewModel.tracking.collectAsState()
             val isLoading by orderViewModel.isLoading.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()
