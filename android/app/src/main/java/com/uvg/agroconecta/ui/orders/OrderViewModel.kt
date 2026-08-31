@@ -10,6 +10,8 @@ import com.uvg.agroconecta.data.models.OrderSummary
 import com.uvg.agroconecta.data.models.OrderTrackingResponse
 import com.uvg.agroconecta.ui.cart.CartItemUI
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -44,31 +46,42 @@ class OrderViewModel @Inject constructor(
     private val _isLoadingPickupAddress = MutableStateFlow(false)
     val isLoadingPickupAddress: StateFlow<Boolean> = _isLoadingPickupAddress
 
+    private var pickupAddressJob: Job? = null
+
     /**
      * Direccion del distribuidor, para mostrarla cuando la entrega es por
      * recogida. Recibe el id como nullable porque la pantalla lo saca del
      * carrito y puede venir vacio.
+     *
+     * Cancela la busqueda anterior a proposito: cuando esto vivia en un
+     * LaunchedEffect lo hacia Compose al cambiar el distribuidor, y sin eso la
+     * respuesta de una consulta vieja puede llegar tarde y pisar la direccion
+     * del distribuidor que el usuario tiene ahora en el carrito.
      */
     fun loadPickupAddress(idDistribuidor: Int?, token: String?) {
+        pickupAddressJob?.cancel()
+
         if (idDistribuidor == null) {
             _pickupAddress.value = null
+            _isLoadingPickupAddress.value = false
             return
         }
 
-        viewModelScope.launch {
+        pickupAddressJob = viewModelScope.launch {
             _isLoadingPickupAddress.value = true
-            try {
+
+            val direccion = try {
                 val response = api.getDistributorById(idDistribuidor, token.toAuthHeader())
-                _pickupAddress.value = if (response.isSuccessful) {
-                    response.body()?.direccion
-                } else {
-                    null
-                }
+                if (response.isSuccessful) response.body()?.direccion else null
             } catch (e: Exception) {
-                _pickupAddress.value = null
-            } finally {
-                _isLoadingPickupAddress.value = false
+                null
             }
+
+            // Si mientras tanto entro otro distribuidor, el estado ya es de la
+            // busqueda nueva y esta no debe tocarlo.
+            ensureActive()
+            _pickupAddress.value = direccion
+            _isLoadingPickupAddress.value = false
         }
     }
 
@@ -224,5 +237,4 @@ class OrderViewModel @Inject constructor(
     fun clearCreatedOrderId() {
         _createdOrderId.value = null
     }
-
 }
