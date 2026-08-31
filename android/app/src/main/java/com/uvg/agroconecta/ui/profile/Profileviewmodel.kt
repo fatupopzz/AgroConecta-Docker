@@ -4,12 +4,14 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.annotations.SerializedName
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.api.SessionManager
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 
@@ -55,7 +57,10 @@ sealed class ProfileUiState {
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
-class ProfileViewModel : ViewModel() {
+@HiltViewModel
+class ProfileViewModel @Inject constructor(
+    private val api: ApiService
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ProfileUiState>(ProfileUiState.Loading)
     val uiState: StateFlow<ProfileUiState> = _uiState
@@ -76,10 +81,13 @@ class ProfileViewModel : ViewModel() {
                     return@launch
                 }
 
+                // Aca arriba ya se descarto el token en blanco, asi que las dos
+                // ramas pueden mandar la cabecera armada sin volver a chequear.
+                val bearer = "Bearer $token"
+
                 when (tipoUsuario) {
                     "agricultor" -> {
-                        val response = RetrofitClient.getService()
-                            .getFarmerProfile("Bearer $token", perfilId)
+                        val response = api.getFarmerProfile(bearer, perfilId)
                         if (response.isSuccessful && response.body() != null) {
                             _uiState.value = ProfileUiState.Success(ProfileData.Farmer(response.body()!!))
                         } else {
@@ -87,8 +95,7 @@ class ProfileViewModel : ViewModel() {
                         }
                     }
                     "distribuidor" -> {
-                        val response = RetrofitClient.getService(token)
-                            .getDistributorById(perfilId)
+                        val response = api.getDistributorById(perfilId, bearer)
                         if (response.isSuccessful && response.body() != null) {
                             _uiState.value = ProfileUiState.Success(ProfileData.Distributor(response.body()!!))
                         } else {

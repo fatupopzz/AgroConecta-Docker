@@ -48,7 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.dosecalculator.LandUnit
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
@@ -66,7 +66,7 @@ fun DoseCalculatorScreen(
     onHomeClick: () -> Unit,
     onPedidosClick: () -> Unit,
     onPerfilClick: () -> Unit,
-    doseCalculatorViewModel: DoseCalculatorViewModel = viewModel()
+    doseCalculatorViewModel: DoseCalculatorViewModel = hiltViewModel()
 ) {
     val uiState by doseCalculatorViewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()

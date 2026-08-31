@@ -2,15 +2,17 @@ package com.uvg.agroconecta.ui.publish
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CreateInventoryRequest
 import com.uvg.agroconecta.data.models.CreateProductRequest
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed class PublishState {
     object Idle : PublishState()
@@ -25,7 +27,10 @@ data class PublishUiState(
     val publishState: PublishState = PublishState.Idle
 )
 
-class PublishProductViewModel : ViewModel() {
+@HiltViewModel
+class PublishProductViewModel @Inject constructor(
+    private val api: ApiService
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PublishUiState())
     val uiState: StateFlow<PublishUiState> = _uiState.asStateFlow()
@@ -38,7 +43,7 @@ class PublishProductViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingCategorias = true) }
             try {
-                val response = RetrofitClient.getService().getCategories()
+                val response = api.getCategories()
                 if (response.isSuccessful) {
                     _uiState.update {
                         it.copy(
@@ -73,7 +78,7 @@ class PublishProductViewModel : ViewModel() {
                 val bearer = "Bearer $token"
 
                 // Paso 1: crear el producto
-                val productResponse = RetrofitClient.getService().createProduct(
+                val productResponse = api.createProduct(
                     token = bearer,
                     request = CreateProductRequest(
                         nombre = nombre.trim(),
@@ -104,7 +109,7 @@ class PublishProductViewModel : ViewModel() {
                 }
 
                 // Paso 2: crear inventario
-                val inventoryResponse = RetrofitClient.getService().createInventory(
+                val inventoryResponse = api.createInventory(
                     token = bearer,
                     request = CreateInventoryRequest(
                         idProducto = idProducto,

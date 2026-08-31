@@ -1,7 +1,6 @@
 package com.uvg.agroconecta.data.repository
 
 import com.uvg.agroconecta.data.api.ApiService
-import com.uvg.agroconecta.data.api.RetrofitClient
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.MeResponse
 import retrofit2.Response
@@ -16,7 +15,7 @@ internal interface CropCycleApi {
 }
 
 private class RetrofitCropCycleApi(
-    private val service: ApiService = RetrofitClient.getService()
+    private val service: ApiService
 ) : CropCycleApi {
     override suspend fun getProfile(token: String): Response<MeResponse> =
         service.getMe("Bearer $token")
@@ -26,8 +25,12 @@ private class RetrofitCropCycleApi(
 }
 
 class RemoteCropCycleRepository internal constructor(
-    private val api: CropCycleApi = RetrofitCropCycleApi()
+    private val api: CropCycleApi
 ) : CropCycleRepository {
+
+    // El constructor real recibe el ApiService de Hilt; el interno con
+    // CropCycleApi existe para poder falsear la red en los tests.
+    constructor(service: ApiService) : this(RetrofitCropCycleApi(service))
 
     override suspend fun getRelevantCycle(token: String): CropCycleResponse? {
         val profileResponse = api.getProfile(token)

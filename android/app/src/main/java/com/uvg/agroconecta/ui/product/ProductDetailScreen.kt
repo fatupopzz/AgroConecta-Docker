@@ -10,7 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.theme.*
 import kotlinx.coroutines.flow.first
@@ -23,7 +23,7 @@ fun ProductDetailScreen(
     onNavigateBack: () -> Unit,
     onNavigateToCart: () -> Unit = {},
     onAddedToCart: () -> Unit = {},
-    viewModel: ProductViewModel = viewModel()
+    viewModel: ProductViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

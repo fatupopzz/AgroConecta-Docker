@@ -5,8 +5,10 @@ import com.uvg.agroconecta.data.dosecalculator.DoseCalculationResult
 import com.uvg.agroconecta.data.dosecalculator.DoseCalculator
 import com.uvg.agroconecta.data.dosecalculator.DoseReferenceData
 import com.uvg.agroconecta.data.dosecalculator.LandUnit
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import javax.inject.Inject
 
 data class DoseCalculatorUiState(
     val products: List<String> = DoseReferenceData.getProducts(),
@@ -19,7 +21,10 @@ data class DoseCalculatorUiState(
     val errorMessage: String? = null
 )
 
-class DoseCalculatorViewModel : ViewModel() {
+// Sin dependencias por ahora: el calculo es local (DoseReferenceData). Entra al
+// grafo igual para que la pantalla lo pida con hiltViewModel() como el resto.
+@HiltViewModel
+class DoseCalculatorViewModel @Inject constructor() : ViewModel() {
 
     private val _uiState = MutableStateFlow(DoseCalculatorUiState())
     val uiState: StateFlow<DoseCalculatorUiState> = _uiState

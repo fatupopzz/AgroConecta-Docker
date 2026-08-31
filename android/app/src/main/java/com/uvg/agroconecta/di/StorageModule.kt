@@ -63,5 +63,6 @@ object StorageModule {
 
     @Provides
     @Singleton
-    fun provideCropCycleRepository(): CropCycleRepository = RemoteCropCycleRepository()
+    fun provideCropCycleRepository(apiService: ApiService): CropCycleRepository =
+        RemoteCropCycleRepository(apiService)
 }

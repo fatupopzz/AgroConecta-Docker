@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.ui.components.AppBottomBar
@@ -31,7 +31,7 @@ fun PublishProductScreen(
     onPedidosClick: () -> Unit,
     onPerfilClick: () -> Unit,
     tipoUsuario: String = "distribuidor",
-    viewModel: PublishProductViewModel = viewModel()
+    viewModel: PublishProductViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

@@ -2,11 +2,14 @@ package com.uvg.agroconecta.ui.notifications
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.DistributorNotification
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 internal const val URGENT_ORDER_NOTIFICATION_TYPE = "pedido_urgente"
 
@@ -16,7 +19,10 @@ internal fun latestUnreadUrgentNotification(
     notification.tipo == URGENT_ORDER_NOTIFICATION_TYPE && !notification.leida
 }
 
-class DistributorNotificationViewModel : ViewModel() {
+@HiltViewModel
+class DistributorNotificationViewModel @Inject constructor(
+    private val api: ApiService
+) : ViewModel() {
 
     private val _urgentNotification = MutableStateFlow<DistributorNotification?>(null)
     val urgentNotification: StateFlow<DistributorNotification?> = _urgentNotification
@@ -24,7 +30,7 @@ class DistributorNotificationViewModel : ViewModel() {
     fun loadUrgentNotification(token: String) {
         viewModelScope.launch {
             runCatching {
-                RetrofitClient.getService(token).getDistributorNotifications()
+                api.getDistributorNotifications(token.toAuthHeader())
             }.onSuccess { response ->
                 if (response.isSuccessful) {
                     _urgentNotification.value = latestUnreadUrgentNotification(
@@ -38,8 +44,7 @@ class DistributorNotificationViewModel : ViewModel() {
     fun markAsRead(notification: DistributorNotification, token: String) {
         viewModelScope.launch {
             runCatching {
-                RetrofitClient.getService(token)
-                    .markDistributorNotificationAsRead(notification.id)
+                api.markDistributorNotificationAsRead(notification.id, token.toAuthHeader())
             }.onSuccess { response ->
                 if (response.isSuccessful && _urgentNotification.value?.id == notification.id) {
                     _urgentNotification.value = null
