@@ -1,10 +1,12 @@
 package com.uvg.agroconecta.ui.home
 
 import com.uvg.agroconecta.MainDispatcherRule
+import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.data.repository.CropCycleRepository
 import com.uvg.agroconecta.data.repository.ProductCacheState
 import com.uvg.agroconecta.data.repository.ProductLoadResult
+import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -16,6 +18,11 @@ class HomeViewModelOfflineTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    // Mock estricto: estos tests solo ejercitan el catalogo offline, asi que si
+    // alguno terminara pegandole al ApiService el test revienta en vez de
+    // intentar salir a la red.
+    private val api = mockk<ApiService>()
+
     @Test
     fun `loads expired cache immediately as last resort while offline`() {
         val cached = product(id = 1, name = "Producto guardado")
@@ -25,7 +32,7 @@ class HomeViewModelOfflineTest {
             currentCacheState = ProductCacheState.EXPIRED
         )
 
-        val viewModel = HomeViewModel(NoOpCropCycleRepository, repository)
+        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository)
 
         assertEquals(listOf(cached), viewModel.uiState.value.productos)
         assertTrue(viewModel.uiState.value.isOffline)
@@ -40,7 +47,7 @@ class HomeViewModelOfflineTest {
             cachedProducts = listOf(product(1)),
             loadResult = ProductLoadResult.Success(listOf(remote), total = 1)
         )
-        val viewModel = HomeViewModel(NoOpCropCycleRepository, repository)
+        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository)
 
         viewModel.loadProductos(reset = true)
 
@@ -56,7 +63,7 @@ class HomeViewModelOfflineTest {
             cachedProducts = listOf(cached),
             loadResult = ProductLoadResult.Failure("API no disponible")
         )
-        val viewModel = HomeViewModel(NoOpCropCycleRepository, repository)
+        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository)
 
         viewModel.loadProductos(reset = true)
 
@@ -71,7 +78,7 @@ class HomeViewModelOfflineTest {
             online = true,
             loadResult = ProductLoadResult.Success(listOf(remote), 1)
         )
-        val viewModel = HomeViewModel(NoOpCropCycleRepository, repository)
+        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository)
 
         repository.onlineState.value = false
         assertTrue(viewModel.uiState.value.isOffline)

@@ -9,7 +9,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -26,7 +25,6 @@ import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.home.CatalogScreen
 import com.uvg.agroconecta.ui.notifications.DistributorNotificationViewModel
-import com.uvg.agroconecta.data.api.RetrofitClient
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
@@ -132,7 +130,7 @@ fun AgroConectaNavHost(
 
         composable(Screen.Home.route) {
             val homeViewModel: HomeViewModel = hiltViewModel()
-            val notificationViewModel: DistributorNotificationViewModel = viewModel()
+            val notificationViewModel: DistributorNotificationViewModel = hiltViewModel()
             val urgentNotification by notificationViewModel.urgentNotification.collectAsState()
             val nombre by authViewModel.nombreUsuario.observeAsState("")
             var sessionToken by remember { mutableStateOf<String?>(null) }
@@ -241,7 +239,7 @@ fun AgroConectaNavHost(
 
         composable(Screen.UrgentOrder.route) {
             val scope = rememberCoroutineScope()
-            val orderViewModel: OrderViewModel = viewModel()
+            val orderViewModel: OrderViewModel = hiltViewModel()
             val cartItemsForUrgency by sharedCartViewModel.cartItems.collectAsState()
             val isCreatingOrder by orderViewModel.isLoading.collectAsState()
             val successMessage by orderViewModel.successMessage.collectAsState()
@@ -330,7 +328,7 @@ fun AgroConectaNavHost(
 
         composable(Screen.OrderConfirmation.route) {
             val scope = rememberCoroutineScope()
-            val orderViewModel: OrderViewModel = viewModel()
+            val orderViewModel: OrderViewModel = hiltViewModel()
             val successMessage by orderViewModel.successMessage.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()
             val createdOrderId by orderViewModel.createdOrderId.collectAsState()
@@ -341,48 +339,23 @@ fun AgroConectaNavHost(
             var deliveryAddress by remember { mutableStateOf("") }
             var tipoEntrega by remember { mutableStateOf("domicilio") }
 
-            var pickupAddress by remember {
-                mutableStateOf<String?>(null)
-            }
-
-            var isLoadingPickupAddress by remember {
-                mutableStateOf(false)
-            }
+            val pickupAddress by orderViewModel.pickupAddress.collectAsState()
+            val isLoadingPickupAddress by orderViewModel.isLoadingPickupAddress.collectAsState()
 
             // ── KAN-60: pre-llenar dirección guardada ──
             LaunchedEffect(Unit) {
                 val saved = SessionManager.getDeliveryAddress(context).first()
                 if (!saved.isNullOrBlank()) deliveryAddress = saved
             }
-                val distributorId = cartItemsForOrder
-        .firstOrNull()
-        ?.idDistribuidor
 
-    LaunchedEffect(distributorId) {
-        if (distributorId == null) {
-            pickupAddress = null
-            return@LaunchedEffect
-        }
+            val distributorId = cartItemsForOrder.firstOrNull()?.idDistribuidor
 
-        isLoadingPickupAddress = true
-
-        try {
-            val token = SessionManager.getToken(context).first()
-            val api = RetrofitClient.getService(token)
-
-            val response = api.getDistributorById(distributorId)
-
-            pickupAddress = if (response.isSuccessful) {
-                response.body()?.direccion
-            } else {
-                null
+            LaunchedEffect(distributorId) {
+                orderViewModel.loadPickupAddress(
+                    distributorId,
+                    SessionManager.getToken(context).first()
+                )
             }
-        } catch (e: Exception) {
-            pickupAddress = null
-        } finally {
-            isLoadingPickupAddress = false
-        }
-}
 
             LaunchedEffect(successMessage) {
                 successMessage?.let {
@@ -468,7 +441,7 @@ fun AgroConectaNavHost(
         }
 
         composable(Screen.OrderHistory.route) {
-            val orderViewModel: OrderViewModel = viewModel()
+            val orderViewModel: OrderViewModel = hiltViewModel()
             val orders by orderViewModel.orders.collectAsState()
             val isLoading by orderViewModel.isLoading.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()
@@ -514,7 +487,7 @@ fun AgroConectaNavHost(
             arguments = listOf(navArgument("orderId") { type = NavType.IntType })
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getInt("orderId") ?: return@composable
-            val orderViewModel: OrderViewModel = viewModel()
+            val orderViewModel: OrderViewModel = hiltViewModel()
             val tracking by orderViewModel.tracking.collectAsState()
             val isLoading by orderViewModel.isLoading.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()

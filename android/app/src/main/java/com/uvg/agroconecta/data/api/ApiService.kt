@@ -32,26 +32,49 @@ interface ApiService {
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20,
         @Query("nombre") nombre: String? = null,
-        @Query("id_categoria") idCategoria: Int? = null
+        @Query("id_categoria") idCategoria: Int? = null,
+        @Header("Authorization") token: String? = null
     ): Response<ProductsResponse>
 
+    // Recomendados y distribuidores llevan el token como @Header porque
+    // HomeViewModel ya consume el ApiService inyectado por Hilt, que no tiene
+    // interceptor de auth.
     @GET("productos/recomendados")
-    suspend fun getRecommendedProducts(): Response<List<Product>>
+    suspend fun getRecommendedProducts(
+        @Header("Authorization") token: String?
+    ): Response<List<Product>>
 
     @GET("products/{id}")
-    suspend fun getProductById(@Path("id") id: Int): Response<ProductDetail>
+    suspend fun getProductById(
+        @Path("id") id: Int,
+        @Header("Authorization") token: String? = null
+    ): Response<ProductDetail>
 
     @GET("products/{id}/compare")
-    suspend fun compareProductPrices(@Path("id") id: Int): Response<PriceComparison>
+    suspend fun compareProductPrices(
+        @Path("id") id: Int,
+        @Header("Authorization") token: String?
+    ): Response<PriceComparison>
 
+    // El seguimiento de precios no existe sin sesion (el backend contesta
+    // 401/403), asi que el token va sin default: que el llamador lo pase siempre.
     @GET("products/{id}/seguidos")
-    suspend fun getProductFollowStatus(@Path("id") id: Int): Response<ProductFollowResponse>
+    suspend fun getProductFollowStatus(
+        @Path("id") id: Int,
+        @Header("Authorization") token: String?
+    ): Response<ProductFollowResponse>
 
     @POST("products/{id}/seguir")
-    suspend fun followProductPrice(@Path("id") id: Int): Response<ProductFollowResponse>
+    suspend fun followProductPrice(
+        @Path("id") id: Int,
+        @Header("Authorization") token: String?
+    ): Response<ProductFollowResponse>
 
     @DELETE("products/{id}/seguir")
-    suspend fun unfollowProductPrice(@Path("id") id: Int): Response<ProductFollowResponse>
+    suspend fun unfollowProductPrice(
+        @Path("id") id: Int,
+        @Header("Authorization") token: String?
+    ): Response<ProductFollowResponse>
 
     // ── Categories ───────────────────────────────────────────────────────
     @GET("categories")
@@ -59,7 +82,9 @@ interface ApiService {
 
     // ── Distributors ─────────────────────────────────────────────────────
     @GET("distribuidores")
-    suspend fun getVerifiedDistributors(): Response<List<Distributor>>
+    suspend fun getVerifiedDistributors(
+        @Header("Authorization") token: String? = null
+    ): Response<List<Distributor>>
 
     // ── Cart ─────────────────────────────────────────────────────────────
     // Estos endpoints reciben el token como @Header porque CartViewModel usa el
@@ -73,6 +98,7 @@ interface ApiService {
     @POST("cart/{id_agricultor}/items")
     suspend fun addToCart(
         @Path("id_agricultor") idAgricultor: Int,
+        @Header("Authorization") token: String? = null,
         @Body request: AddItemRequest
     ): Response<Map<String, Any>>
 
@@ -99,11 +125,15 @@ interface ApiService {
 
     // ── Orders (HU-015) ──────────────────────────────────────────────────
     @POST("orders")
-    suspend fun createOrder(@Body request: CreateOrderRequest): Response<OrderResponse>
+    suspend fun createOrder(
+        @Header("Authorization") token: String?,
+        @Body request: CreateOrderRequest
+    ): Response<OrderResponse>
 
     @GET("orders/farmer/{id}")
     suspend fun getOrdersByFarmer(
         @Path("id") idAgricultor: Int,
+        @Header("Authorization") token: String?,
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 10,
         @Query("estado") estado: String? = null
@@ -111,21 +141,26 @@ interface ApiService {
 
     @GET("orders/distributor/{id}")
     suspend fun getOrdersByDistributor(
-        @Path("id") idDistribuidor: Int
+        @Path("id") idDistribuidor: Int,
+        @Header("Authorization") token: String?
     ): Response<List<OrderSummary>>
 
     @GET("orders/{id}/tracking")
     suspend fun getOrderTracking(
-        @Path("id") orderId: Int
+        @Path("id") orderId: Int,
+        @Header("Authorization") token: String?
     ): Response<OrderTrackingResponse>
 
     // ── Distributor notifications ─────────────────────────────────────────
     @GET("notifications")
-    suspend fun getDistributorNotifications(): Response<List<DistributorNotification>>
+    suspend fun getDistributorNotifications(
+        @Header("Authorization") token: String?
+    ): Response<List<DistributorNotification>>
 
     @PATCH("notifications/{id}/read")
     suspend fun markDistributorNotificationAsRead(
-        @Path("id") notificationId: Int
+        @Path("id") notificationId: Int,
+        @Header("Authorization") token: String?
     ): Response<Map<String, String>>
 
     @GET("products/{id}/reviews")
@@ -165,25 +200,29 @@ interface ApiService {
 
     @GET("distribuidores/{id}/rating")
     suspend fun getDistributorRating(
-        @Path("id") id: Int
+        @Path("id") id: Int,
+        @Header("Authorization") token: String?
     ): Response<DistributorRatingResponse>
 
     @GET("distribuidores/{id}/reviews")
     suspend fun getDistributorReviews(
         @Path("id") id: Int,
+        @Header("Authorization") token: String? = null,
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 10
     ): Response<DistributorReviewsResponse>
 
     @GET("distribuidores/{id}/stats")
     suspend fun getDistributorStats(
-        @Path("id") id: Int
+        @Path("id") id: Int,
+        @Header("Authorization") token: String?
     ): Response<DistributorStatsResponse>
 
     // ── Distributor by ID ─────────────────────────────────────────────────
     @GET("distribuidores/{id}")
     suspend fun getDistributorById(
-        @Path("id") id: Int
+        @Path("id") id: Int,
+        @Header("Authorization") token: String? = null
     ): Response<DistributorProfile>
 
 

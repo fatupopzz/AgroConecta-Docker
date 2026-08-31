@@ -2,16 +2,19 @@ package com.uvg.agroconecta.ui.distributor
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.DistributorRatingResponse
 import com.uvg.agroconecta.data.models.DistributorReview
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.data.models.CreateReviewRequest
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class DistributorUiState(
     val distributorName: String = "",
@@ -27,7 +30,10 @@ data class DistributorUiState(
     val errorMessage: String? = null
 )
 
-class DistributorViewModel : ViewModel() {
+@HiltViewModel
+class DistributorViewModel @Inject constructor(
+    private val api: ApiService
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DistributorUiState())
     val uiState: StateFlow<DistributorUiState> = _uiState.asStateFlow()
@@ -36,10 +42,10 @@ class DistributorViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                val api = RetrofitClient.getService(token)
+                val auth = token.toAuthHeader()
 
                 // Datos del distribuidor — safe body
-                val distResponse = api.getDistributorById(distributorId)
+                val distResponse = api.getDistributorById(distributorId, auth)
                 if (distResponse.isSuccessful) {
                     val dist = distResponse.body()
                     if (dist != null) {
@@ -56,14 +62,14 @@ class DistributorViewModel : ViewModel() {
                 reloadReviews(distributorId)
 
                 // Productos — loop con for para poder usar suspend dentro de corrutina
-                val productosResponse = RetrofitClient.getService().getProducts(limit = 100)
+                val productosResponse = api.getProducts(limit = 100)
                 if (productosResponse.isSuccessful) {
                     val todosProductos = productosResponse.body()?.products ?: emptyList()
                     val productosDelDist = mutableListOf<Product>()
 
                     for (producto in todosProductos) {
                         try {
-                            val detalle = api.getProductById(producto.id)
+                            val detalle = api.getProductById(producto.id, auth)
                             val perteneceAlDistribuidor = detalle.isSuccessful &&
                                     detalle.body()?.ofertas
                                         ?.any { it.idDistribuidor == distributorId } == true
@@ -90,8 +96,11 @@ class DistributorViewModel : ViewModel() {
 
     private suspend fun reloadReviews(distributorId: Int) {
         try {
-            val reviewsResponse = RetrofitClient.getService()
-                .getDistributorReviews(distributorId, page = 1, limit = 20)
+            val reviewsResponse = api.getDistributorReviews(
+                distributorId,
+                page = 1,
+                limit = 20
+            )
             if (reviewsResponse.isSuccessful) {
                 _uiState.update {
                     it.copy(reviews = reviewsResponse.body()?.reviews ?: emptyList())
@@ -122,8 +131,7 @@ class DistributorViewModel : ViewModel() {
         _uiState.update { it.copy(isSubmittingReview = true) }
         viewModelScope.launch {
             try {
-                // getService() sin token + header manual para evitar Authorization duplicado
-                val response = RetrofitClient.getService().createReview(
+                val response = api.createReview(
                     productoId = primerProducto.id,
                     token = "Bearer $token",
                     body = CreateReviewRequest(

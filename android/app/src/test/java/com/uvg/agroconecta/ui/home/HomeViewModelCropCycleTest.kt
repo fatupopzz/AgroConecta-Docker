@@ -1,9 +1,11 @@
 package com.uvg.agroconecta.ui.home
 
 import com.uvg.agroconecta.MainDispatcherRule
+import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.CropPhase
 import com.uvg.agroconecta.data.repository.CropCycleRepository
+import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -15,10 +17,15 @@ class HomeViewModelCropCycleTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    // El ciclo de cultivo sale del repositorio, no del ApiService; el mock
+    // estricto deja constancia de que aqui no debe haber llamadas de red.
+    private val api = mockk<ApiService>()
+
     @Test
     fun `loads relevant crop cycle into home state`() {
         val expected = cycle()
         val viewModel = HomeViewModel(
+            api,
             FakeCropCycleRepository(result = expected),
             FakeHomeProductCatalogRepository()
         )
@@ -32,6 +39,7 @@ class HomeViewModelCropCycleTest {
     @Test
     fun `keeps cycle empty when repository fails`() {
         val viewModel = HomeViewModel(
+            api,
             FakeCropCycleRepository(error = IllegalStateException("sin conexión")),
             FakeHomeProductCatalogRepository()
         )

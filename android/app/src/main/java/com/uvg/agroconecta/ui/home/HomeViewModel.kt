@@ -2,7 +2,8 @@ package com.uvg.agroconecta.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.Distributor
@@ -50,6 +51,7 @@ data class HomeUiState(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    private val api: ApiService,
     private val cropCycleRepository: CropCycleRepository,
     private val productCatalogRepository: ProductCatalogRepository
 ) : ViewModel() {
@@ -103,7 +105,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingRecomendados = true) }
             try {
-                val response = RetrofitClient.getService(currentToken).getRecommendedProducts()
+                val response = api.getRecommendedProducts(currentToken.toAuthHeader())
                 _uiState.update {
                     it.copy(
                         productosRecomendados = if (response.isSuccessful) {
@@ -129,7 +131,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingCategorias = true) }
             try {
-                val response = RetrofitClient.getService().getCategories()
+                val response = api.getCategories()
                 if (response.isSuccessful) {
                     _uiState.update {
                         it.copy(
@@ -224,7 +226,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingDistribuidores = true) }
             try {
-                val response = RetrofitClient.getService(token).getVerifiedDistributors()
+                val response = api.getVerifiedDistributors(token.toAuthHeader())
                 if (response.isSuccessful) {
                     val verificados = (response.body() ?: emptyList())
                         .filter { it.estadoVerificacion == "verificado" }

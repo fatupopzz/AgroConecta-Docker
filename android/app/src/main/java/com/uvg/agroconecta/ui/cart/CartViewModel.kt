@@ -3,6 +3,7 @@ package com.uvg.agroconecta.ui.cart
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.toAuthHeader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -125,11 +126,4 @@ class CartViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Devuelve null cuando no hay token, para que Retrofit omita la cabecera.
-     * Replica el comportamiento del interceptor que usaba RetrofitClient, que
-     * solo agregaba Authorization si el token no estaba en blanco.
-     */
-    private fun String?.toAuthHeader(): String? =
-        if (isNullOrBlank()) null else "Bearer $this"
 }
