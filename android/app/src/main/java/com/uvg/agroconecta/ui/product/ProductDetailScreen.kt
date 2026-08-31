@@ -1,38 +1,22 @@
 package com.uvg.agroconecta.ui.product
 
 import android.content.Intent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.uvg.agroconecta.data.api.SessionManager
-import com.uvg.agroconecta.data.models.DistributorOffer
-import com.uvg.agroconecta.data.models.DistributorCompare
-import com.uvg.agroconecta.data.models.Review
-import com.uvg.agroconecta.ui.components.DistributorRatingCard
 import com.uvg.agroconecta.ui.theme.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -203,151 +187,41 @@ fun ProductDetailScreen(
         ) {
 
             item {
-                Column(
-                    modifier = Modifier.fillMaxWidth().background(GreenSurface).padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier.size(80.dp).clip(RoundedCornerShape(16.dp)).background(GreenPale),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Eco, contentDescription = null, tint = GreenPrimary, modifier = Modifier.size(44.dp))
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    p.categoria?.let { cat ->
-                        Surface(color = GreenPale, shape = RoundedCornerShape(20.dp)) {
-                            Text(text = cat, style = MaterialTheme.typography.labelMedium, color = GreenPrimaryDark,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-                    Text(text = p.nombre, style = MaterialTheme.typography.headlineSmall, color = GrayDark, textAlign = TextAlign.Center)
-                    p.marca?.let { marca ->
-                        Spacer(Modifier.height(4.dp))
-                        Text(text = marca, style = MaterialTheme.typography.bodyMedium, color = GrayMid)
-                    }
-                    selectedOffer?.let { offer ->
-                        Spacer(Modifier.height(12.dp))
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text(text = "Q${"%.2f".format(offer.precio)}", style = MaterialTheme.typography.titleLarge,
-                                color = GreenPrimary, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.width(4.dp))
-                            Text(text = "/ ${offer.unidadMedida ?: "unidad"}", style = MaterialTheme.typography.bodySmall,
-                                color = GrayMid, modifier = Modifier.padding(bottom = 3.dp))
+                ProductOverviewSection(
+                    product = p,
+                    selectedOffer = selectedOffer,
+                    isFarmer = isFarmer,
+                    isFollowingPrice = isFollowingPrice,
+                    isUpdatingFollow = isUpdatingFollow,
+                    onToggleFollow = {
+                        scope.launch {
+                            val token = SessionManager.getToken(context).first()
+                            viewModel.toggleFollowPrice(productId, token)
                         }
                     }
-                    if (isFarmer) {
-                        Spacer(Modifier.height(16.dp))
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    val token = SessionManager.getToken(context).first()
-                                    viewModel.toggleFollowPrice(productId, token)
-                                }
-                            },
-                            enabled = !isUpdatingFollow,
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = if (isFollowingPrice) GreenPrimaryDark else GreenPrimary
-                            ),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            if (isUpdatingFollow) {
-                                CircularProgressIndicator(
-                                    color = GreenPrimary,
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = if (isFollowingPrice) Icons.Default.NotificationsActive else Icons.Default.NotificationsNone,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = if (isFollowingPrice) "Dejar de seguir precio" else "Seguir precio",
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                    }
-                }
+                )
             }
 
             item {
-                SectionCard(title = "Ficha técnica") {
-                    val hayFicha = !p.descripcion.isNullOrBlank() || !p.composicion.isNullOrBlank()
-                            || !p.dosis.isNullOrBlank() || !p.instrucciones.isNullOrBlank()
-                    if (!hayFicha) {
-                        Text("Este producto aún no tiene ficha técnica completa.", style = MaterialTheme.typography.bodyMedium, color = GrayMid)
-                    } else {
-                        p.descripcion?.let  { FichaRow("Descripción", it) }
-                        p.composicion?.let  { FichaRow("Composición", it) }
-                        p.dosis?.let        { FichaRow("Dosis recomendada", it) }
-                        p.instrucciones?.let{ FichaRow("Instrucciones de uso", it) }
-                    }
-                }
+                ProductTechnicalSheetSection(product = p)
             }
 
             item {
-                SectionCard(title = "Distribuidores disponibles") {
-                    if (p.ofertas.isEmpty()) {
-                        Text("No hay distribuidores disponibles.", style = MaterialTheme.typography.bodyMedium, color = GrayMid)
-                    } else {
-                        p.ofertas.forEach { offer ->
-                            OfertaItem(
-                                offer = offer,
-                                isSelected = selectedOffer?.idInventario == offer.idInventario,
-                                distributorRating = if (selectedOffer?.idInventario == offer.idInventario) distributorRating else null,
-                                isLoadingRating = selectedOffer?.idInventario == offer.idInventario && isLoadingDistributorRating,
-                                onClick = { viewModel.selectOffer(offer) }
-                            )
-                            if (offer != p.ofertas.last()) HorizontalDivider(color = GrayLight, modifier = Modifier.padding(vertical = 8.dp))
-                        }
-                    }
-                }
+                DistributorOffersSection(
+                    offers = p.ofertas,
+                    selectedOffer = selectedOffer,
+                    distributorRating = distributorRating,
+                    isLoadingRating = isLoadingDistributorRating,
+                    onOfferSelected = viewModel::selectOffer
+                )
             }
 
             item {
-                SectionCard(
-                    title = "Comparar precios",
-                    trailing = {
-                        IconButton(onClick = { comparadorExpanded = !comparadorExpanded }, modifier = Modifier.size(28.dp)) {
-                            Icon(
-                                imageVector = if (comparadorExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = if (comparadorExpanded) "Colapsar" else "Expandir",
-                                tint = GreenPrimary
-                            )
-                        }
-                    }
-                ) {
-                    AnimatedVisibility(visible = comparadorExpanded) {
-                        Column {
-                            comparison?.let { cmp ->
-                                cmp.precioMasBajo?.let { mejor ->
-                                    Surface(color = GreenSurface, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.TrendingDown, contentDescription = null, tint = GreenPrimary, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(8.dp))
-                                            Text("Mejor precio: Q${"%.2f".format(mejor)}", style = MaterialTheme.typography.labelLarge, color = GreenPrimary)
-                                        }
-                                    }
-                                    Spacer(Modifier.height(12.dp))
-                                }
-                                cmp.distribuidores.forEach { dist ->
-                                    DistribuidorCompareItem(dist = dist)
-                                    if (dist != cmp.distribuidores.last()) HorizontalDivider(color = GrayLight, modifier = Modifier.padding(vertical = 8.dp))
-                                }
-                            } ?: Text("Cargando comparación...", style = MaterialTheme.typography.bodyMedium, color = GrayMid)
-                        }
-                    }
-                    if (!comparadorExpanded) {
-                        Text(
-                            text = comparison?.let { "${it.distribuidores.size} distribuidor(es) disponibles" } ?: "Toca para ver precios de otros distribuidores",
-                            style = MaterialTheme.typography.bodySmall, color = GrayMid
-                        )
-                    }
-                }
+                PriceComparisonSection(
+                    comparison = comparison,
+                    isExpanded = comparadorExpanded,
+                    onExpandedChange = { comparadorExpanded = it }
+                )
             }
 
             item {
@@ -368,130 +242,5 @@ fun ProductDetailScreen(
 
             item { Spacer(Modifier.height(16.dp)) }
         }
-    }
-}
-
-@Composable
-private fun SectionCard(
-    title: String,
-    trailing: @Composable (() -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(text = title, style = MaterialTheme.typography.titleSmall, color = GrayDark)
-                trailing?.invoke()
-            }
-            Spacer(Modifier.height(12.dp))
-            content()
-        }
-    }
-}
-
-@Composable
-private fun FichaRow(label: String, value: String) {
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = GrayMid)
-        Spacer(Modifier.height(2.dp))
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = GrayDark)
-    }
-    Spacer(Modifier.height(8.dp))
-}
-
-@Composable
-private fun OfertaItem(
-    offer: DistributorOffer,
-    isSelected: Boolean,
-    distributorRating: com.uvg.agroconecta.data.models.DistributorRatingResponse?,
-    isLoadingRating: Boolean,
-    onClick: () -> Unit
-) {
-    val esVerificado = offer.estadoVerificacion == "verificado"
-    Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .then(if (isSelected) Modifier.border(2.dp, GreenPrimary, RoundedCornerShape(8.dp)) else Modifier)
-            .clickable(onClick = onClick).background(if (isSelected) GreenSurface else Color.Transparent).padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(selected = isSelected, onClick = onClick, colors = RadioButtonDefaults.colors(selectedColor = GreenPrimary))
-        Spacer(Modifier.width(8.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = offer.distribuidor, style = MaterialTheme.typography.titleSmall, color = GrayDark)
-                if (esVerificado) {
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        Icons.Default.Verified,
-                        contentDescription = "Verificado",
-                        tint = GreenPrimary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-            Spacer(Modifier.height(2.dp))
-            Text("Stock: ${offer.stock} ${offer.unidadMedida ?: "unidades"}", style = MaterialTheme.typography.bodySmall, color = GrayMid)
-            if (isSelected) {
-                Spacer(Modifier.height(8.dp))
-                when {
-                    isLoadingRating -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(
-                                color = GreenPrimary,
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = "Cargando rating del distribuidor...",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = GrayMid
-                            )
-                        }
-                    }
-                    distributorRating != null && distributorRating.totalResenas > 0 -> {
-                        DistributorRatingCard(
-                            rating = distributorRating.calificacionPromedio,
-                            totalReviews = distributorRating.totalResenas
-                        )
-                    }
-                    else -> {
-                        Text(
-                            text = "Aún no hay reseñas de este distribuidor",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = GrayMid
-                        )
-                    }
-                }
-            }
-        }
-        Text("Q${"%.2f".format(offer.precio)}", style = MaterialTheme.typography.titleMedium, color = GreenPrimary, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-private fun DistribuidorCompareItem(dist: DistributorCompare) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = dist.nombre, style = MaterialTheme.typography.bodyMedium, color = GrayDark)
-                if (dist.esPrecioMasBajo) {
-                    Spacer(Modifier.width(6.dp))
-                    Surface(color = OrangeLight, shape = RoundedCornerShape(4.dp)) {
-                        Text("Mejor precio", style = MaterialTheme.typography.labelSmall, color = OrangeAccent,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-                    }
-                }
-            }
-            Text("Stock: ${dist.stock} ${dist.unidadMedida ?: "unidades"}", style = MaterialTheme.typography.bodySmall, color = GrayMid)
-        }
-        Text("Q${"%.2f".format(dist.precio)}", style = MaterialTheme.typography.titleSmall,
-            color = if (dist.esPrecioMasBajo) GreenPrimary else GrayDark,
-            fontWeight = if (dist.esPrecioMasBajo) FontWeight.Bold else FontWeight.Normal)
     }
 }
