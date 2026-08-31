@@ -14,18 +14,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +51,92 @@ import com.uvg.agroconecta.ui.theme.GreenPale
 import com.uvg.agroconecta.ui.theme.GreenPrimary
 import com.uvg.agroconecta.ui.theme.GreenPrimaryDark
 import com.uvg.agroconecta.ui.theme.GreenSurface
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ProductDetailTopBar(
+    title: String,
+    onNavigateBack: () -> Unit,
+    onShare: () -> Unit,
+    onNavigateToCart: () -> Unit
+) {
+    TopAppBar(
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Volver",
+                    tint = Color.White
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = onShare) {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = "Recomendar",
+                    tint = Color.White
+                )
+            }
+            IconButton(onClick = onNavigateToCart) {
+                Icon(
+                    imageVector = Icons.Default.ShoppingCart,
+                    contentDescription = "Carrito",
+                    tint = Color.White
+                )
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = GreenPrimary)
+    )
+}
+
+@Composable
+internal fun AddToCartBar(
+    selectedOffer: DistributorOffer?,
+    isAddingToCart: Boolean,
+    onAddToCart: () -> Unit
+) {
+    Surface(shadowElevation = 8.dp) {
+        Button(
+            onClick = onAddToCart,
+            enabled = !isAddingToCart && selectedOffer != null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .height(52.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            if (isAddingToCart) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.AddShoppingCart,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = selectedOffer?.let {
+                        "Agregar al carrito — Q${"%.2f".format(it.precio)}"
+                    } ?: "Seleccioná un distribuidor",
+                    style = MaterialTheme.typography.titleSmall
+                )
+            }
+        }
+    }
+}
 
 @Composable
 internal fun ProductOverviewSection(

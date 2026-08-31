@@ -3,16 +3,11 @@ package com.uvg.agroconecta.ui.product
 import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -92,78 +87,51 @@ fun ProductDetailScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = product?.nombre ?: "Detalle del producto",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {
-                        product?.let { p ->
-                            val offer = selectedOffer
-                            val texto = buildString {
-                                append("Te recomiendo este producto en AgroConecta:\n\n")
-                                append("📦 ${p.nombre}\n")
-                                p.categoria?.let { append("📂 Categoría: $it\n") }
-                                p.marca?.let { append("🏷️ Marca: $it\n") }
-                                if (offer != null) {
-                                    append("💰 Precio: Q${"%.2f".format(offer.precio)}\n")
-                                    append("🏪 Distribuidor: ${offer.distribuidor}\n")
-                                }
-                                append("\n¡Descárgala y cuida mejor tus cultivos!")
+            ProductDetailTopBar(
+                title = product?.nombre ?: "Detalle del producto",
+                onNavigateBack = onNavigateBack,
+                onShare = {
+                    product?.let { p ->
+                        val offer = selectedOffer
+                        val text = buildString {
+                            append("Te recomiendo este producto en AgroConecta:\n\n")
+                            append("📦 ${p.nombre}\n")
+                            p.categoria?.let { append("📂 Categoría: $it\n") }
+                            p.marca?.let { append("🏷️ Marca: $it\n") }
+                            if (offer != null) {
+                                append("💰 Precio: Q${"%.2f".format(offer.precio)}\n")
+                                append("🏪 Distribuidor: ${offer.distribuidor}\n")
                             }
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, texto)
-                            }
-                            context.startActivity(Intent.createChooser(shareIntent, "Recomendar producto"))
+                            append("\n¡Descárgala y cuida mejor tus cultivos!")
                         }
-                    }) {
-                        Icon(Icons.Default.Share, contentDescription = "Recomendar", tint = Color.White)
-                    }
-                    IconButton(onClick = onNavigateToCart) {
-                        Icon(Icons.Default.ShoppingCart, contentDescription = "Carrito", tint = Color.White)
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, text)
+                        }
+                        context.startActivity(
+                            Intent.createChooser(shareIntent, "Recomendar producto")
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = GreenPrimary)
+                onNavigateToCart = onNavigateToCart
             )
         },
         bottomBar = {
-            Surface(shadowElevation = 8.dp) {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            val token = SessionManager.getToken(context).first() ?: return@launch
-                            val farmerId = SessionManager.getFarmerId(context).first() ?: -1
-                            if (farmerId == -1) { snackbarHostState.showSnackbar("Error: sesión inválida"); return@launch }
-                            viewModel.addToCart(farmerId, token)
+            AddToCartBar(
+                selectedOffer = selectedOffer,
+                isAddingToCart = isAddingToCart,
+                onAddToCart = {
+                    scope.launch {
+                        val token = SessionManager.getToken(context).first() ?: return@launch
+                        val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                        if (farmerId == -1) {
+                            snackbarHostState.showSnackbar("Error: sesión inválida")
+                            return@launch
                         }
-                    },
-                    enabled = !isAddingToCart && selectedOffer != null,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    if (isAddingToCart) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Default.AddShoppingCart, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = selectedOffer?.let { "Agregar al carrito — Q${"%.2f".format(it.precio)}" } ?: "Seleccioná un distribuidor",
-                            style = MaterialTheme.typography.titleSmall
-                        )
+                        viewModel.addToCart(farmerId, token)
                     }
                 }
-            }
+            )
         }
     ) { padding ->
 
