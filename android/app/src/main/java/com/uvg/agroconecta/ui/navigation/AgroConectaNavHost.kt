@@ -33,6 +33,8 @@ import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
 import com.uvg.agroconecta.ui.distributor.DistributorStatsScreen
 import com.uvg.agroconecta.ui.dosecalculator.DoseCalculatorScreen
 import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
+import com.uvg.agroconecta.ui.orders.AdviceViewModel
+import com.uvg.agroconecta.ui.orders.OrderAdviceScreen
 import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
 import com.uvg.agroconecta.ui.orders.OrderTrackingScreen
 import com.uvg.agroconecta.ui.orders.OrderViewModel
@@ -470,6 +472,9 @@ fun AgroConectaNavHost(
                 onTrackOrder = { orderId ->
                     navController.navigate(Screen.OrderTracking.createRoute(orderId))
                 },
+                onOpenAdvice = { orderId ->
+                    navController.navigate(Screen.OrderAdvice.createRoute(orderId))
+                },
                 onBack = { navController.popBackStack() },
                 onHomeClick = {
                     navController.navigate(Screen.Home.route) {
@@ -503,7 +508,47 @@ fun AgroConectaNavHost(
                 isLoading = isLoading,
                 errorMessage = errorMessage,
                 onBack = { navController.popBackStack() },
-                onRetry = { orderViewModel.loadOrderTracking(orderId, token) }
+                onRetry = { orderViewModel.loadOrderTracking(orderId, token) },
+                onOpenAdvice = { id ->
+                    navController.navigate(Screen.OrderAdvice.createRoute(id))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.OrderAdvice.route,
+            arguments = listOf(navArgument("orderId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getInt("orderId") ?: return@composable
+            val adviceViewModel: AdviceViewModel = viewModel()
+            val messages by adviceViewModel.messages.collectAsState()
+            val isLoading by adviceViewModel.isLoading.collectAsState()
+            val isSending by adviceViewModel.isSending.collectAsState()
+            val errorMessage by adviceViewModel.errorMessage.collectAsState()
+            var token by remember { mutableStateOf("") }
+            var currentUserId by remember { mutableIntStateOf(-1) }
+
+            LaunchedEffect(orderId) {
+                token = SessionManager.getToken(context).first().orEmpty()
+                currentUserId = SessionManager.getUserId(context).first() ?: -1
+                if (token.isNotBlank()) adviceViewModel.startPolling(orderId, token)
+            }
+
+            OrderAdviceScreen(
+                orderId = orderId,
+                currentUserId = currentUserId,
+                messages = messages,
+                isLoading = isLoading,
+                isSending = isSending,
+                errorMessage = errorMessage,
+                onSendMessage = { message ->
+                    if (token.isNotBlank()) adviceViewModel.sendMessage(orderId, token, message)
+                },
+                onRetry = {
+                    if (token.isNotBlank()) adviceViewModel.retry(orderId, token)
+                },
+                onDismissError = adviceViewModel::clearError,
+                onBack = { navController.popBackStack() }
             )
         }
 
