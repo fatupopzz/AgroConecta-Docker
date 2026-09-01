@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +30,7 @@ fun OrderHistoryScreen(
     errorMessage: String?,
     tipoUsuario: String,
     onTrackOrder: (Int) -> Unit,
+    onOpenAdvice: (Int) -> Unit,
     onBack: () -> Unit,
     onHomeClick: () -> Unit,
     onAgregarClick: () -> Unit,
@@ -194,14 +196,25 @@ fun OrderHistoryScreen(
                                         enabled = false,
                                         label = { Text("Pago contra entrega") }
                                     )
-                                    TextButton(onClick = { onTrackOrder(order.id) }) {
-                                        Icon(
-                                            imageVector = Icons.Default.LocalShipping,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Seguimiento")
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        TextButton(onClick = { onOpenAdvice(order.id) }) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.Chat,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Asesoría")
+                                        }
+                                        TextButton(onClick = { onTrackOrder(order.id) }) {
+                                            Icon(
+                                                imageVector = Icons.Default.LocalShipping,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Seguimiento")
+                                        }
                                     }
                                 }
                             }

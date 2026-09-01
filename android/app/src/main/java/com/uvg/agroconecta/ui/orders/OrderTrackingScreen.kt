@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,7 +45,8 @@ fun OrderTrackingScreen(
     isLoading: Boolean,
     errorMessage: String?,
     onBack: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onOpenAdvice: (Int) -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -132,6 +134,17 @@ fun OrderTrackingScreen(
                             }
                             items(tracking.cambios) { change ->
                                 TimelineItem(change = change)
+                            }
+                        }
+                        item {
+                            Button(
+                                onClick = { onOpenAdvice(tracking.idPedido) },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Asesoría técnica")
                             }
                         }
                         item { Spacer(Modifier.height(8.dp)) }

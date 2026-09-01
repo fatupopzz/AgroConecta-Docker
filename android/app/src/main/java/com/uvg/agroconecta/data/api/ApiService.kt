@@ -151,6 +151,18 @@ interface ApiService {
         @Header("Authorization") token: String?
     ): Response<OrderTrackingResponse>
 
+    // ── Order technical advice (HU-033) ──────────────────────────────────
+    @GET("orders/{id}/advice")
+    suspend fun getAdviceMessages(
+        @Path("id") orderId: Int
+    ): Response<AdviceMessagesResponse>
+
+    @POST("orders/{id}/advice")
+    suspend fun sendAdviceMessage(
+        @Path("id") orderId: Int,
+        @Body request: SendAdviceMessageRequest
+    ): Response<AdviceMessage>
+
     // ── Distributor notifications ─────────────────────────────────────────
     @GET("notifications")
     suspend fun getDistributorNotifications(

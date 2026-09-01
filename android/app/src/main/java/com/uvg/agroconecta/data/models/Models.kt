@@ -316,6 +316,27 @@ data class OrderTrackingChange(
     val notas: String?
 )
 
+// ─── Order technical advice (HU-033) ────────────────────────────────────────
+
+data class AdviceMessage(
+    @SerializedName("id_mensaje") val id: Int,
+    @SerializedName("id_pedido") val orderId: Int,
+    @SerializedName("id_usuario_remitente") val senderUserId: Int,
+    @SerializedName("remitente_nombre") val senderName: String,
+    @SerializedName("remitente_tipo") val senderType: String,
+    val mensaje: String,
+    @SerializedName("fecha_envio") val sentAt: String
+)
+
+data class AdviceMessagesResponse(
+    @SerializedName("id_pedido") val orderId: Int,
+    val mensajes: List<AdviceMessage>
+)
+
+data class SendAdviceMessageRequest(
+    val mensaje: String
+)
+
 // ─── Distributor notifications ───────────────────────────────────────────────
 
 data class DistributorNotification(
