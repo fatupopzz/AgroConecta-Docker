@@ -520,7 +520,7 @@ fun AgroConectaNavHost(
             arguments = listOf(navArgument("orderId") { type = NavType.IntType })
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getInt("orderId") ?: return@composable
-            val adviceViewModel: AdviceViewModel = viewModel()
+            val adviceViewModel: AdviceViewModel = hiltViewModel()
             val messages by adviceViewModel.messages.collectAsState()
             val isLoading by adviceViewModel.isLoading.collectAsState()
             val isSending by adviceViewModel.isSending.collectAsState()
