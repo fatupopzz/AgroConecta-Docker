@@ -30,7 +30,10 @@ internal object ApiClientFactory {
 
     fun createGson(): Gson = GsonBuilder().setLenient().create()
 
-    fun createOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+    fun createOkHttpClient(
+        onUnauthorized: () -> Unit = {}
+    ): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(UnauthorizedInterceptor(onUnauthorized))
         .addInterceptor(createLoggingInterceptor())
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)

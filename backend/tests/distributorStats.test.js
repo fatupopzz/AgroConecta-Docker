@@ -8,6 +8,11 @@ jest.mock("jsonwebtoken", () => ({
   verify: jest.fn(),
 }));
 
+jest.mock("bcrypt", () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+}));
+
 const request = require("supertest");
 const jwt = require("jsonwebtoken");
 const app = require("../app");
@@ -28,7 +33,7 @@ describe("GET /api/distribuidores/:id/stats", () => {
   test("rechaza solicitudes sin JWT", async () => {
     const response = await request(app).get("/api/distribuidores/7/stats");
 
-    expect(response.statusCode).toBe(403);
+    expect(response.statusCode).toBe(401);
     expect(response.body).toEqual({ error: "Token requerido" });
     expect(pool.query).not.toHaveBeenCalled();
   });
