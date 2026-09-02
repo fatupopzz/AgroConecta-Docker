@@ -62,6 +62,15 @@ fun AgroConectaNavHost(
         .collectAsState(initial = null)
     val tipoUsuario = tipoUsuarioFlow ?: "agricultor"
 
+    LaunchedEffect(Unit) {
+        SessionManager.sessionExpired.collect {
+            navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
     // ── Lambda compartida: onAgregarClick ──
     val onAgregarClick: () -> Unit = {
         if (tipoUsuario == "distribuidor") {

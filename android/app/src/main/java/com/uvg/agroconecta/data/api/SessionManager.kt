@@ -8,11 +8,17 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "session")
 
 object SessionManager {
+    private val _sessionExpired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val sessionExpired: SharedFlow<Unit> = _sessionExpired.asSharedFlow()
+
     private val TOKEN_KEY = stringPreferencesKey("jwt_token")
     private val USER_NAME_KEY = stringPreferencesKey("user_name")
     private val USER_ID_KEY = intPreferencesKey("user_id")
@@ -42,6 +48,11 @@ object SessionManager {
 
     suspend fun clearSession(context: Context) {
         context.dataStore.edit { it.clear() }
+    }
+
+    suspend fun expireSession(context: Context) {
+        clearSession(context)
+        _sessionExpired.emit(Unit)
     }
 
     fun getToken(context: Context): Flow<String?> =

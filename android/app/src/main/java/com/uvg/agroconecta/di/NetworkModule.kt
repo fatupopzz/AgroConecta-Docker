@@ -1,14 +1,18 @@
 package com.uvg.agroconecta.di
 
+import android.content.Context
 import com.google.gson.Gson
 import com.uvg.agroconecta.data.api.ApiClientFactory
 import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.SessionManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
+import kotlinx.coroutines.runBlocking
 import javax.inject.Singleton
 
 /**
@@ -30,7 +34,13 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient = ApiClientFactory.createOkHttpClient()
+    fun provideOkHttpClient(
+        @ApplicationContext context: Context
+    ): OkHttpClient = ApiClientFactory.createOkHttpClient(
+        onUnauthorized = {
+            runBlocking { SessionManager.expireSession(context) }
+        }
+    )
 
     @Provides
     @Singleton

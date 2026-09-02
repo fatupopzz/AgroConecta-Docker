@@ -27,7 +27,7 @@ describe("GET /api/productos/recomendados", () => {
   test("requiere un JWT", async () => {
     const response = await request(app).get("/api/productos/recomendados");
 
-    expect(response.statusCode).toBe(403);
+    expect(response.statusCode).toBe(401);
     expect(response.body).toEqual({ error: "Token requerido" });
     expect(pool.query).not.toHaveBeenCalled();
   });
