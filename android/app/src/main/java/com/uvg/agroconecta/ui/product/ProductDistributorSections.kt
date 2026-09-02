@@ -13,9 +13,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -117,7 +117,7 @@ internal fun PriceComparisonSection(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.TrendingDown,
+                                    imageVector = Icons.AutoMirrored.Filled.TrendingDown,
                                     contentDescription = null,
                                     tint = GreenPrimary,
                                     modifier = Modifier.size(18.dp)
