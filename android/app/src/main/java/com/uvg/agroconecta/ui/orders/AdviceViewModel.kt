@@ -2,17 +2,23 @@ package com.uvg.agroconecta.ui.orders
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.uvg.agroconecta.data.api.RetrofitClient
+import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.AdviceMessage
 import com.uvg.agroconecta.data.models.SendAdviceMessageRequest
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class AdviceViewModel : ViewModel() {
+@HiltViewModel
+class AdviceViewModel @Inject constructor(
+    private val api: ApiService
+) : ViewModel() {
     private val _messages = MutableStateFlow<List<AdviceMessage>>(emptyList())
     val messages: StateFlow<List<AdviceMessage>> = _messages
 
@@ -51,8 +57,9 @@ class AdviceViewModel : ViewModel() {
             _isSending.value = true
             _errorMessage.value = null
             try {
-                val response = RetrofitClient.getService(token).sendAdviceMessage(
+                val response = api.sendAdviceMessage(
                     orderId,
+                    token.toAuthHeader(),
                     SendAdviceMessageRequest(message)
                 )
                 if (response.isSuccessful) {
@@ -79,7 +86,7 @@ class AdviceViewModel : ViewModel() {
     private suspend fun loadMessages(orderId: Int, token: String, showLoading: Boolean) {
         if (showLoading) _isLoading.value = true
         try {
-            val response = RetrofitClient.getService(token).getAdviceMessages(orderId)
+            val response = api.getAdviceMessages(orderId, token.toAuthHeader())
             if (response.isSuccessful) {
                 _messages.value = response.body()?.mensajes.orEmpty()
                 _errorMessage.value = null

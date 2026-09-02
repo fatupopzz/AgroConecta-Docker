@@ -154,12 +154,14 @@ interface ApiService {
     // ── Order technical advice (HU-033) ──────────────────────────────────
     @GET("orders/{id}/advice")
     suspend fun getAdviceMessages(
-        @Path("id") orderId: Int
+        @Path("id") orderId: Int,
+        @Header("Authorization") token: String?
     ): Response<AdviceMessagesResponse>
 
     @POST("orders/{id}/advice")
     suspend fun sendAdviceMessage(
         @Path("id") orderId: Int,
+        @Header("Authorization") token: String?,
         @Body request: SendAdviceMessageRequest
     ): Response<AdviceMessage>
 
