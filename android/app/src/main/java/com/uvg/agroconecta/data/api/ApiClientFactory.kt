@@ -43,14 +43,17 @@ internal object ApiClientFactory {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
 
-    private fun createLoggingInterceptor(): HttpLoggingInterceptor =
-        HttpLoggingInterceptor().apply {
+    internal fun createLoggingInterceptor(
+        logger: HttpLoggingInterceptor.Logger = HttpLoggingInterceptor.Logger.DEFAULT,
+        level: HttpLoggingInterceptor.Level = if (BuildConfig.DEBUG) {
+            HttpLoggingInterceptor.Level.BASIC
+        } else {
+            HttpLoggingInterceptor.Level.NONE
+        }
+    ): HttpLoggingInterceptor =
+        HttpLoggingInterceptor(logger).apply {
             redactHeader("Authorization")
-            level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BASIC
-            } else {
-                HttpLoggingInterceptor.Level.NONE
-            }
+            this.level = level
         }
 
     private fun String.ensureTrailingSlash(): String {

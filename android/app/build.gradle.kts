@@ -89,6 +89,7 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.11")
     testImplementation("androidx.test:core-ktx:1.5.0")
     testImplementation("org.robolectric:robolectric:4.12.2")
+    testImplementation(libs.okhttp.mockwebserver)
 
     // Compose UI (versiones fijas, sin BOM)
     implementation(libs.androidx.compose.ui)
