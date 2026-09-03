@@ -28,6 +28,9 @@ class CreateOrderRequestTest {
         assertEquals("Pulgón", json.get("tipoPlaga").asString)
         assertEquals(3, json.get("id_distribuidor").asInt)
         assertFalse(json.has("es_urgente"))
+        assertFalse(json.has("total"))
+        assertFalse(json.has("total_pedido"))
+        assertFalse(json.has("monto"))
     }
 
     @Test
@@ -44,5 +47,8 @@ class CreateOrderRequestTest {
 
         assertFalse(json.get("esUrgente").asBoolean)
         assertFalse(json.has("tipoPlaga"))
+        assertFalse(json.has("total"))
+        assertFalse(json.has("total_pedido"))
+        assertFalse(json.has("monto"))
     }
 }

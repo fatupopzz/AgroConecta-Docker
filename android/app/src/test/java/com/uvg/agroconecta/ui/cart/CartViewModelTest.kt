@@ -2,11 +2,16 @@ package com.uvg.agroconecta.ui.cart
 
 import com.uvg.agroconecta.MainDispatcherRule
 import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.models.CartItem
+import com.uvg.agroconecta.data.models.CartResponse
 import io.mockk.Called
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.*
@@ -15,6 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import retrofit2.Response
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CartViewModelTest {
 
     @get:Rule
@@ -48,6 +54,39 @@ class CartViewModelTest {
     fun `error message inicial es null`() {
         assertNull(viewModel.errorMessage.value)
     }
+
+    @Test
+    fun `loadCart conserva total y subtotales calculados por backend`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            coEvery { api.getCart(7) } returns Response.success(
+                CartResponse(
+                    idCarrito = 4,
+                    items = listOf(
+                        cartItem(
+                            idItem = 1,
+                            idInventario = 8,
+                            precioUnitario = 7.07,
+                            cantidad = 3,
+                            subtotal = 21.21
+                        ),
+                        cartItem(
+                            idItem = 2,
+                            idInventario = 9,
+                            precioUnitario = 13.74,
+                            cantidad = 2,
+                            subtotal = 27.48
+                        )
+                    ),
+                    total = 48.69
+                )
+            )
+
+            viewModel.loadCart(7)
+            advanceUntilIdle()
+
+            assertEquals(48.69, viewModel.total.value, 0.001)
+            assertEquals(listOf(21.21, 27.48), viewModel.cartItems.value.map { it.subtotal })
+        }
 
     @Test
     fun `increaseQuantity con item inexistente no cambia estado`() {
@@ -86,4 +125,24 @@ class CartViewModelTest {
 
     private fun <T> notFound(): Response<T> =
         Response.error(404, "".toResponseBody("application/json".toMediaTypeOrNull()))
+
+    private fun cartItem(
+        idItem: Int,
+        idInventario: Int,
+        precioUnitario: Double,
+        cantidad: Int,
+        subtotal: Double
+    ) = CartItem(
+        idItem = idItem,
+        idInventario = idInventario,
+        idDistribuidor = 3,
+        cantidad = cantidad,
+        precioUnitario = precioUnitario,
+        subtotal = subtotal,
+        producto = "Producto $idItem",
+        marca = null,
+        distribuidor = "Distribuidor",
+        stock = 20,
+        unidadMedida = "unidad"
+    )
 }
