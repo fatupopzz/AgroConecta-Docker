@@ -3,7 +3,6 @@ package com.uvg.agroconecta.ui.orders
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
-import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.CreateOrderRequest
 import com.uvg.agroconecta.data.models.OrderProduct
 import com.uvg.agroconecta.data.models.OrderSummary
@@ -58,7 +57,7 @@ class OrderViewModel @Inject constructor(
      * respuesta de una consulta vieja puede llegar tarde y pisar la direccion
      * del distribuidor que el usuario tiene ahora en el carrito.
      */
-    fun loadPickupAddress(idDistribuidor: Int?, token: String?) {
+    fun loadPickupAddress(idDistribuidor: Int?) {
         pickupAddressJob?.cancel()
 
         if (idDistribuidor == null) {
@@ -71,7 +70,7 @@ class OrderViewModel @Inject constructor(
             _isLoadingPickupAddress.value = true
 
             val direccion = try {
-                val response = api.getDistributorById(idDistribuidor, token.toAuthHeader())
+                val response = api.getDistributorById(idDistribuidor)
                 if (response.isSuccessful) response.body()?.direccion else null
             } catch (e: Exception) {
                 null
@@ -90,7 +89,6 @@ class OrderViewModel @Inject constructor(
         items: List<CartItemUI>,
         direccionEntrega: String,
         tipoEntrega: String,
-        token: String,
         esUrgente: Boolean = false,
         tipoPlaga: String? = null
     ) {
@@ -146,7 +144,7 @@ class OrderViewModel @Inject constructor(
                     }
                 )
 
-                val response = api.createOrder(token.toAuthHeader(), request)
+                val response = api.createOrder(request)
 
                 if (response.isSuccessful) {
                     _createdOrderId.value = response.body()?.pedido?.id
@@ -166,13 +164,13 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    fun loadOrdersByFarmer(idAgricultor: Int, token: String? = null) {
+    fun loadOrdersByFarmer(idAgricultor: Int) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
                 _errorMessage.value = null
 
-                val response = api.getOrdersByFarmer(idAgricultor, token.toAuthHeader())
+                val response = api.getOrdersByFarmer(idAgricultor)
 
                 if (response.isSuccessful) {
                     _orders.value = response.body()?.data ?: emptyList()
@@ -187,13 +185,13 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    fun loadOrdersByDistributor(idDistribuidor: Int, token: String? = null) {
+    fun loadOrdersByDistributor(idDistribuidor: Int) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
                 _errorMessage.value = null
 
-                val response = api.getOrdersByDistributor(idDistribuidor, token.toAuthHeader())
+                val response = api.getOrdersByDistributor(idDistribuidor)
 
                 if (response.isSuccessful) {
                     _orders.value = response.body().orEmpty()
@@ -208,14 +206,14 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    fun loadOrderTracking(orderId: Int, token: String? = null) {
+    fun loadOrderTracking(orderId: Int) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
                 _errorMessage.value = null
                 _tracking.value = null
 
-                val response = api.getOrderTracking(orderId, token.toAuthHeader())
+                val response = api.getOrderTracking(orderId)
 
                 if (response.isSuccessful) {
                     _tracking.value = response.body()

@@ -3,7 +3,6 @@ package com.uvg.agroconecta.ui.notifications
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
-import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.DistributorNotification
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,10 +26,10 @@ class DistributorNotificationViewModel @Inject constructor(
     private val _urgentNotification = MutableStateFlow<DistributorNotification?>(null)
     val urgentNotification: StateFlow<DistributorNotification?> = _urgentNotification
 
-    fun loadUrgentNotification(token: String) {
+    fun loadUrgentNotification() {
         viewModelScope.launch {
             runCatching {
-                api.getDistributorNotifications(token.toAuthHeader())
+                api.getDistributorNotifications()
             }.onSuccess { response ->
                 if (response.isSuccessful) {
                     _urgentNotification.value = latestUnreadUrgentNotification(
@@ -41,10 +40,10 @@ class DistributorNotificationViewModel @Inject constructor(
         }
     }
 
-    fun markAsRead(notification: DistributorNotification, token: String) {
+    fun markAsRead(notification: DistributorNotification) {
         viewModelScope.launch {
             runCatching {
-                api.markDistributorNotificationAsRead(notification.id, token.toAuthHeader())
+                api.markDistributorNotificationAsRead(notification.id)
             }.onSuccess { response ->
                 if (response.isSuccessful && _urgentNotification.value?.id == notification.id) {
                     _urgentNotification.value = null

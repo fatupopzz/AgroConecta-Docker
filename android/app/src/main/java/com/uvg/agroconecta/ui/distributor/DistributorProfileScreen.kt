@@ -17,17 +17,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.DistributorReview
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.ui.theme.*
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,16 +35,13 @@ fun DistributorProfileScreen(
     onProductoClick: (Int) -> Unit,
     viewModel: DistributorViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
     val uiState by viewModel.uiState.collectAsState()
     var mostrarTodosProductos by remember { mutableStateOf(false) }
 
     LaunchedEffect(distributorId) {
-        val token = SessionManager.getToken(context).first()
-        viewModel.loadAll(distributorId, token)
+        viewModel.loadAll(distributorId)
     }
 
     LaunchedEffect(uiState.reviewSubmitSuccess) {
@@ -262,15 +256,11 @@ fun DistributorProfileScreen(
                 ReviewFormCard(
                     isSubmitting = uiState.isSubmittingReview,
                     onSubmit = { calificacion, comentario ->
-                        scope.launch {
-                            val token = SessionManager.getToken(context).first()
-                            viewModel.submitReview(
-                                distributorId,
-                                calificacion,
-                                comentario,
-                                token
-                            )
-                        }
+                        viewModel.submitReview(
+                            distributorId,
+                            calificacion,
+                            comentario
+                        )
                     }
                 )
             }

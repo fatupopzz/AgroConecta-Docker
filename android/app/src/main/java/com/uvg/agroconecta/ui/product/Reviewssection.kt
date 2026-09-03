@@ -36,7 +36,7 @@ import com.uvg.agroconecta.ui.theme.*
  *           promedio      = reviewsPromedio,
  *           isLoading     = reviewsLoading,
  *           submitState   = reviewSubmitState,
- *           onSubmit      = { cal, com -> viewModel.submitReview(productId, cal, com, token) },
+ *           onSubmit      = { cal, com -> viewModel.submitReview(productId, cal, com) },
  *           onDismissMsg  = { viewModel.clearReviewMessages() }
  *       )
  *   }

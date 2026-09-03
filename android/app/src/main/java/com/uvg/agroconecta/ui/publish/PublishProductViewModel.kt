@@ -61,7 +61,6 @@ class PublishProductViewModel @Inject constructor(
     }
 
     fun publishProduct(
-        token: String,
         nombre: String,
         marca: String,
         descripcion: String,
@@ -75,11 +74,8 @@ class PublishProductViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val bearer = "Bearer $token"
-
                 // Paso 1: crear el producto
                 val productResponse = api.createProduct(
-                    token = bearer,
                     request = CreateProductRequest(
                         nombre = nombre.trim(),
                         marca = marca.trim().ifBlank { null },
@@ -110,7 +106,6 @@ class PublishProductViewModel @Inject constructor(
 
                 // Paso 2: crear inventario
                 val inventoryResponse = api.createInventory(
-                    token = bearer,
                     request = CreateInventoryRequest(
                         idProducto = idProducto,
                         precio = precio,

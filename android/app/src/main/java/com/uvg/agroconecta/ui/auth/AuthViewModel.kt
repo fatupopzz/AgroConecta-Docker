@@ -11,6 +11,7 @@ import com.uvg.agroconecta.data.models.LoginRequest
 import com.uvg.agroconecta.data.models.RegisterRequest
 import com.uvg.agroconecta.data.models.TipoCuenta
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -68,7 +69,23 @@ class AuthViewModel @Inject constructor(
 
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
-                    val meResponse = api.getMe("Bearer ${body.token}")
+                    val nombre = body.nombre ?: email.substringBefore("@")
+
+                    // El interceptor saca el token de la sesion guardada, asi que
+                    // hay que persistirlo antes de pedir /auth/me: si no, esa
+                    // llamada saldria sin Authorization. Estos son los datos que
+                    // trae el login; abajo se completan con los del perfil.
+                    SessionManager.saveSession(
+                        context     = context,
+                        token       = body.token,
+                        nombre      = nombre,
+                        userId      = -1,
+                        farmerId    = if (body.tipoUsuario == "agricultor") body.idPerfil ?: -1 else -1,
+                        tipoUsuario = body.tipoUsuario ?: "",
+                        perfilId    = body.idPerfil ?: -1
+                    )
+
+                    val meResponse = api.getMe()
 
                     val farmerId: Int
                     val perfilId: Int
@@ -95,13 +112,13 @@ class AuthViewModel @Inject constructor(
                     SessionManager.saveSession(
                         context     = context,
                         token       = body.token,
-                        nombre      = body.nombre ?: email.substringBefore("@"),
+                        nombre      = nombre,
                         userId      = userId,
                         farmerId    = farmerId,
                         tipoUsuario = resolvedTipoUsuario,
                         perfilId    = perfilId
                     )
-                    _nombreUsuario.value = body.nombre ?: email.substringBefore("@")
+                    _nombreUsuario.value = nombre
                     _loginState.value = AuthState.Success
                 } else {
                     val msg = when (response.code()) {
@@ -113,6 +130,15 @@ class AuthViewModel @Inject constructor(
                     _loginState.value = AuthState.Error(msg)
                 }
             } catch (e: Exception) {
+                // Una cancelacion no es un fallo del login: si se re-lanza,
+                // la corrutina termina como corresponde. Atraparla aca ademas
+                // romperia el clearSession de abajo, que tambien es suspend.
+                if (e is CancellationException) throw e
+
+                // El token se guarda antes de pedir /auth/me para que el
+                // interceptor lo tenga; si algo revienta despues, esa sesion a
+                // medio armar no puede quedar en DataStore.
+                SessionManager.clearSession(context)
                 _loginState.value = AuthState.Error("Error de conexión: ${e.localizedMessage}")
             }
         }

@@ -3,7 +3,6 @@ package com.uvg.agroconecta.ui.cart
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
-import com.uvg.agroconecta.data.api.toAuthHeader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +15,6 @@ class CartViewModel @Inject constructor(
 ) : ViewModel() {
 
     private var currentFarmerId: Int = -1
-    private var currentToken: String = ""
 
     private val _cartItems = MutableStateFlow<List<CartItemUI>>(emptyList())
     val cartItems: StateFlow<List<CartItemUI>> = _cartItems
@@ -27,13 +25,12 @@ class CartViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
-    fun loadCart(idAgricultor: Int, token: String) {
+    fun loadCart(idAgricultor: Int) {
         currentFarmerId = idAgricultor
-        currentToken = token
 
         viewModelScope.launch {
             try {
-                val response = api.getCart(idAgricultor, token.toAuthHeader())
+                val response = api.getCart(idAgricultor)
 
                 if (response.isSuccessful) {
                     val cart = response.body()
@@ -59,11 +56,10 @@ class CartViewModel @Inject constructor(
         }
     }
 
-    fun clearCart(idAgricultor: Int, token: String? = null) {
+    fun clearCart(idAgricultor: Int) {
         viewModelScope.launch {
             try {
-                val serviceToken = token ?: currentToken
-                api.clearCart(idAgricultor, serviceToken.toAuthHeader())
+                api.clearCart(idAgricultor)
             } catch (_: Exception) { }
             // Limpiar estado local independientemente del resultado
             _cartItems.value = emptyList()
@@ -90,11 +86,10 @@ class CartViewModel @Inject constructor(
             try {
                 val response = api.removeCartItem(
                     idAgricultor = currentFarmerId,
-                    idItem = idItem,
-                    token = currentToken.toAuthHeader()
+                    idItem = idItem
                 )
                 if (response.isSuccessful) {
-                    loadCart(currentFarmerId, currentToken)
+                    loadCart(currentFarmerId)
                     _errorMessage.value = null
                 } else {
                     _errorMessage.value = "No se pudo eliminar el producto"
@@ -111,11 +106,10 @@ class CartViewModel @Inject constructor(
                 val response = api.updateCartItem(
                     idAgricultor = currentFarmerId,
                     idItem = idItem,
-                    token = currentToken.toAuthHeader(),
                     body = mapOf("cantidad" to cantidad)
                 )
                 if (response.isSuccessful) {
-                    loadCart(currentFarmerId, currentToken)
+                    loadCart(currentFarmerId)
                     _errorMessage.value = null
                 } else {
                     _errorMessage.value = "No se pudo actualizar la cantidad"

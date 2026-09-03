@@ -9,18 +9,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.GrayLight
 import com.uvg.agroconecta.ui.theme.GrayMid
 import com.uvg.agroconecta.ui.theme.GreenPrimary
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,7 +30,6 @@ fun PublishProductScreen(
     tipoUsuario: String = "distribuidor",
     viewModel: PublishProductViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -215,8 +211,6 @@ fun PublishProductScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        val token = SessionManager.getToken(context).first()
-                        if (token == null) { snackbarHostState.showSnackbar("Sesión inválida"); return@launch }
                         if (nombre.isBlank()) { snackbarHostState.showSnackbar("El nombre es obligatorio"); return@launch }
                         if (categoriaSeleccionada == null) { snackbarHostState.showSnackbar("Seleccioná una categoría"); return@launch }
                         val precioNum = precio.toDoubleOrNull()
@@ -224,7 +218,6 @@ fun PublishProductScreen(
                         val stockNum = stock.toIntOrNull()
                         if (stockNum == null || stockNum < 0) { snackbarHostState.showSnackbar("Ingresá un stock válido"); return@launch }
                         viewModel.publishProduct(
-                            token = token,
                             nombre = nombre,
                             marca = marca,
                             descripcion = descripcion,

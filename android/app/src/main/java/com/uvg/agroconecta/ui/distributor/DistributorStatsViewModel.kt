@@ -3,7 +3,6 @@ package com.uvg.agroconecta.ui.distributor
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
-import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.DistributorStatsResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,8 +26,8 @@ class DistributorStatsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DistributorStatsUiState())
     val uiState: StateFlow<DistributorStatsUiState> = _uiState.asStateFlow()
 
-    fun loadStats(distributorId: Int, token: String?) {
-        if (distributorId <= 0 || token.isNullOrBlank()) {
+    fun loadStats(distributorId: Int) {
+        if (distributorId <= 0) {
             _uiState.update {
                 it.copy(errorMessage = "Sesión de distribuidor inválida")
             }
@@ -41,7 +40,7 @@ class DistributorStatsViewModel @Inject constructor(
             }
 
             try {
-                val response = api.getDistributorStats(distributorId, token.toAuthHeader())
+                val response = api.getDistributorStats(distributorId)
 
                 if (response.isSuccessful) {
                     val stats = response.body()

@@ -36,35 +36,35 @@ class OrderViewModelPickupAddressTest {
     }
 
     @Test
-    fun `carga la direccion del distribuidor con el token de la sesion`() = runTest {
-        coEvery { api.getDistributorById(7, any()) } returns
+    fun `carga la direccion del distribuidor`() = runTest {
+        coEvery { api.getDistributorById(7) } returns
             Response.success(distributor(7, "Km 15 Carretera a El Salvador"))
 
-        viewModel.loadPickupAddress(7, "abc123")
+        viewModel.loadPickupAddress(7)
 
         assertEquals("Km 15 Carretera a El Salvador", viewModel.pickupAddress.value)
         assertFalse(viewModel.isLoadingPickupAddress.value)
-        coVerify { api.getDistributorById(7, "Bearer abc123") }
+        coVerify(exactly = 1) { api.getDistributorById(7) }
     }
 
     @Test
     fun `sin distribuidor limpia la direccion y no consulta la API`() = runTest {
-        coEvery { api.getDistributorById(any(), any()) } returns
+        coEvery { api.getDistributorById(any()) } returns
             Response.success(distributor(7, "Zona 4"))
-        viewModel.loadPickupAddress(7, "abc123")
+        viewModel.loadPickupAddress(7)
 
-        viewModel.loadPickupAddress(null, "abc123")
+        viewModel.loadPickupAddress(null)
 
         assertNull(viewModel.pickupAddress.value)
         assertFalse(viewModel.isLoadingPickupAddress.value)
-        coVerify(exactly = 1) { api.getDistributorById(any(), any()) }
+        coVerify(exactly = 1) { api.getDistributorById(any()) }
     }
 
     @Test
     fun `deja la direccion en null cuando el backend responde con error`() = runTest {
-        coEvery { api.getDistributorById(7, any()) } returns notFound()
+        coEvery { api.getDistributorById(7) } returns notFound()
 
-        viewModel.loadPickupAddress(7, "abc123")
+        viewModel.loadPickupAddress(7)
 
         assertNull(viewModel.pickupAddress.value)
         assertFalse(viewModel.isLoadingPickupAddress.value)
@@ -74,30 +74,30 @@ class OrderViewModelPickupAddressTest {
     fun `una consulta nueva cancela la anterior y su respuesta tardia no pisa la direccion`() =
         runTest(mainDispatcherRule.testDispatcher) {
             // El distribuidor viejo contesta tarde; el nuevo, de inmediato.
-            coEvery { api.getDistributorById(1, any()) } coAnswers {
+            coEvery { api.getDistributorById(1) } coAnswers {
                 delay(1_000)
                 Response.success(distributor(1, "Bodega anterior"))
             }
-            coEvery { api.getDistributorById(2, any()) } returns
+            coEvery { api.getDistributorById(2) } returns
                 Response.success(distributor(2, "Bodega actual"))
 
-            viewModel.loadPickupAddress(1, "abc123")
-            viewModel.loadPickupAddress(2, "abc123")
+            viewModel.loadPickupAddress(1)
+            viewModel.loadPickupAddress(2)
             advanceUntilIdle()
 
             // La consulta lenta si llego a salir: lo que se prueba es que su
             // respuesta tardia quedo descartada, no que nunca se pidio.
-            coVerify { api.getDistributorById(1, "Bearer abc123") }
+            coVerify { api.getDistributorById(1) }
             assertEquals("Bodega actual", viewModel.pickupAddress.value)
             assertFalse(viewModel.isLoadingPickupAddress.value)
         }
 
     @Test
     fun `no toca el resto del estado del pedido`() = runTest {
-        coEvery { api.getDistributorById(7, any()) } returns
+        coEvery { api.getDistributorById(7) } returns
             Response.success(distributor(7, "Zona 4"))
 
-        viewModel.loadPickupAddress(7, "abc123")
+        viewModel.loadPickupAddress(7)
 
         assertNull(viewModel.createdOrderId.value)
         assertNull(viewModel.errorMessage.value)

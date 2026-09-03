@@ -72,22 +72,17 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = ProfileUiState.Loading
             try {
-                val token       = SessionManager.getToken(context).first()
                 val tipoUsuario = SessionManager.getTipoUsuario(context).first()
                 val perfilId    = SessionManager.getPerfilId(context).first() ?: -1
 
-                if (token.isNullOrBlank() || perfilId == -1) {
+                if (perfilId == -1) {
                     _uiState.value = ProfileUiState.Error("Sesión no válida. Vuelve a iniciar sesión.")
                     return@launch
                 }
 
-                // Aca arriba ya se descarto el token en blanco, asi que las dos
-                // ramas pueden mandar la cabecera armada sin volver a chequear.
-                val bearer = "Bearer $token"
-
                 when (tipoUsuario) {
                     "agricultor" -> {
-                        val response = api.getFarmerProfile(bearer, perfilId)
+                        val response = api.getFarmerProfile(perfilId)
                         if (response.isSuccessful && response.body() != null) {
                             _uiState.value = ProfileUiState.Success(ProfileData.Farmer(response.body()!!))
                         } else {
@@ -95,7 +90,7 @@ class ProfileViewModel @Inject constructor(
                         }
                     }
                     "distribuidor" -> {
-                        val response = api.getDistributorById(perfilId, bearer)
+                        val response = api.getDistributorById(perfilId)
                         if (response.isSuccessful && response.body() != null) {
                             _uiState.value = ProfileUiState.Success(ProfileData.Distributor(response.body()!!))
                         } else {
