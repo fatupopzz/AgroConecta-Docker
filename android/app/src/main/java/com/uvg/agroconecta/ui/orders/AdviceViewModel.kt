@@ -3,7 +3,6 @@ package com.uvg.agroconecta.ui.orders
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
-import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.AdviceMessage
 import com.uvg.agroconecta.data.models.SendAdviceMessageRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,23 +32,23 @@ class AdviceViewModel @Inject constructor(
 
     private var pollingJob: Job? = null
 
-    fun startPolling(orderId: Int, token: String) {
+    fun startPolling(orderId: Int) {
         pollingJob?.cancel()
         pollingJob = viewModelScope.launch {
             var firstLoad = true
             while (isActive) {
-                loadMessages(orderId, token, showLoading = firstLoad)
+                loadMessages(orderId, showLoading = firstLoad)
                 firstLoad = false
                 delay(5_000)
             }
         }
     }
 
-    fun retry(orderId: Int, token: String) {
-        viewModelScope.launch { loadMessages(orderId, token, showLoading = true) }
+    fun retry(orderId: Int) {
+        viewModelScope.launch { loadMessages(orderId, showLoading = true) }
     }
 
-    fun sendMessage(orderId: Int, token: String, text: String) {
+    fun sendMessage(orderId: Int, text: String) {
         val message = text.trim()
         if (message.isEmpty() || message.length > 1000 || _isSending.value) return
 
@@ -59,7 +58,6 @@ class AdviceViewModel @Inject constructor(
             try {
                 val response = api.sendAdviceMessage(
                     orderId,
-                    token.toAuthHeader(),
                     SendAdviceMessageRequest(message)
                 )
                 if (response.isSuccessful) {
@@ -83,10 +81,10 @@ class AdviceViewModel @Inject constructor(
         _errorMessage.value = null
     }
 
-    private suspend fun loadMessages(orderId: Int, token: String, showLoading: Boolean) {
+    private suspend fun loadMessages(orderId: Int, showLoading: Boolean) {
         if (showLoading) _isLoading.value = true
         try {
-            val response = api.getAdviceMessages(orderId, token.toAuthHeader())
+            val response = api.getAdviceMessages(orderId)
             if (response.isSuccessful) {
                 _messages.value = response.body()?.mensajes.orEmpty()
                 _errorMessage.value = null

@@ -51,20 +51,18 @@ fun ProductDetailScreen(
     var isFarmer by remember { mutableStateOf(false) }
 
     LaunchedEffect(productId) {
-        val token = SessionManager.getToken(context).first()
         isFarmer = SessionManager.getTipoUsuario(context).first() == "agricultor"
-        viewModel.loadProduct(productId, token)
-        viewModel.loadComparison(productId, token)
+        viewModel.loadProduct(productId)
+        viewModel.loadComparison(productId)
         if (isFarmer) {
-            viewModel.loadFollowStatus(productId, token)
+            viewModel.loadFollowStatus(productId)
         }
-        viewModel.loadReviews(productId, token)
+        viewModel.loadReviews(productId)
     }
 
     LaunchedEffect(selectedOffer?.idDistribuidor) {
         val distributorId = selectedOffer?.idDistribuidor ?: return@LaunchedEffect
-        val token = SessionManager.getToken(context).first()
-        viewModel.loadDistributorRating(distributorId, token)
+        viewModel.loadDistributorRating(distributorId)
     }
 
     LaunchedEffect(cartSuccess) {
@@ -122,13 +120,12 @@ fun ProductDetailScreen(
                 isAddingToCart = isAddingToCart,
                 onAddToCart = {
                     scope.launch {
-                        val token = SessionManager.getToken(context).first() ?: return@launch
                         val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                         if (farmerId == -1) {
                             snackbarHostState.showSnackbar("Error: sesión inválida")
                             return@launch
                         }
-                        viewModel.addToCart(farmerId, token)
+                        viewModel.addToCart(farmerId)
                     }
                 }
             )
@@ -161,12 +158,7 @@ fun ProductDetailScreen(
                     isFarmer = isFarmer,
                     isFollowingPrice = isFollowingPrice,
                     isUpdatingFollow = isUpdatingFollow,
-                    onToggleFollow = {
-                        scope.launch {
-                            val token = SessionManager.getToken(context).first()
-                            viewModel.toggleFollowPrice(productId, token)
-                        }
-                    }
+                    onToggleFollow = { viewModel.toggleFollowPrice(productId) }
                 )
             }
 
@@ -199,10 +191,7 @@ fun ProductDetailScreen(
                     isLoading         = reviewsLoading,
                     submitState       = reviewSubmitState,
                     onSubmit          = { calificacion, comentario ->
-                        scope.launch {
-                            val token = SessionManager.getToken(context).first()
-                            viewModel.submitReview(productId, calificacion, comentario, token)
-                        }
+                        viewModel.submitReview(productId, calificacion, comentario)
                     },
                     onDismissMsg      = { viewModel.clearReviewMessages() }
                 )

@@ -78,13 +78,11 @@ fun DistributorStatsScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
-    var token by remember { mutableStateOf<String?>(null) }
     var distributorId by remember { mutableStateOf(-1) }
 
     LaunchedEffect(Unit) {
-        token = SessionManager.getToken(context).first()
         distributorId = SessionManager.getPerfilId(context).first() ?: -1
-        viewModel.loadStats(distributorId, token)
+        viewModel.loadStats(distributorId)
     }
 
     Scaffold(
@@ -130,7 +128,7 @@ fun DistributorStatsScreen(
                     StatsError(
                         message = uiState.errorMessage.orEmpty(),
                         onRetry = {
-                            viewModel.loadStats(distributorId, token)
+                            viewModel.loadStats(distributorId)
                         },
                         modifier = Modifier.align(Alignment.Center)
                     )

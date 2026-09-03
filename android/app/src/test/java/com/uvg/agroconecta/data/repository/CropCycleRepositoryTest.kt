@@ -21,7 +21,7 @@ class CropCycleRepositoryTest {
         )
         val repository = RemoteCropCycleRepository(api)
 
-        val result = repository.getRelevantCycle("token")
+        val result = repository.getRelevantCycle()
 
         assertEquals("café", result?.cultivo)
         assertEquals("Desarrollo del fruto", result?.faseActual?.fase)
@@ -33,7 +33,7 @@ class CropCycleRepositoryTest {
         val api = FakeCropCycleApi(crops = emptyList())
         val repository = RemoteCropCycleRepository(api)
 
-        val result = repository.getRelevantCycle("token")
+        val result = repository.getRelevantCycle()
 
         assertNull(result)
         assertEquals(emptyList<String>(), api.requestedCrops)
@@ -60,7 +60,7 @@ class CropCycleRepositoryTest {
     ) : CropCycleApi {
         val requestedCrops = mutableListOf<String>()
 
-        override suspend fun getProfile(token: String): Response<MeResponse> =
+        override suspend fun getProfile(): Response<MeResponse> =
             Response.success(
                 MeResponse(
                     user = UserInfo(

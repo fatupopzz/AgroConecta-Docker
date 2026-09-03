@@ -3,7 +3,6 @@ package com.uvg.agroconecta.ui.distributor
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
-import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.DistributorRatingResponse
 import com.uvg.agroconecta.data.models.DistributorReview
 import com.uvg.agroconecta.data.models.Product
@@ -38,14 +37,12 @@ class DistributorViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DistributorUiState())
     val uiState: StateFlow<DistributorUiState> = _uiState.asStateFlow()
 
-    fun loadAll(distributorId: Int, token: String?) {
+    fun loadAll(distributorId: Int) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                val auth = token.toAuthHeader()
-
                 // Datos del distribuidor — safe body
-                val distResponse = api.getDistributorById(distributorId, auth)
+                val distResponse = api.getDistributorById(distributorId)
                 if (distResponse.isSuccessful) {
                     val dist = distResponse.body()
                     if (dist != null) {
@@ -69,7 +66,7 @@ class DistributorViewModel @Inject constructor(
 
                     for (producto in todosProductos) {
                         try {
-                            val detalle = api.getProductById(producto.id, auth)
+                            val detalle = api.getProductById(producto.id)
                             val perteneceAlDistribuidor = detalle.isSuccessful &&
                                     detalle.body()?.ofertas
                                         ?.any { it.idDistribuidor == distributorId } == true
@@ -112,14 +109,8 @@ class DistributorViewModel @Inject constructor(
     fun submitReview(
         distributorId: Int,
         calificacion: Int,
-        comentario: String,
-        token: String?
+        comentario: String
     ) {
-        if (token == null) {
-            _uiState.update { it.copy(reviewSubmitError = "Sesión inválida") }
-            return
-        }
-
         val primerProducto = _uiState.value.productos.firstOrNull()
         if (primerProducto == null) {
             _uiState.update {
@@ -133,7 +124,6 @@ class DistributorViewModel @Inject constructor(
             try {
                 val response = api.createReview(
                     productoId = primerProducto.id,
-                    token = "Bearer $token",
                     body = CreateReviewRequest(
                         calificacion = calificacion,
                         comentario = comentario

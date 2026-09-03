@@ -3,6 +3,7 @@ package com.uvg.agroconecta.data.api
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.uvg.agroconecta.BuildConfig
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -30,9 +31,17 @@ internal object ApiClientFactory {
 
     fun createGson(): Gson = GsonBuilder().setLenient().create()
 
+    /**
+     * El orden de los interceptores importa: el de auth va primero porque los
+     * otros dos necesitan ver la cabecera ya puesta. Sin eso,
+     * [UnauthorizedInterceptor] nunca reconoceria un 401 como sesion vencida y
+     * el logging no tendria que redactar nada.
+     */
     fun createOkHttpClient(
+        authInterceptor: Interceptor? = null,
         onUnauthorized: () -> Unit = {}
     ): OkHttpClient = OkHttpClient.Builder()
+        .apply { authInterceptor?.let(::addInterceptor) }
         .addInterceptor(UnauthorizedInterceptor(onUnauthorized))
         .addInterceptor(createLoggingInterceptor())
         .connectTimeout(30, TimeUnit.SECONDS)

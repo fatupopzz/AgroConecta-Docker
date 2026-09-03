@@ -3,7 +3,6 @@ package com.uvg.agroconecta.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
-import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.Distributor
@@ -59,7 +58,6 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private var token: String? = null
     private var initialized = false
     private var productLoadJob: Job? = null
     private var lastConnectivity: Boolean? = null
@@ -70,28 +68,31 @@ class HomeViewModel @Inject constructor(
         observeConnectivity()
     }
 
-    fun init(token: String?, tipoUsuario: String = "agricultor") {
+    // Recomendados y ciclo de cultivo son secciones de agricultor; para el resto
+    // ni se piden. Quien manda el token es el interceptor, la pantalla ya no
+    // tiene que leerlo de la sesion.
+    fun init(tipoUsuario: String = "agricultor") {
         if (initialized) return
         initialized = true
-        this.token = token
-        if (tipoUsuario == "agricultor" && !token.isNullOrBlank()) {
+        val esAgricultor = tipoUsuario == "agricultor"
+        if (esAgricultor) {
             loadRecommendedProducts()
         }
         loadCategorias()
         loadProductos(reset = true)
         loadDistribuidores()
-        if (tipoUsuario == "agricultor" && !token.isNullOrBlank()) {
-            loadRelevantCropCycle(token)
+        if (esAgricultor) {
+            loadRelevantCropCycle()
         } else {
             _uiState.update { it.copy(cicloRelevante = null, isLoadingCiclo = false) }
         }
     }
 
-    internal fun loadRelevantCropCycle(token: String) {
+    internal fun loadRelevantCropCycle() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingCiclo = true) }
             val cycle = runCatching {
-                cropCycleRepository.getRelevantCycle(token)
+                cropCycleRepository.getRelevantCycle()
             }.getOrNull()
             _uiState.update {
                 it.copy(cicloRelevante = cycle, isLoadingCiclo = false)
@@ -100,12 +101,10 @@ class HomeViewModel @Inject constructor(
     }
 
     fun loadRecommendedProducts() {
-        val currentToken = token ?: return
-
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingRecomendados = true) }
             try {
-                val response = api.getRecommendedProducts(currentToken.toAuthHeader())
+                val response = api.getRecommendedProducts()
                 _uiState.update {
                     it.copy(
                         productosRecomendados = if (response.isSuccessful) {
@@ -226,7 +225,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingDistribuidores = true) }
             try {
-                val response = api.getVerifiedDistributors(token.toAuthHeader())
+                val response = api.getVerifiedDistributors()
                 if (response.isSuccessful) {
                     val verificados = (response.body() ?: emptyList())
                         .filter { it.estadoVerificacion == "verificado" }

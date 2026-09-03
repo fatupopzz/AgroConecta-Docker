@@ -30,7 +30,7 @@ class HomeViewModelCropCycleTest {
             FakeHomeProductCatalogRepository()
         )
 
-        viewModel.loadRelevantCropCycle("token")
+        viewModel.loadRelevantCropCycle()
 
         assertEquals(expected, viewModel.uiState.value.cicloRelevante)
         assertFalse(viewModel.uiState.value.isLoadingCiclo)
@@ -44,7 +44,7 @@ class HomeViewModelCropCycleTest {
             FakeHomeProductCatalogRepository()
         )
 
-        viewModel.loadRelevantCropCycle("token")
+        viewModel.loadRelevantCropCycle()
 
         assertNull(viewModel.uiState.value.cicloRelevante)
         assertFalse(viewModel.uiState.value.isLoadingCiclo)
@@ -69,7 +69,7 @@ class HomeViewModelCropCycleTest {
         private val result: CropCycleResponse? = null,
         private val error: Throwable? = null
     ) : CropCycleRepository {
-        override suspend fun getRelevantCycle(token: String): CropCycleResponse? {
+        override suspend fun getRelevantCycle(): CropCycleResponse? {
             error?.let { throw it }
             return result
         }

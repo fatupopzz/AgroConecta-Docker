@@ -106,6 +106,6 @@ class HomeViewModelOfflineTest {
     )
 
     private data object NoOpCropCycleRepository : CropCycleRepository {
-        override suspend fun getRelevantCycle(token: String) = null
+        override suspend fun getRelevantCycle() = null
     }
 }

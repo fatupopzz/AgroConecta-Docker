@@ -70,16 +70,17 @@ class CartViewModelTest {
     fun `removeItem con item inexistente no cambia estado`() {
         // A diferencia de increase/decrease, removeItem si llama al backend sin
         // validar antes, asi que hay que stubbear la respuesta.
-        coEvery { api.removeCartItem(any(), any(), any()) } returns notFound()
+        coEvery { api.removeCartItem(any(), any()) } returns notFound()
 
         val totalAntes = viewModel.total.value
         viewModel.removeItem(999)
 
         assertEquals(totalAntes, viewModel.total.value, 0.01)
         assertEquals("No se pudo eliminar el producto", viewModel.errorMessage.value)
-        // Sin loadCart previo el ViewModel no tiene agricultor ni token todavia.
+        // Sin loadCart previo el ViewModel todavia no tiene agricultor; el
+        // token ya no viaja por aca, lo pone AuthInterceptor.
         coVerify(exactly = 1) {
-            api.removeCartItem(idAgricultor = -1, idItem = 999, token = null)
+            api.removeCartItem(idAgricultor = -1, idItem = 999)
         }
     }
 

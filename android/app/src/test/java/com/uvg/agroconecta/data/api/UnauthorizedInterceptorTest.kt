@@ -57,8 +57,25 @@ class UnauthorizedInterceptorTest {
         assertEquals(0, invalidations)
     }
 
+    @Test
+    fun `un 401 con la cabecera puesta por AuthInterceptor tambien cierra la sesion`() {
+        // Cubre el orden de los interceptores: si el de auth no fuera primero,
+        // este request llegaria sin Authorization y el 401 pasaria de largo.
+        server.enqueue(MockResponse().setResponseCode(401))
+        var invalidations = 0
+        val client = ApiClientFactory.createOkHttpClient(
+            authInterceptor = AuthInterceptor { "token-de-sesion" },
+            onUnauthorized = { invalidations++ }
+        )
+        val request = Request.Builder().url(server.url("/api/protected")).build()
+
+        client.newCall(request).execute().close()
+
+        assertEquals(1, invalidations)
+    }
+
     private fun client(onUnauthorized: () -> Unit) =
-        ApiClientFactory.createOkHttpClient(onUnauthorized)
+        ApiClientFactory.createOkHttpClient(onUnauthorized = onUnauthorized)
 
     private fun authorizedRequest(): Request = Request.Builder()
         .url(server.url("/api/protected"))

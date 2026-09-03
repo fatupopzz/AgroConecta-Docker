@@ -5,7 +5,6 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
-import com.uvg.agroconecta.data.api.toAuthHeader
 import com.uvg.agroconecta.data.models.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
@@ -28,7 +27,6 @@ class ProductViewModel @Inject constructor(
     val catalogError: LiveData<String?> = _catalogError
 
     fun loadProducts(
-        token: String?,
         nombre: String? = null,
         idCategoria: Int? = null
     ) {
@@ -37,8 +35,7 @@ class ProductViewModel @Inject constructor(
             try {
                 val response = api.getProducts(
                     nombre = nombre,
-                    idCategoria = idCategoria,
-                    token = token.toAuthHeader()
+                    idCategoria = idCategoria
                 )
                 if (response.isSuccessful) {
                     _products.value = response.body()?.products ?: emptyList()
@@ -94,11 +91,11 @@ class ProductViewModel @Inject constructor(
     private val _followPriceMessage = MutableLiveData<String?>()
     val followPriceMessage: LiveData<String?> = _followPriceMessage
 
-    fun loadProduct(id: Int, token: String?) {
+    fun loadProduct(id: Int) {
         _isLoading.value = true
         viewModelScope.launch {
             try {
-                val response = api.getProductById(id, token.toAuthHeader())
+                val response = api.getProductById(id)
                 if (response.isSuccessful) {
                     val product = response.body()!!
                     _productDetail.value = product
@@ -114,15 +111,12 @@ class ProductViewModel @Inject constructor(
         }
     }
 
-    fun loadFollowStatus(productoId: Int, token: String?) {
-        if (token.isNullOrBlank()) {
-            _isFollowingPrice.value = false
-            return
-        }
-
+    // Sin sesion el backend contesta 401/403 y el producto queda como no
+    // seguido, que es justo lo que se muestra: no hace falta chequear antes.
+    fun loadFollowStatus(productoId: Int) {
         viewModelScope.launch {
             try {
-                val response = api.getProductFollowStatus(productoId, token.toAuthHeader())
+                val response = api.getProductFollowStatus(productoId)
                 if (response.isSuccessful) {
                     _isFollowingPrice.value = response.body()?.siguiendo == true
                 } else if (response.code() == 401 || response.code() == 403) {
@@ -136,22 +130,16 @@ class ProductViewModel @Inject constructor(
         }
     }
 
-    fun toggleFollowPrice(productoId: Int, token: String?) {
-        if (token.isNullOrBlank()) {
-            _error.value = "Sesión inválida. Volvé a iniciar sesión."
-            return
-        }
-
+    fun toggleFollowPrice(productoId: Int) {
         val shouldFollow = _isFollowingPrice.value != true
         _isUpdatingFollow.value = true
 
         viewModelScope.launch {
             try {
-                val auth = token.toAuthHeader()
                 val response = if (shouldFollow) {
-                    api.followProductPrice(productoId, auth)
+                    api.followProductPrice(productoId)
                 } else {
-                    api.unfollowProductPrice(productoId, auth)
+                    api.unfollowProductPrice(productoId)
                 }
 
                 if (response.isSuccessful) {
@@ -177,10 +165,10 @@ class ProductViewModel @Inject constructor(
         }
     }
 
-    fun loadComparison(productoId: Int, token: String?) {
+    fun loadComparison(productoId: Int) {
         viewModelScope.launch {
             try {
-                val response = api.compareProductPrices(productoId, token.toAuthHeader())
+                val response = api.compareProductPrices(productoId)
                 if (response.isSuccessful) {
                     _comparison.value = response.body()
                 }
@@ -192,16 +180,14 @@ class ProductViewModel @Inject constructor(
         _selectedOffer.value = offer
     }
 
-    fun loadDistributorRating(distributorId: Int, token: String?) {
+    fun loadDistributorRating(distributorId: Int) {
         val requestedDistributorId = distributorId
         _isLoadingDistributorRating.value = true
         viewModelScope.launch {
             try {
-                val auth = token.toAuthHeader()
-                val ratingResponse = api.getDistributorRating(requestedDistributorId, auth)
+                val ratingResponse = api.getDistributorRating(requestedDistributorId)
                 val reviewsResponse = api.getDistributorReviews(
                     requestedDistributorId,
-                    auth,
                     page = 1,
                     limit = 5
                 )
@@ -234,14 +220,13 @@ class ProductViewModel @Inject constructor(
         }
     }
 
-    fun addToCart(idAgricultor: Int, token: String) {
+    fun addToCart(idAgricultor: Int) {
         val offer = _selectedOffer.value ?: return
         _isAddingToCart.value = true
         viewModelScope.launch {
             try {
                 val response = api.addToCart(
                     idAgricultor = idAgricultor,
-                    token = token.toAuthHeader(),
                     request = AddItemRequest(
                         idInventario = offer.idInventario,
                         cantidad = 1
@@ -280,11 +265,11 @@ class ProductViewModel @Inject constructor(
     private val _reviewSubmitState = MutableLiveData<ReviewSubmitState>(ReviewSubmitState.Idle)
     val reviewSubmitState: LiveData<ReviewSubmitState> = _reviewSubmitState
 
-    fun loadReviews(productoId: Int, token: String?) {
+    fun loadReviews(productoId: Int) {
         _reviewsLoading.value = true
         viewModelScope.launch {
             try {
-                val response = api.getReviews(productoId, token.toAuthHeader())
+                val response = api.getReviews(productoId)
                 if (response.isSuccessful) {
                     val body = response.body()
                     _reviews.value         = body?.reviews ?: emptyList()
@@ -300,22 +285,17 @@ class ProductViewModel @Inject constructor(
         }
     }
 
-    fun submitReview(productoId: Int, calificacion: Int, comentario: String, token: String?) {
-        if (token == null) {
-            _reviewSubmitState.value = ReviewSubmitState.Error("Sesión inválida, volvé a iniciar sesión.")
-            return
-        }
+    fun submitReview(productoId: Int, calificacion: Int, comentario: String) {
         _reviewSubmitState.value = ReviewSubmitState.Loading
         viewModelScope.launch {
             try {
                 val response = api.createReview(
                     productoId = productoId,
-                    token      = "Bearer $token",
                     body       = CreateReviewRequest(calificacion = calificacion, comentario = comentario)
                 )
                 if (response.isSuccessful) {
                     _reviewSubmitState.value = ReviewSubmitState.Success
-                    loadReviews(productoId, token)
+                    loadReviews(productoId)
                 } else {
                     val msg = when (response.code()) {
                         409  -> "Ya enviaste una reseña para este producto."
