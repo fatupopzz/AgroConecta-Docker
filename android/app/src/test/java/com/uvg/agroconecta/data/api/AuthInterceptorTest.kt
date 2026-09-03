@@ -2,11 +2,15 @@ package com.uvg.agroconecta.data.api
 
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.logging.HttpLoggingInterceptor
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import java.io.IOException
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -107,6 +111,75 @@ class AuthInterceptorTest {
             "Bearer token-de-sesion",
             server.takeRequest().getHeader("Authorization")
         )
+    }
+
+    @Test
+    fun `el token inyectado llega intacto al servidor aunque el log lo redacte`() {
+        // Regresion: se reporto que el interceptor mandaba la cabecera
+        // enmascarada. redactHeader solo toca el texto del log, nunca el
+        // request; este test fija que lo que viaja es el token de verdad.
+        server.enqueue(MockResponse().setResponseCode(200))
+        val logs = mutableListOf<String>()
+        val client = OkHttpClient.Builder()
+            .addInterceptor(AuthInterceptor { "token-de-sesion" })
+            .addInterceptor(
+                ApiClientFactory.createLoggingInterceptor(
+                    logger = HttpLoggingInterceptor.Logger { logs += it },
+                    level = HttpLoggingInterceptor.Level.HEADERS
+                )
+            )
+            .build()
+
+        client.newCall(request()).execute().close()
+
+        assertEquals(
+            "Bearer token-de-sesion",
+            server.takeRequest().getHeader("Authorization")
+        )
+        val output = logs.joinToString("\n")
+        assertTrue(output.contains("Authorization: ██"))
+        assertFalse(output.contains("token-de-sesion"))
+    }
+
+    @Test
+    fun `si falla la lectura del token el request sale sin cabecera en vez de morir`() {
+        // DataStore corrupto: preferimos un 401, que limpia la sesion y manda a
+        // Login, antes que reventar cada llamada con un error de red falso.
+        val client = OkHttpClient.Builder()
+            .addInterceptor(AuthInterceptor { throw IOException("DataStore corrupto") })
+            .build()
+        server.enqueue(MockResponse().setResponseCode(401))
+
+        val response = client.newCall(request()).execute()
+
+        assertEquals(401, response.code)
+        response.close()
+        assertNull(server.takeRequest().getHeader("Authorization"))
+    }
+
+    @Test
+    fun `un path que solo contiene auth-login como subcadena si lleva token`() {
+        // Con el match por `contains` este endpoint se quedaba sin token.
+        val client = clientWithToken("token-de-sesion")
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        client.newCall(request("/api/admin/auth/login-history")).execute().close()
+
+        assertEquals(
+            "Bearer token-de-sesion",
+            server.takeRequest().getHeader("Authorization")
+        )
+    }
+
+    @Test
+    fun `el match de publicos no depende del prefijo de la URL base`() {
+        val client = clientWithToken("token-de-sesion")
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        // Sin el /api/ de por medio tiene que seguir reconociendose publico.
+        client.newCall(request("/auth/register")).execute().close()
+
+        assertNull(server.takeRequest().getHeader("Authorization"))
     }
 
     private fun clientWithToken(token: String?): OkHttpClient =

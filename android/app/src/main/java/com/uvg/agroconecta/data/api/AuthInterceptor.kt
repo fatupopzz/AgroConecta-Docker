@@ -13,6 +13,9 @@ private const val AUTHORIZATION_HEADER = "Authorization"
  * pantalla de Login con la sesion anterior todavia en DataStore, asi que un
  * login con la contrasena mal escrita respondia 401 con cabecera y
  * [UnauthorizedInterceptor] terminaba borrando esa sesion.
+ *
+ * Se guardan como los dos ultimos segmentos del path, que es con lo que se
+ * comparan.
  */
 private val PUBLIC_PATHS = setOf("auth/login", "auth/register")
 
@@ -45,10 +48,7 @@ class AuthInterceptor(
             return chain.proceed(request)
         }
 
-        // DataStore solo entrega el token como Flow y esto corre en el hilo de
-        // red de OkHttp, nunca en el principal, asi que bloquear aca no congela
-        // la UI. Es el patron habitual para leer credenciales en un interceptor.
-        val token = runBlocking { tokenProvider() }
+        val token = readToken()
         if (token.isNullOrBlank()) {
             return chain.proceed(request)
         }
@@ -60,8 +60,32 @@ class AuthInterceptor(
         )
     }
 
-    // Se compara por "contiene" porque la URL base trae su propio prefijo
-    // (/api/) segun el entorno, asi que el path completo no es fijo.
+    /**
+     * Lee el token y, si la lectura falla, sigue como si no hubiera sesion.
+     *
+     * Tirar la excepcion desde aca mataria el request y el usuario veria un
+     * error de red que no es tal; peor, con el DataStore corrupto no habria
+     * forma de salir. Yendo sin cabecera el backend responde 401,
+     * [UnauthorizedInterceptor] limpia la sesion (que reescribe el archivo) y
+     * la app manda a Login, asi que volver a entrar destraba el problema.
+     *
+     * El runBlocking es seguro aca: corre en el hilo de red de OkHttp, nunca en
+     * el principal, y DataStore solo entrega el token como Flow.
+     */
+    private fun readToken(): String? =
+        try {
+            runBlocking { tokenProvider() }
+        } catch (_: Exception) {
+            null
+        }
+
+    // Se comparan los dos ultimos segmentos y no el path completo porque la URL
+    // base trae su propio prefijo (/api/) segun el entorno. Con `contains` un
+    // endpoint futuro tipo "admin/auth/login-history" se quedaria sin token sin
+    // que nadie se entere.
     private fun okhttp3.Request.isPublic(): Boolean =
-        PUBLIC_PATHS.any { url.encodedPath.contains(it) }
+        url.pathSegments
+            .filter { it.isNotEmpty() }
+            .takeLast(2)
+            .joinToString("/") in PUBLIC_PATHS
 }

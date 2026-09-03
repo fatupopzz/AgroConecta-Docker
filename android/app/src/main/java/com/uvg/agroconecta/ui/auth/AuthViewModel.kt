@@ -11,6 +11,7 @@ import com.uvg.agroconecta.data.models.LoginRequest
 import com.uvg.agroconecta.data.models.RegisterRequest
 import com.uvg.agroconecta.data.models.TipoCuenta
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -129,6 +130,11 @@ class AuthViewModel @Inject constructor(
                     _loginState.value = AuthState.Error(msg)
                 }
             } catch (e: Exception) {
+                // Una cancelacion no es un fallo del login: si se re-lanza,
+                // la corrutina termina como corresponde. Atraparla aca ademas
+                // romperia el clearSession de abajo, que tambien es suspend.
+                if (e is CancellationException) throw e
+
                 // El token se guarda antes de pedir /auth/me para que el
                 // interceptor lo tenga; si algo revienta despues, esa sesion a
                 // medio armar no puede quedar en DataStore.

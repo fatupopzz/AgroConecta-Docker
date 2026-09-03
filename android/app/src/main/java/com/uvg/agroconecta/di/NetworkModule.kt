@@ -33,7 +33,7 @@ object NetworkModule {
     fun provideGson(): Gson = ApiClientFactory.createGson()
 
     // Es el unico punto que ata el interceptor a DataStore; asi el interceptor
-    // sigue siendo probable sin Context.
+    // se puede probar sin Context.
     @Provides
     @Singleton
     fun provideAuthInterceptor(
