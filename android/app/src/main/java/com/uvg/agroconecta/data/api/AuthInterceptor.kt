@@ -7,6 +7,16 @@ import okhttp3.Response
 private const val AUTHORIZATION_HEADER = "Authorization"
 
 /**
+ * Endpoints que se resuelven sin sesion y que no deben llevar Authorization.
+ *
+ * Mandarles el token viejo tiene un efecto feo: la app siempre arranca en la
+ * pantalla de Login con la sesion anterior todavia en DataStore, asi que un
+ * login con la contrasena mal escrita respondia 401 con cabecera y
+ * [UnauthorizedInterceptor] terminaba borrando esa sesion.
+ */
+private val PUBLIC_PATHS = setOf("auth/login", "auth/register")
+
+/**
  * Adjunta el token de la sesion a cada request que sale de la app.
  *
  * Antes cada ViewModel armaba la cabecera y la pasaba como `@Header`, asi que
@@ -24,6 +34,10 @@ class AuthInterceptor(
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
+
+        if (request.isPublic()) {
+            return chain.proceed(request)
+        }
 
         // Si el llamador puso su propia Authorization, manda esa: duplicar la
         // cabecera hace que el backend rechace el request.
@@ -45,4 +59,9 @@ class AuthInterceptor(
                 .build()
         )
     }
+
+    // Se compara por "contiene" porque la URL base trae su propio prefijo
+    // (/api/) segun el entorno, asi que el path completo no es fijo.
+    private fun okhttp3.Request.isPublic(): Boolean =
+        PUBLIC_PATHS.any { url.encodedPath.contains(it) }
 }

@@ -74,11 +74,46 @@ class AuthInterceptorTest {
         assertEquals(1, received.headers.values("Authorization").size)
     }
 
+    @Test
+    fun `no manda el token al endpoint de login`() {
+        val client = clientWithToken("token-de-sesion")
+        server.enqueue(MockResponse().setResponseCode(401))
+
+        client.newCall(request("/api/auth/login")).execute().close()
+
+        // Con la cabecera puesta, un 401 por contrasena mal escrita haria que
+        // UnauthorizedInterceptor borre la sesion que quedo del uso anterior.
+        assertNull(server.takeRequest().getHeader("Authorization"))
+    }
+
+    @Test
+    fun `no manda el token al endpoint de registro`() {
+        val client = clientWithToken("token-de-sesion")
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        client.newCall(request("/api/auth/register")).execute().close()
+
+        assertNull(server.takeRequest().getHeader("Authorization"))
+    }
+
+    @Test
+    fun `el resto de los endpoints de auth si llevan token`() {
+        val client = clientWithToken("token-de-sesion")
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        client.newCall(request("/api/auth/me")).execute().close()
+
+        assertEquals(
+            "Bearer token-de-sesion",
+            server.takeRequest().getHeader("Authorization")
+        )
+    }
+
     private fun clientWithToken(token: String?): OkHttpClient =
         OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor { token })
             .build()
 
-    private fun request(): Request =
-        Request.Builder().url(server.url("/products")).build()
+    private fun request(path: String = "/products"): Request =
+        Request.Builder().url(server.url(path)).build()
 }

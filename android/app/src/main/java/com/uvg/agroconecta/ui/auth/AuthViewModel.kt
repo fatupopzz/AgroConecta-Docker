@@ -129,6 +129,10 @@ class AuthViewModel @Inject constructor(
                     _loginState.value = AuthState.Error(msg)
                 }
             } catch (e: Exception) {
+                // El token se guarda antes de pedir /auth/me para que el
+                // interceptor lo tenga; si algo revienta despues, esa sesion a
+                // medio armar no puede quedar en DataStore.
+                SessionManager.clearSession(context)
                 _loginState.value = AuthState.Error("Error de conexión: ${e.localizedMessage}")
             }
         }
