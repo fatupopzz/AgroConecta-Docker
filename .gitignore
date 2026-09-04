@@ -1,7 +1,13 @@
 node_modules/
 backend/node_modules/
 frontend/node_modules/
+# Secretos y configuración local. Las plantillas .env.example sí se versionan.
 .env
+**/.env
+.env.*
+**/.env.*
+!.env.example
+!**/.env.example
 # Android build artifacts
 android/.gradle/
 android/app/build/

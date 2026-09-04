@@ -69,3 +69,29 @@ test("auth middleware accepts a valid token", () => {
   assert.equal(req.user.id, 25);
   assert.equal(req.user.tipo, "agricultor");
 });
+
+test("rotating JWT_SECRET rejects old tokens and accepts newly issued tokens", () => {
+  const previousSecret = process.env.JWT_SECRET;
+  const oldSecret = "old-secret-used-only-for-this-test";
+  const rotatedSecret = "rotated-secret-used-only-for-this-test";
+  const oldToken = jwt.sign({ id: 25, tipo: "agricultor" }, oldSecret);
+  process.env.JWT_SECRET = rotatedSecret;
+
+  const rejectedResponse = response();
+  verifyToken(
+    { headers: { authorization: `Bearer ${oldToken}` } },
+    rejectedResponse,
+    () => assert.fail("an old token must not be accepted after rotation")
+  );
+
+  const newToken = jwt.sign({ id: 25, tipo: "agricultor" }, rotatedSecret);
+  const acceptedRequest = {
+    headers: { authorization: `Bearer ${newToken}` },
+  };
+  let nextCalled = false;
+  verifyToken(acceptedRequest, response(), () => { nextCalled = true; });
+
+  restoreSecret(previousSecret);
+  assert.equal(rejectedResponse.statusCode, 401);
+  assert.equal(nextCalled, true);
+});

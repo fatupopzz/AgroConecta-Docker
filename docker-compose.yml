@@ -38,7 +38,7 @@ services:
       DB_PASSWORD: agroconecta_pass
       PORT: 8080
       NODE_ENV: development
-      JWT_SECRET: agroconecta_jwt_secret_dev_2026
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET debe configurarse en el archivo .env}
       JWT_EXPIRES_IN: 30m
     ports:
       - "8080:8080"
