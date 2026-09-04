@@ -42,7 +42,8 @@ class CartViewModel @Inject constructor(
                             nombre = it.producto,
                             distribuidor = it.distribuidor,
                             cantidad = it.cantidad,
-                            precio = it.precioUnitario
+                            precio = it.precioUnitario,
+                            subtotal = it.subtotal
                         )
                     } ?: emptyList()
                     _total.value = cart?.total ?: 0.0

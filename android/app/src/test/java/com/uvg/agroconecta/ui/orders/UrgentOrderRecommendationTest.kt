@@ -52,6 +52,7 @@ class UrgentOrderRecommendationTest {
         nombre = name,
         distribuidor = "Agroinsumos",
         cantidad = 1,
-        precio = 50.0
+        precio = 50.0,
+        subtotal = 50.0
     )
 }
