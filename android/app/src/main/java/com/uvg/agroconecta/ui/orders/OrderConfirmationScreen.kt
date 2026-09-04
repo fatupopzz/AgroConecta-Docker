@@ -445,7 +445,7 @@ if (tipoEntrega == "domicilio") {
                             }
                         }
                         Text(
-                            text = "Q${"%.2f".format(item.precio * item.cantidad)}",
+                            text = "Q${"%.2f".format(item.subtotal)}",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = GreenPrimary

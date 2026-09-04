@@ -26,7 +26,8 @@ data class CartItemUI(
     val nombre: String,
     val distribuidor: String,
     val cantidad: Int,
-    val precio: Double
+    val precio: Double,
+    val subtotal: Double
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -238,7 +239,7 @@ fun CartScreen(
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(
-                                            text = "Q${"%.2f".format(item.precio * item.cantidad)}",
+                                            text = "Q${"%.2f".format(item.subtotal)}",
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = GreenPrimary
