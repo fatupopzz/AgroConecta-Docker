@@ -34,7 +34,7 @@ Este repositorio contiene el entorno de desarrollo de AgroConecta definido como 
 git clone https://github.com/fatupopzz/AgroConecta-Docker.git
 cd AgroConecta-Docker
 
-# 2. Crear la configuración local (Linux/macOS)
+# 2. Crear la configuración local (Linux)
 cp .env.example .env
 sed -i '/^JWT_SECRET=/d' .env
 printf 'JWT_SECRET=' >> .env
