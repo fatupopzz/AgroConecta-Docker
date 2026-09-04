@@ -34,15 +34,35 @@ Este repositorio contiene el entorno de desarrollo de AgroConecta definido como 
 git clone https://github.com/fatupopzz/AgroConecta-Docker.git
 cd AgroConecta-Docker
 
-# 2. Levantar el entorno
+# 2. Crear la configuración local (Linux)
+cp .env.example .env
+sed -i '/^JWT_SECRET=/d' .env
+printf 'JWT_SECRET=' >> .env
+openssl rand -hex 64 >> .env
+
+# 3. Levantar el entorno
 docker compose up --build
 
-# 3. Verificar contenedores
+# 4. Verificar contenedores
 docker compose ps
 
-# 4. Detener el entorno
+# 5. Detener el entorno
 docker compose down
 ```
+
+En PowerShell, crea `.env` con una clave criptográficamente aleatoria así:
+
+```powershell
+$bytes = New-Object byte[] 64
+[Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+$secret = [Convert]::ToHexString($bytes).ToLowerInvariant()
+"JWT_SECRET=$secret" | Set-Content .env
+```
+
+`docker-compose.yml` exige esta variable y no contiene un valor predeterminado.
+El archivo `.env` está excluido de Git; solo `.env.example`, que no contiene
+credenciales reales, debe versionarse. Cambiar `JWT_SECRET` invalida todos los
+JWT emitidos anteriormente y obliga a los usuarios a iniciar sesión de nuevo.
 
 ## Credenciales de base de datos
 
@@ -89,11 +109,30 @@ AgroConecta-Docker/
 
 ### Actualizar el servidor tras cambios en develop
 
+```bash
 ssh -i ~/.ssh/agroconecta-key.pem azureuser@20.63.8.63
 cd AgroConecta-Docker
 git pull origin develop
 docker compose down
 docker compose up --build -d
+```
+
+### Rotar `JWT_SECRET` en la VM
+
+Ejecutar dentro de `~/AgroConecta-Docker` con permisos restringidos:
+
+```bash
+umask 077
+touch .env
+sed -i '/^JWT_SECRET=/d' .env
+printf 'JWT_SECRET=' >> .env
+openssl rand -hex 64 >> .env
+docker compose up --build -d --force-recreate backend
+```
+
+La clave no debe imprimirse, copiarse al README ni enviarse al repositorio.
+Después de reiniciar el backend se debe comprobar registro, login y una ruta
+autenticada. Los tokens creados antes de la rotación deben responder `401`.
 
 ### Notas
 - La VM se apaga automáticamente a las 9:00 PM (Guatemala)

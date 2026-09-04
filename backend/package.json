@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "node index.js",
     "test": "npm run test:unit",
-    "test:unit": "node --test tests/adminMetrics.test.js tests/checkoutTotals.test.js tests/orderUrgency.test.js tests/cropCycleController.test.js tests/farmerProfileCrops.test.js tests/advice.test.js tests/authMiddleware.test.js && jest tests/authController.mock.test.js tests/distributorRatings.test.js tests/distributorStats.test.js tests/productRecommendations.test.js --runInBand",
+<<<<<<< HEAD
+    "test:unit": "node --test tests/adminMetrics.test.js tests/checkoutTotals.test.js tests/orderUrgency.test.js tests/cropCycleController.test.js tests/farmerProfileCrops.test.js tests/advice.test.js tests/authMiddleware.test.js tests/securityConfig.test.js && jest tests/authController.mock.test.js tests/distributorRatings.test.js tests/distributorStats.test.js tests/productRecommendations.test.js --runInBand",
     "test:integration": "jest tests/authController.test.js --runInBand",
     "test:watch": "jest --watch",
     "coverage": "jest --coverage"
