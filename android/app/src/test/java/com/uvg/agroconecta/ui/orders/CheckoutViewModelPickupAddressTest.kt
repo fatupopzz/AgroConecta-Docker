@@ -3,9 +3,11 @@ package com.uvg.agroconecta.ui.orders
 import com.uvg.agroconecta.MainDispatcherRule
 import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.ui.profile.DistributorProfile
+import com.uvg.agroconecta.ui.orders.checkout.CheckoutOrderService
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -19,7 +21,8 @@ import org.junit.Rule
 import org.junit.Test
 import retrofit2.Response
 
-class OrderViewModelPickupAddressTest {
+@OptIn(ExperimentalCoroutinesApi::class)
+class CheckoutViewModelPickupAddressTest {
 
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
@@ -27,12 +30,12 @@ class OrderViewModelPickupAddressTest {
     // Mock estricto: lo unico stubbeado es la consulta del distribuidor, asi que
     // cualquier otra llamada a la red revienta el test en vez de pasar de largo.
     private lateinit var api: ApiService
-    private lateinit var viewModel: OrderViewModel
+    private lateinit var viewModel: CheckoutViewModel
 
     @Before
     fun setup() {
         api = mockk()
-        viewModel = OrderViewModel(api)
+        viewModel = CheckoutViewModel(api, CheckoutOrderService(api))
     }
 
     @Test
@@ -42,8 +45,8 @@ class OrderViewModelPickupAddressTest {
 
         viewModel.loadPickupAddress(7)
 
-        assertEquals("Km 15 Carretera a El Salvador", viewModel.pickupAddress.value)
-        assertFalse(viewModel.isLoadingPickupAddress.value)
+        assertEquals("Km 15 Carretera a El Salvador", viewModel.uiState.value.pickupAddress)
+        assertFalse(viewModel.uiState.value.isLoadingPickupAddress)
         coVerify(exactly = 1) { api.getDistributorById(7) }
     }
 
@@ -55,8 +58,8 @@ class OrderViewModelPickupAddressTest {
 
         viewModel.loadPickupAddress(null)
 
-        assertNull(viewModel.pickupAddress.value)
-        assertFalse(viewModel.isLoadingPickupAddress.value)
+        assertNull(viewModel.uiState.value.pickupAddress)
+        assertFalse(viewModel.uiState.value.isLoadingPickupAddress)
         coVerify(exactly = 1) { api.getDistributorById(any()) }
     }
 
@@ -66,8 +69,8 @@ class OrderViewModelPickupAddressTest {
 
         viewModel.loadPickupAddress(7)
 
-        assertNull(viewModel.pickupAddress.value)
-        assertFalse(viewModel.isLoadingPickupAddress.value)
+        assertNull(viewModel.uiState.value.pickupAddress)
+        assertFalse(viewModel.uiState.value.isLoadingPickupAddress)
     }
 
     @Test
@@ -88,8 +91,8 @@ class OrderViewModelPickupAddressTest {
             // La consulta lenta si llego a salir: lo que se prueba es que su
             // respuesta tardia quedo descartada, no que nunca se pidio.
             coVerify { api.getDistributorById(1) }
-            assertEquals("Bodega actual", viewModel.pickupAddress.value)
-            assertFalse(viewModel.isLoadingPickupAddress.value)
+            assertEquals("Bodega actual", viewModel.uiState.value.pickupAddress)
+            assertFalse(viewModel.uiState.value.isLoadingPickupAddress)
         }
 
     @Test
@@ -99,9 +102,9 @@ class OrderViewModelPickupAddressTest {
 
         viewModel.loadPickupAddress(7)
 
-        assertNull(viewModel.createdOrderId.value)
-        assertNull(viewModel.errorMessage.value)
-        assertFalse(viewModel.isLoading.value)
+        assertNull(viewModel.uiState.value.createdOrderId)
+        assertNull(viewModel.uiState.value.errorMessage)
+        assertFalse(viewModel.uiState.value.isCreatingOrder)
     }
 
     private fun distributor(id: Int, direccion: String) = DistributorProfile(

@@ -3,14 +3,12 @@ package com.uvg.agroconecta.ui.orders
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
-import com.uvg.agroconecta.data.models.CreateOrderRequest
-import com.uvg.agroconecta.data.models.OrderProduct
 import com.uvg.agroconecta.data.models.OrderSummary
 import com.uvg.agroconecta.data.models.OrderTrackingResponse
 import com.uvg.agroconecta.ui.cart.CartItemUI
+import com.uvg.agroconecta.ui.orders.checkout.CheckoutOrderInput
+import com.uvg.agroconecta.ui.orders.checkout.CheckoutOrderService
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -18,7 +16,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class OrderViewModel @Inject constructor(
-    private val api: ApiService
+    private val api: ApiService,
+    private val checkoutOrderService: CheckoutOrderService
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(false)
@@ -39,51 +38,6 @@ class OrderViewModel @Inject constructor(
     private val _createdOrderId = MutableStateFlow<Int?>(null)
     val createdOrderId: StateFlow<Int?> = _createdOrderId
 
-    private val _pickupAddress = MutableStateFlow<String?>(null)
-    val pickupAddress: StateFlow<String?> = _pickupAddress
-
-    private val _isLoadingPickupAddress = MutableStateFlow(false)
-    val isLoadingPickupAddress: StateFlow<Boolean> = _isLoadingPickupAddress
-
-    private var pickupAddressJob: Job? = null
-
-    /**
-     * Direccion del distribuidor, para mostrarla cuando la entrega es por
-     * recogida. Recibe el id como nullable porque la pantalla lo saca del
-     * carrito y puede venir vacio.
-     *
-     * Cancela la busqueda anterior a proposito: cuando esto vivia en un
-     * LaunchedEffect lo hacia Compose al cambiar el distribuidor, y sin eso la
-     * respuesta de una consulta vieja puede llegar tarde y pisar la direccion
-     * del distribuidor que el usuario tiene ahora en el carrito.
-     */
-    fun loadPickupAddress(idDistribuidor: Int?) {
-        pickupAddressJob?.cancel()
-
-        if (idDistribuidor == null) {
-            _pickupAddress.value = null
-            _isLoadingPickupAddress.value = false
-            return
-        }
-
-        pickupAddressJob = viewModelScope.launch {
-            _isLoadingPickupAddress.value = true
-
-            val direccion = try {
-                val response = api.getDistributorById(idDistribuidor)
-                if (response.isSuccessful) response.body()?.direccion else null
-            } catch (e: Exception) {
-                null
-            }
-
-            // Si mientras tanto entro otro distribuidor, el estado ya es de la
-            // busqueda nueva y esta no debe tocarlo.
-            ensureActive()
-            _pickupAddress.value = direccion
-            _isLoadingPickupAddress.value = false
-        }
-    }
-
     fun createCashOrder(
         idAgricultor: Int,
         items: List<CartItemUI>,
@@ -92,31 +46,17 @@ class OrderViewModel @Inject constructor(
         esUrgente: Boolean = false,
         tipoPlaga: String? = null
     ) {
-        if (items.isEmpty()) {
-            _errorMessage.value = "El carrito está vacío"
-            return
-        }
-
-        if (tipoEntrega !in listOf("domicilio", "recogida")) {
-            _errorMessage.value = "Selecciona un tipo de entrega válido"
-            return
-        }
-
-        if (tipoEntrega == "domicilio" && direccionEntrega.isBlank()) {
-            _errorMessage.value = "La dirección de entrega es obligatoria"
-            return
-        }
-
-        if (esUrgente && tipoPlaga.isNullOrBlank()) {
-            _errorMessage.value = "Selecciona el tipo de plaga"
-            return
-        }
-
-        val idDistribuidor = items.first().idDistribuidor
-        val hasSingleDistributor = items.all { it.idDistribuidor == idDistribuidor }
-
-        if (!hasSingleDistributor) {
-            _errorMessage.value = "Todos los productos deben ser del mismo distribuidor"
+        val input = CheckoutOrderInput(
+            idAgricultor = idAgricultor,
+            items = items,
+            direccionEntrega = direccionEntrega,
+            tipoEntrega = tipoEntrega,
+            esUrgente = esUrgente,
+            tipoPlaga = tipoPlaga
+        )
+        val validationError = checkoutOrderService.validationError(input)
+        if (validationError != null) {
+            _errorMessage.value = validationError
             return
         }
 
@@ -128,23 +68,7 @@ class OrderViewModel @Inject constructor(
             try {
                 _errorMessage.value = null
 
-                val request = CreateOrderRequest(
-                    idAgricultor = idAgricultor,
-                    idDistribuidor = idDistribuidor,
-                    direccionEntrega = direccionEntrega,
-                    tipoEntrega = tipoEntrega,
-                    metodoPago = "efectivo",
-                    esUrgente = esUrgente,
-                    tipoPlaga = tipoPlaga?.trim(),
-                    productos = items.map {
-                        OrderProduct(
-                            idInventario = it.idInventario,
-                            cantidad = it.cantidad
-                        )
-                    }
-                )
-
-                val response = api.createOrder(request)
+                val response = checkoutOrderService.createOrder(input)
 
                 if (response.isSuccessful) {
                     _createdOrderId.value = response.body()?.pedido?.id
