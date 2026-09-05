@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const { calculateCartTotal } = require("../services/checkout/checkoutTotal");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
@@ -42,7 +43,7 @@ const getCart = async (req, res) => {
     }
 
     const items = carrito.rows[0].items;
-    const total = items.reduce((sum, item) => sum + Number(item.subtotal), 0);
+    const total = calculateCartTotal(items);
 
     return res.json({ ...carrito.rows[0], total });
   } catch (error) {

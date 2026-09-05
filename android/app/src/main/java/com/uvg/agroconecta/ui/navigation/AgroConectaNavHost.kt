@@ -34,6 +34,7 @@ import com.uvg.agroconecta.ui.distributor.DistributorStatsScreen
 import com.uvg.agroconecta.ui.dosecalculator.DoseCalculatorScreen
 import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
 import com.uvg.agroconecta.ui.orders.AdviceViewModel
+import com.uvg.agroconecta.ui.orders.CheckoutViewModel
 import com.uvg.agroconecta.ui.orders.OrderAdviceScreen
 import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
 import com.uvg.agroconecta.ui.orders.OrderTrackingScreen
@@ -326,43 +327,35 @@ fun AgroConectaNavHost(
 
         composable(Screen.OrderConfirmation.route) {
             val scope = rememberCoroutineScope()
-            val orderViewModel: OrderViewModel = hiltViewModel()
-            val successMessage by orderViewModel.successMessage.collectAsState()
-            val errorMessage by orderViewModel.errorMessage.collectAsState()
-            val createdOrderId by orderViewModel.createdOrderId.collectAsState()
+            val checkoutViewModel: CheckoutViewModel = hiltViewModel()
+            val checkoutState by checkoutViewModel.uiState.collectAsState()
             val snackbarHostState = remember { SnackbarHostState() }
             val cartItemsForOrder by sharedCartViewModel.cartItems.collectAsState()
             val total by sharedCartViewModel.total.collectAsState()
 
-            var deliveryAddress by remember { mutableStateOf("") }
-            var tipoEntrega by remember { mutableStateOf("domicilio") }
-
-            val pickupAddress by orderViewModel.pickupAddress.collectAsState()
-            val isLoadingPickupAddress by orderViewModel.isLoadingPickupAddress.collectAsState()
-
             // ── KAN-60: pre-llenar dirección guardada ──
             LaunchedEffect(Unit) {
                 val saved = SessionManager.getDeliveryAddress(context).first()
-                if (!saved.isNullOrBlank()) deliveryAddress = saved
+                checkoutViewModel.setInitialDeliveryAddress(saved)
             }
 
             val distributorId = cartItemsForOrder.firstOrNull()?.idDistribuidor
 
             LaunchedEffect(distributorId) {
-                orderViewModel.loadPickupAddress(distributorId)
+                checkoutViewModel.loadPickupAddress(distributorId)
             }
 
-            LaunchedEffect(successMessage) {
-                successMessage?.let {
-                    orderViewModel.clearSuccessMessage()
+            LaunchedEffect(checkoutState.successMessage) {
+                checkoutState.successMessage?.let {
+                    checkoutViewModel.clearSuccessMessage()
 
                     val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                     if (farmerId != -1) {
                         sharedCartViewModel.clearCart(idAgricultor = farmerId)
                     }
 
-                    val orderId = createdOrderId
-                    orderViewModel.clearCreatedOrderId()
+                    val orderId = checkoutState.createdOrderId
+                    checkoutViewModel.clearCreatedOrderId()
                     if (orderId != null) {
                         navController.navigate(Screen.OrderTracking.createRoute(orderId)) {
                             popUpTo(Screen.Home.route) { inclusive = false }
@@ -375,8 +368,8 @@ fun AgroConectaNavHost(
                 }
             }
 
-            LaunchedEffect(errorMessage) {
-                errorMessage?.let { snackbarHostState.showSnackbar(it) }
+            LaunchedEffect(checkoutState.errorMessage) {
+                checkoutState.errorMessage?.let { snackbarHostState.showSnackbar(it) }
             }
 
             Scaffold(
@@ -386,13 +379,12 @@ fun AgroConectaNavHost(
                     OrderConfirmationScreen(
                         items = cartItemsForOrder,
                         total = total,
-                        selectedPaymentMethod = "efectivo",
-                        deliveryAddress = deliveryAddress,
-                        pickupAddress = pickupAddress,
-                        isLoadingPickupAddress = isLoadingPickupAddress,
-                        tipoEntrega = tipoEntrega,
-                        onDeliveryAddressChange = { deliveryAddress = it },
-                        onTipoEntregaChange = { tipoEntrega = it },
+                        deliveryAddress = checkoutState.deliveryAddress,
+                        pickupAddress = checkoutState.pickupAddress,
+                        isLoadingPickupAddress = checkoutState.isLoadingPickupAddress,
+                        tipoEntrega = checkoutState.deliveryType,
+                        onDeliveryAddressChange = checkoutViewModel::onDeliveryAddressChange,
+                        onTipoEntregaChange = checkoutViewModel::onDeliveryTypeChange,
                         onConfirmOrder = {
                             scope.launch {
                                 val farmerId =
@@ -402,22 +394,16 @@ fun AgroConectaNavHost(
                                     return@launch
                                 }
 
-                                if (tipoEntrega == "domicilio") {
+                                if (checkoutState.deliveryType == "domicilio") {
                                     SessionManager.saveDeliveryAddress(
                                         context,
-                                        deliveryAddress
+                                        checkoutState.deliveryAddress
                                     )
                                 }
 
-                                orderViewModel.createCashOrder(
+                                checkoutViewModel.createCashOrder(
                                     idAgricultor = farmerId,
-                                    items = cartItemsForOrder,
-                                    direccionEntrega = if (tipoEntrega == "recogida") {
-                                        pickupAddress.orEmpty()
-                                    } else {
-                                        deliveryAddress
-        },
-                                    tipoEntrega = tipoEntrega
+                                    items = cartItemsForOrder
                                 )
                             }
                         },
