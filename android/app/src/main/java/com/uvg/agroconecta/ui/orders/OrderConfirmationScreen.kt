@@ -1,5 +1,6 @@
 package com.uvg.agroconecta.ui.orders
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,12 +21,18 @@ fun OrderConfirmationScreen(
     pickupAddress: String?,
     isLoadingPickupAddress: Boolean,
     tipoEntrega: String,
+    isCreatingOrder: Boolean,
+    errorMessage: String?,
+    canSubmit: Boolean,
+    canRetry: Boolean,
+    onRetryOrder: () -> Unit,
     onDeliveryAddressChange: (String) -> Unit,
     onTipoEntregaChange: (String) -> Unit,
     onConfirmOrder: () -> Unit,
     onBack: () -> Unit
 ) {
-    val canConfirm = CheckoutValidation.canConfirm(
+    BackHandler(enabled = isCreatingOrder) { }
+    val canConfirm = canSubmit && !isCreatingOrder && CheckoutValidation.canConfirm(
         hasItems = items.isNotEmpty(),
         deliveryAddress = deliveryAddress,
         pickupAddress = pickupAddress,
@@ -34,12 +41,16 @@ fun OrderConfirmationScreen(
     )
 
     Scaffold(
-        topBar = { OrderConfirmationTopBar(onBack) },
+        topBar = { OrderConfirmationTopBar(onBack, enabled = !isCreatingOrder) },
         bottomBar = {
             OrderConfirmationBottomBar(
                 total = total,
                 canConfirm = canConfirm,
-                onConfirmOrder = onConfirmOrder
+                onConfirmOrder = onConfirmOrder,
+                isCreatingOrder = isCreatingOrder,
+                errorMessage = errorMessage,
+                canRetry = canRetry && !isCreatingOrder,
+                onRetryOrder = onRetryOrder
             )
         }
     ) { padding ->
@@ -53,6 +64,7 @@ fun OrderConfirmationScreen(
             item {
                 DeliveryTypeCard(
                     deliveryType = tipoEntrega,
+                    enabled = !isCreatingOrder,
                     onDeliveryTypeChange = onTipoEntregaChange
                 )
             }
@@ -61,6 +73,7 @@ fun OrderConfirmationScreen(
                 item {
                     DeliveryAddressCard(
                         deliveryAddress = deliveryAddress,
+                        enabled = !isCreatingOrder,
                         onDeliveryAddressChange = onDeliveryAddressChange
                     )
                 }

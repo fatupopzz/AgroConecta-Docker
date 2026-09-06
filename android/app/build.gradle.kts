@@ -90,6 +90,8 @@ dependencies {
     testImplementation("androidx.test:core-ktx:1.5.0")
     testImplementation("org.robolectric:robolectric:4.12.2")
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation("androidx.compose.ui:ui-test-junit4:${libs.versions.composeUi.get()}")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:${libs.versions.composeUi.get()}")
 
     // Compose UI (versiones fijas, sin BOM)
     implementation(libs.androidx.compose.ui)

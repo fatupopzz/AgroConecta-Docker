@@ -329,90 +329,64 @@ fun AgroConectaNavHost(
             val scope = rememberCoroutineScope()
             val checkoutViewModel: CheckoutViewModel = hiltViewModel()
             val checkoutState by checkoutViewModel.uiState.collectAsState()
-            val snackbarHostState = remember { SnackbarHostState() }
             val cartItemsForOrder by sharedCartViewModel.cartItems.collectAsState()
             val total by sharedCartViewModel.total.collectAsState()
+            val farmerId by SessionManager.getFarmerId(context).collectAsState(initial = null)
 
-            // ── KAN-60: pre-llenar dirección guardada ──
             LaunchedEffect(Unit) {
-                val saved = SessionManager.getDeliveryAddress(context).first()
-                checkoutViewModel.setInitialDeliveryAddress(saved)
+                checkoutViewModel.setInitialDeliveryAddress(
+                    SessionManager.getDeliveryAddress(context).first()
+                )
             }
-
+            LaunchedEffect(cartItemsForOrder) {
+                checkoutViewModel.onCartItemsChange(cartItemsForOrder)
+            }
             val distributorId = cartItemsForOrder.firstOrNull()?.idDistribuidor
-
             LaunchedEffect(distributorId) {
                 checkoutViewModel.loadPickupAddress(distributorId)
             }
-
-            LaunchedEffect(checkoutState.successMessage) {
-                checkoutState.successMessage?.let {
-                    checkoutViewModel.clearSuccessMessage()
-
-                    val farmerId = SessionManager.getFarmerId(context).first() ?: -1
-                    if (farmerId != -1) {
-                        sharedCartViewModel.clearCart(idAgricultor = farmerId)
-                    }
-
-                    val orderId = checkoutState.createdOrderId
-                    checkoutViewModel.clearCreatedOrderId()
-                    if (orderId != null) {
+            LaunchedEffect(checkoutState.createdOrderId) {
+                checkoutViewModel.completeOrder(
+                    clearCart = sharedCartViewModel::clearCart,
+                    navigate = { orderId ->
                         navController.navigate(Screen.OrderTracking.createRoute(orderId)) {
                             popUpTo(Screen.Home.route) { inclusive = false }
-                        }
-                    } else {
-                        navController.navigate(Screen.OrderHistory.route) {
-                            popUpTo(Screen.Home.route) { inclusive = false }
+                            launchSingleTop = true
                         }
                     }
-                }
+                )
             }
 
-            LaunchedEffect(checkoutState.errorMessage) {
-                checkoutState.errorMessage?.let { snackbarHostState.showSnackbar(it) }
-            }
-
-            Scaffold(
-                snackbarHost = { SnackbarHost(snackbarHostState) }
-            ) { padding ->
-                Box(modifier = Modifier.padding(padding)) {
-                    OrderConfirmationScreen(
-                        items = cartItemsForOrder,
-                        total = total,
-                        deliveryAddress = checkoutState.deliveryAddress,
-                        pickupAddress = checkoutState.pickupAddress,
-                        isLoadingPickupAddress = checkoutState.isLoadingPickupAddress,
-                        tipoEntrega = checkoutState.deliveryType,
-                        onDeliveryAddressChange = checkoutViewModel::onDeliveryAddressChange,
-                        onTipoEntregaChange = checkoutViewModel::onDeliveryTypeChange,
-                        onConfirmOrder = {
+            OrderConfirmationScreen(
+                items = cartItemsForOrder,
+                total = total,
+                deliveryAddress = checkoutState.deliveryAddress,
+                pickupAddress = checkoutState.pickupAddress,
+                isLoadingPickupAddress = checkoutState.isLoadingPickupAddress,
+                tipoEntrega = checkoutState.deliveryType,
+                isCreatingOrder = checkoutState.isCreatingOrder,
+                errorMessage = checkoutState.errorMessage,
+                canSubmit = checkoutState.canConfirm && (farmerId ?: -1) > 0,
+                canRetry = checkoutState.canRetry,
+                onRetryOrder = checkoutViewModel::retryOrder,
+                onDeliveryAddressChange = checkoutViewModel::onDeliveryAddressChange,
+                onTipoEntregaChange = checkoutViewModel::onDeliveryTypeChange,
+                onConfirmOrder = {
+                    farmerId?.takeIf { it > 0 }?.let { id ->
+                        // Acquire the ViewModel guard synchronously on the first tap.
+                        checkoutViewModel.createCashOrder(id, cartItemsForOrder)
+                        if (checkoutState.deliveryType == "domicilio") {
                             scope.launch {
-                                val farmerId =
-                                    SessionManager.getFarmerId(context).first() ?: -1
-
-                                if (farmerId == -1) {
-                                    return@launch
-                                }
-
-                                if (checkoutState.deliveryType == "domicilio") {
-                                    SessionManager.saveDeliveryAddress(
-                                        context,
-                                        checkoutState.deliveryAddress
-                                    )
-                                }
-
-                                checkoutViewModel.createCashOrder(
-                                    idAgricultor = farmerId,
-                                    items = cartItemsForOrder
-                                )
+                                SessionManager.saveDeliveryAddress(context, checkoutState.deliveryAddress)
                             }
-                        },
-                        onBack = {
-                            navController.popBackStack()
                         }
-                    )
+                    }
+                },
+                onBack = {
+                    checkoutViewModel.clearError()
+                    navController.popBackStack()
                 }
-            }
+            )
         }
 
         composable(Screen.OrderHistory.route) {

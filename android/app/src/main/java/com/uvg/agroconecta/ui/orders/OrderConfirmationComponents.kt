@@ -14,6 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.ui.cart.CartItemUI
@@ -25,7 +28,7 @@ internal val CheckoutGrayLight = Color(0xFFECEFF1)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun OrderConfirmationTopBar(onBack: () -> Unit) {
+internal fun OrderConfirmationTopBar(onBack: () -> Unit, enabled: Boolean = true) {
     TopAppBar(
         title = {
             Text(
@@ -35,7 +38,7 @@ internal fun OrderConfirmationTopBar(onBack: () -> Unit) {
             )
         },
         navigationIcon = {
-            IconButton(onClick = onBack) {
+            IconButton(onClick = onBack, enabled = enabled) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Volver",
@@ -53,7 +56,11 @@ internal fun OrderConfirmationTopBar(onBack: () -> Unit) {
 internal fun OrderConfirmationBottomBar(
     total: Double,
     canConfirm: Boolean,
-    onConfirmOrder: () -> Unit
+    onConfirmOrder: () -> Unit,
+    isCreatingOrder: Boolean,
+    errorMessage: String?,
+    canRetry: Boolean,
+    onRetryOrder: () -> Unit
 ) {
     Surface(shadowElevation = 8.dp) {
         Column(
@@ -61,6 +68,22 @@ internal fun OrderConfirmationBottomBar(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                )
+                if (canRetry) {
+                    OutlinedButton(
+                        onClick = onRetryOrder,
+                        enabled = !isCreatingOrder,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Reintentar") }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -81,7 +104,7 @@ internal fun OrderConfirmationBottomBar(
             Spacer(Modifier.height(10.dp))
             Button(
                 onClick = onConfirmOrder,
-                enabled = canConfirm,
+                enabled = canConfirm && !isCreatingOrder,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -90,14 +113,18 @@ internal fun OrderConfirmationBottomBar(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
+                if (isCreatingOrder) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "Confirmar pedido",
+                    if (isCreatingOrder) "Enviando pedido…" else "Confirmar pedido",
                     style = MaterialTheme.typography.titleSmall
                 )
             }
@@ -108,7 +135,8 @@ internal fun OrderConfirmationBottomBar(
 @Composable
 internal fun DeliveryTypeCard(
     deliveryType: String,
-    onDeliveryTypeChange: (String) -> Unit
+    onDeliveryTypeChange: (String) -> Unit,
+    enabled: Boolean = true
 ) {
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -127,11 +155,13 @@ internal fun DeliveryTypeCard(
             )
             Spacer(Modifier.height(8.dp))
             DeliveryTypeOption(
+                enabled = enabled,
                 selected = deliveryType == "domicilio",
                 label = "Entrega a domicilio",
                 onClick = { onDeliveryTypeChange("domicilio") }
             )
             DeliveryTypeOption(
+                enabled = enabled,
                 selected = deliveryType == "recogida",
                 label = "Recoger en punto",
                 onClick = { onDeliveryTypeChange("recogida") }
@@ -144,6 +174,7 @@ internal fun DeliveryTypeCard(
 private fun DeliveryTypeOption(
     selected: Boolean,
     label: String,
+    enabled: Boolean,
     onClick: () -> Unit
 ) {
     Row(
@@ -152,6 +183,7 @@ private fun DeliveryTypeOption(
     ) {
         RadioButton(
             selected = selected,
+            enabled = enabled,
             onClick = onClick,
             colors = RadioButtonDefaults.colors(
                 selectedColor = CheckoutGreenPrimary
@@ -167,7 +199,8 @@ private fun DeliveryTypeOption(
 @Composable
 internal fun DeliveryAddressCard(
     deliveryAddress: String,
-    onDeliveryAddressChange: (String) -> Unit
+    onDeliveryAddressChange: (String) -> Unit,
+    enabled: Boolean = true
 ) {
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -192,6 +225,7 @@ internal fun DeliveryAddressCard(
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = deliveryAddress,
+                enabled = enabled,
                 onValueChange = onDeliveryAddressChange,
                 placeholder = {
                     Text(
