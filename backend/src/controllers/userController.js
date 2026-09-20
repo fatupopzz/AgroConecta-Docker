@@ -98,6 +98,10 @@ const updateUser = async (req, res) => {
     return res.status(400).json({ error: "ID inválido" });
   }
 
+  if (req.user.tipo !== "administrador" && Object.hasOwn(req.body, "activo")) {
+    return res.status(403).json({ error: "Solo un administrador puede cambiar el estado de una cuenta" });
+  }
+
   try {
     const result = await pool.query(
       `UPDATE usuario SET

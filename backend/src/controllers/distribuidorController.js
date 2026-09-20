@@ -172,6 +172,23 @@ const updateDistributor = async (req, res) => {
   }
 
   try {
+    if (req.user.tipo !== "administrador") {
+      if (req.user.tipo !== "distribuidor") {
+        return res.status(403).json({ error: "Solo puedes actualizar tu propio perfil de distribuidor" });
+      }
+
+      const owner = await pool.query(
+        "SELECT id_usuario FROM distribuidor WHERE id_distribuidor = $1",
+        [id]
+      );
+      if (owner.rows.length === 0) {
+        return res.status(404).json({ error: "Distribuidor no encontrado" });
+      }
+      if (Number(owner.rows[0].id_usuario) !== Number(req.user.id)) {
+        return res.status(403).json({ error: "Solo puedes actualizar tu propio perfil de distribuidor" });
+      }
+    }
+
     const result = await pool.query(
       `UPDATE distribuidor SET
          nombre_negocio = COALESCE($2, nombre_negocio),

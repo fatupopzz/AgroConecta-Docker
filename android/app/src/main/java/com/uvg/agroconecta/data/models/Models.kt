@@ -37,6 +37,7 @@ data class MeResponse(
 data class UserInfo(
     @SerializedName("id_usuario") val idUsuario: Int,
     val nombre: String?,
+    val apellido: String? = null,
     val email: String?,
     val telefono: String?,
     @SerializedName("tipo_usuario") val tipoUsuario: String?
@@ -48,8 +49,27 @@ data class PerfilInfo(
     @SerializedName("nombre_negocio") val nombreNegocio: String? = null,
     @SerializedName("estado_verificacion") val estadoVerificacion: String? = null,
     @SerializedName("calificacion_promedio") val calificacionPromedio: Double? = null,
+    val departamento: String? = null,
+    val municipio: String? = null,
+    val direccion: String? = null,
+    val nit: String? = null,
+    @SerializedName("tipo_agricultor") val tipoAgricultor: String? = null,
+    @SerializedName("tamano_terreno_ha") val tamanoTerrenoHa: Double? = null,
+    @SerializedName("tiene_membresia") val tieneMembresia: Boolean? = null,
     @SerializedName("cultivos_principales") val cultivosPrincipales: String? = null,
     val cultivos: List<String> = emptyList()
+)
+
+data class UpdateMyProfileRequest(
+    val nombre: String,
+    val apellido: String?,
+    val telefono: String,
+    val email: String?,
+    val departamento: String?,
+    val municipio: String? = null,
+    @SerializedName("nombre_negocio") val nombreNegocio: String? = null,
+    val nit: String? = null,
+    val direccion: String? = null
 )
 
 data class CropPhase(

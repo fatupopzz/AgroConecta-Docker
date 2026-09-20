@@ -9,6 +9,15 @@ const PORT = process.env.PORT || 8080;
 
 const runStartupMigrations = async () => {
   const statements = [
+    `CREATE TABLE IF NOT EXISTS resena_distribuidor (
+       id_resena SERIAL PRIMARY KEY,
+       id_agricultor INTEGER NOT NULL REFERENCES agricultor(id_agricultor),
+       id_distribuidor INTEGER NOT NULL REFERENCES distribuidor(id_distribuidor),
+       calificacion INTEGER NOT NULL CHECK (calificacion BETWEEN 1 AND 5),
+       comentario TEXT,
+       fecha_resena TIMESTAMP DEFAULT NOW(),
+       UNIQUE (id_agricultor, id_distribuidor)
+     )`,
     `ALTER TABLE reporte_calidad
      ADD COLUMN IF NOT EXISTS fecha_resolucion TIMESTAMP`,
     `ALTER TABLE distribuidor
