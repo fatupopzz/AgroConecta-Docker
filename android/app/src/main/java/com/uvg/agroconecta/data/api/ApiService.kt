@@ -24,6 +24,11 @@ interface ApiService {
     @GET("auth/me")
     suspend fun getMe(): Response<MeResponse>
 
+    @PUT("auth/me")
+    suspend fun updateMe(
+        @Body request: UpdateMyProfileRequest
+    ): Response<MeResponse>
+
     @GET("ciclos/{cultivo}")
     suspend fun getCropCycles(
         @Path("cultivo") cultivo: String
