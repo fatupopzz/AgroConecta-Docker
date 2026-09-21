@@ -4,6 +4,11 @@ const jwt = require("jsonwebtoken");
 const { withCropList } = require("../utils/cropNames");
 
 const TIPOS_VALIDOS = ["agricultor", "distribuidor"];
+const CAMPOS_COMUNES_EDITABLES = ["nombre", "apellido", "telefono", "email", "departamento"];
+const CAMPOS_POR_TIPO = {
+  agricultor: ["municipio"],
+  distribuidor: ["nombre_negocio", "nit", "direccion"],
+};
 
 const register = async (req, res) => {
   // Validaciones de body ANTES de tomar conexion del pool
@@ -269,4 +274,121 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe };
+const normalizeOptionalText = (value) => {
+  if (value === null || value === undefined) return null;
+  return String(value).trim() || null;
+};
+
+const updateMe = async (req, res) => {
+  const { id, tipo } = req.user;
+  const allowedFields = new Set([
+    ...CAMPOS_COMUNES_EDITABLES,
+    ...(CAMPOS_POR_TIPO[tipo] || []),
+  ]);
+  const forbiddenFields = Object.keys(req.body).filter((field) => !allowedFields.has(field));
+
+  if (!TIPOS_VALIDOS.includes(tipo)) {
+    return res.status(403).json({ error: "Este tipo de usuario no puede editar este perfil" });
+  }
+
+  if (forbiddenFields.length > 0) {
+    return res.status(400).json({
+      error: `Campos no permitidos: ${forbiddenFields.join(", ")}`,
+    });
+  }
+
+  const nombre = normalizeOptionalText(req.body.nombre);
+  const apellido = normalizeOptionalText(req.body.apellido);
+  const telefono = normalizeOptionalText(req.body.telefono);
+  const email = normalizeOptionalText(req.body.email);
+  const departamento = normalizeOptionalText(req.body.departamento);
+
+  if (!nombre || nombre.length > 100) {
+    return res.status(400).json({ error: "El nombre es obligatorio y debe tener hasta 100 caracteres" });
+  }
+  if (!telefono || telefono.length > 20) {
+    return res.status(400).json({ error: "El teléfono es obligatorio y debe tener hasta 20 caracteres" });
+  }
+  if (email && (email.length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    return res.status(400).json({ error: "Correo electrónico inválido" });
+  }
+
+  const nombreNegocio = normalizeOptionalText(req.body.nombre_negocio);
+  if (tipo === "distribuidor" && (!nombreNegocio || nombreNegocio.length < 2 || nombreNegocio.length > 150)) {
+    return res.status(400).json({ error: "El nombre del negocio debe tener entre 2 y 150 caracteres" });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const userResult = await client.query(
+      `UPDATE usuario
+       SET nombre = $2, apellido = $3, telefono = $4, email = $5
+       WHERE id_usuario = $1
+       RETURNING id_usuario, nombre, apellido, telefono, email, tipo_usuario, fecha_registro`,
+      [Number(id), nombre, apellido, telefono, email]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    let profileResult;
+    if (tipo === "agricultor") {
+      profileResult = await client.query(
+        `UPDATE agricultor
+         SET departamento = $2, municipio = $3
+         WHERE id_usuario = $1
+         RETURNING id_agricultor, departamento, municipio, tipo_agricultor,
+                   tamano_terreno_ha, cultivos_principales, tiene_membresia`,
+        [Number(id), departamento, normalizeOptionalText(req.body.municipio)]
+      );
+    } else {
+      profileResult = await client.query(
+        `UPDATE distribuidor
+         SET nombre_negocio = $2, nit = $3, departamento = $4, direccion = $5
+         WHERE id_usuario = $1
+         RETURNING id_distribuidor, nombre_negocio, nit, departamento, direccion,
+                   estado_verificacion, calificacion_promedio`,
+        [
+          Number(id),
+          nombreNegocio,
+          normalizeOptionalText(req.body.nit),
+          departamento,
+          normalizeOptionalText(req.body.direccion),
+        ]
+      );
+    }
+
+    if (profileResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Perfil no encontrado" });
+    }
+
+    await client.query("COMMIT");
+    const perfil = tipo === "agricultor"
+      ? withCropList(profileResult.rows[0])
+      : profileResult.rows[0];
+    return res.json({ user: userResult.rows[0], perfil });
+  } catch (error) {
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Error en rollback de updateMe:", rollbackError);
+      }
+    }
+    if (error.code === "23505") {
+      return res.status(409).json({ error: "El teléfono, correo o NIT ya está registrado" });
+    }
+    console.error("Error en updateMe:", error);
+    return res.status(500).json({ error: "Error al actualizar perfil" });
+  } finally {
+    if (client) client.release();
+  }
+};
+
+module.exports = { register, login, getMe, updateMe };

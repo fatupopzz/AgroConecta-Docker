@@ -50,11 +50,14 @@ fun ProfileScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val isLoggingOut by viewModel.isLoggingOut.collectAsState()
+    val isSaving by viewModel.isSaving.collectAsState()
+    val saveError by viewModel.saveError.collectAsState()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        viewModel.loadProfile(context)
+        viewModel.loadProfile()
     }
 
     if (showLogoutDialog) {
@@ -64,6 +67,22 @@ fun ProfileScreen(
                 viewModel.logout(context) { onLogout() }
             },
             onDismiss = { showLogoutDialog = false }
+        )
+    }
+
+    val currentData = (uiState as? ProfileUiState.Success)?.data
+    if (showEditDialog && currentData != null) {
+        EditProfileDialog(
+            profileData = currentData,
+            isSaving = isSaving,
+            error = saveError,
+            onSave = { draft -> viewModel.saveProfile(draft) { showEditDialog = false } },
+            onDismiss = {
+                if (!isSaving) {
+                    viewModel.clearSaveError()
+                    showEditDialog = false
+                }
+            }
         )
     }
 
@@ -105,7 +124,7 @@ fun ProfileScreen(
                 is ProfileUiState.Error -> {
                     ErrorView(
                         message = state.message,
-                        onRetry = { viewModel.loadProfile(context) }
+                        onRetry = { viewModel.loadProfile() }
                     )
                 }
 
@@ -113,11 +132,13 @@ fun ProfileScreen(
                     when (val data = state.data) {
                         is ProfileData.Farmer -> FarmerProfileContent(
                             data.profile,
+                            onEditClick = { showEditDialog = true },
                             onLogoutClick = { showLogoutDialog = true }
                         )
                         is ProfileData.Distributor -> DistributorProfileContent(
                             data.profile,
                             onStatsClick = onStatsClick,
+                            onEditClick = { showEditDialog = true },
                             onLogoutClick = { showLogoutDialog = true }
                         )
                     }
@@ -141,6 +162,7 @@ fun ProfileScreen(
 @Composable
 fun FarmerProfileContent(
     profile: FarmerProfile,
+    onEditClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
     Column(
@@ -175,7 +197,8 @@ fun FarmerProfileContent(
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = profile.nombre ?: "Agricultor",
+                    text = listOfNotNull(profile.nombre, profile.apellido)
+                        .joinToString(" ").ifBlank { "Agricultor" },
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -264,7 +287,9 @@ fun FarmerProfileContent(
             )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
+        EditProfileButton(onClick = onEditClick)
+        Spacer(Modifier.height(12.dp))
         LogoutButton(onClick = onLogoutClick)
     }
 }
@@ -273,6 +298,7 @@ fun FarmerProfileContent(
 fun DistributorProfileContent(
     profile: DistributorProfile,
     onStatsClick: () -> Unit,
+    onEditClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
     Column(
@@ -348,7 +374,11 @@ fun DistributorProfileContent(
         Spacer(Modifier.height(16.dp))
 
         ProfileSection("Información de contacto") {
-            ProfileInfoRow(Icons.Default.Person, "Responsable", profile.nombre ?: "—")
+            ProfileInfoRow(
+                Icons.Default.Person,
+                "Responsable",
+                listOfNotNull(profile.nombre, profile.apellido).joinToString(" ").ifBlank { "—" }
+            )
             ProfileInfoRow(Icons.Default.Phone, "Teléfono", profile.telefono ?: "—")
             ProfileInfoRow(Icons.Default.Email, "Correo electrónico", profile.email ?: "—")
         }
@@ -362,6 +392,7 @@ fun DistributorProfileContent(
                 profile.departamento?.replaceFirstChar { it.uppercase() } ?: "—"
             )
             ProfileInfoRow(Icons.Default.Receipt, "NIT", profile.nit ?: "—")
+            ProfileInfoRow(Icons.Default.Place, "Dirección", profile.direccion ?: "—")
             profile.calificacionPromedio?.let {
                 ProfileInfoRow(Icons.Default.Star, "Calificación promedio", "%.1f / 5.0".format(it))
             }
@@ -388,7 +419,9 @@ fun DistributorProfileContent(
             Icon(Icons.Default.ChevronRight, contentDescription = null)
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
+        EditProfileButton(onClick = onEditClick)
+        Spacer(Modifier.height(12.dp))
         LogoutButton(onClick = onLogoutClick)
     }
 }
@@ -453,6 +486,128 @@ fun ProfileInfoRow(
         }
     }
     if (value != "—") HorizontalDivider(color = GrayBorder.copy(alpha = 0.5f))
+}
+
+@Composable
+fun EditProfileButton(onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(48.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenPrimary)
+    ) {
+        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Editar perfil", fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun EditProfileDialog(
+    profileData: ProfileData,
+    isSaving: Boolean,
+    error: String?,
+    onSave: (ProfileEditDraft) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val initialDraft = remember(profileData) {
+        when (profileData) {
+            is ProfileData.Farmer -> profileData.profile.let {
+                ProfileEditDraft(
+                    nombre = it.nombre.orEmpty(),
+                    apellido = it.apellido.orEmpty(),
+                    telefono = it.telefono.orEmpty(),
+                    email = it.email.orEmpty(),
+                    departamento = it.departamento.orEmpty(),
+                    municipio = it.municipio.orEmpty()
+                )
+            }
+            is ProfileData.Distributor -> profileData.profile.let {
+                ProfileEditDraft(
+                    nombre = it.nombre.orEmpty(),
+                    apellido = it.apellido.orEmpty(),
+                    telefono = it.telefono.orEmpty(),
+                    email = it.email.orEmpty(),
+                    departamento = it.departamento.orEmpty(),
+                    nombreNegocio = it.nombreNegocio,
+                    nit = it.nit.orEmpty(),
+                    direccion = it.direccion.orEmpty()
+                )
+            }
+        }
+    }
+    var draft by remember(profileData) { mutableStateOf(initialDraft) }
+    val isDistributor = profileData is ProfileData.Distributor
+
+    AlertDialog(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        icon = { Icon(Icons.Default.Edit, contentDescription = null, tint = GreenPrimary) },
+        title = { Text("Editar perfil") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ProfileTextField("Nombre", draft.nombre) { draft = draft.copy(nombre = it) }
+                ProfileTextField("Apellido", draft.apellido) { draft = draft.copy(apellido = it) }
+                ProfileTextField("Teléfono", draft.telefono) { draft = draft.copy(telefono = it) }
+                ProfileTextField("Correo electrónico", draft.email) { draft = draft.copy(email = it) }
+                ProfileTextField("Departamento", draft.departamento) { draft = draft.copy(departamento = it) }
+                if (isDistributor) {
+                    ProfileTextField("Nombre del negocio", draft.nombreNegocio) {
+                        draft = draft.copy(nombreNegocio = it)
+                    }
+                    ProfileTextField("NIT", draft.nit) { draft = draft.copy(nit = it) }
+                    ProfileTextField("Dirección", draft.direccion) { draft = draft.copy(direccion = it) }
+                } else {
+                    ProfileTextField("Municipio", draft.municipio) { draft = draft.copy(municipio = it) }
+                }
+                if (error != null) {
+                    Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(draft) },
+                enabled = !isSaving && draft.nombre.isNotBlank() && draft.telefono.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Guardar")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancelar") }
+        }
+    )
+}
+
+@Composable
+private fun ProfileTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true
+    )
 }
 
 @Composable
