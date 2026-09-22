@@ -4,10 +4,12 @@ import com.uvg.agroconecta.MainDispatcherRule
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
+import com.uvg.agroconecta.data.models.PestType
 import com.uvg.agroconecta.data.repository.PestAlertRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -106,6 +108,72 @@ class PestAlertViewModelTest {
         assertFalse(viewModel.uiState.value.isLoadingSuggestions)
     }
 
+    @Test
+    fun `report validation requires pest crop and current location`() {
+        val repository = FakePestAlertRepository()
+        val viewModel = PestAlertViewModel(repository)
+        viewModel.openReportForm()
+
+        viewModel.submitPestReport()
+
+        assertEquals("Selecciona el tipo de plaga", viewModel.uiState.value.reportErrorMessage)
+        assertTrue(viewModel.uiState.value.isReportFormVisible)
+        assertEquals(0, repository.reportRequests.size)
+    }
+
+    @Test
+    fun `submits report with selected values and prepends created alert`() {
+        val createdAlert = alert().copy(id = 30, distanceKm = 0.0)
+        val repository = FakePestAlertRepository(reportResult = createdAlert)
+        val viewModel = PestAlertViewModel(repository)
+        viewModel.loadNearbyAlerts(14.63, -90.50)
+        viewModel.openReportForm()
+        viewModel.selectReportPestType(PestType.THRIPS)
+        viewModel.selectReportCrop("Tomate")
+        viewModel.updateReportDescription("Daño visible en las hojas")
+
+        viewModel.submitPestReport()
+
+        val request = repository.reportRequests.single()
+        assertEquals("trips", request.pestType)
+        assertEquals("Tomate", request.cultivo)
+        assertEquals(14.63, request.latitud, 0.0)
+        assertEquals(-90.50, request.longitud, 0.0)
+        assertEquals("Daño visible en las hojas", request.descripcion)
+        assertEquals(createdAlert, viewModel.uiState.value.alerts.first())
+        assertFalse(viewModel.uiState.value.isReportFormVisible)
+        assertFalse(viewModel.uiState.value.isSubmittingReport)
+        assertEquals("Alerta reportada correctamente", viewModel.uiState.value.reportSuccessMessage)
+    }
+
+    @Test
+    fun `keeps report form open when submission fails`() {
+        val repository = FakePestAlertRepository(
+            reportError = IllegalStateException("Sin conexión")
+        )
+        val viewModel = PestAlertViewModel(repository)
+        viewModel.loadNearbyAlerts(14.63, -90.50)
+        viewModel.openReportForm()
+        viewModel.selectReportPestType(PestType.APHID)
+        viewModel.selectReportCrop("Frijol")
+
+        viewModel.submitPestReport()
+
+        assertTrue(viewModel.uiState.value.isReportFormVisible)
+        assertFalse(viewModel.uiState.value.isSubmittingReport)
+        assertEquals("Sin conexión", viewModel.uiState.value.reportErrorMessage)
+    }
+
+    @Test
+    fun `limits optional report description to backend safe length`() {
+        val viewModel = PestAlertViewModel(FakePestAlertRepository())
+        viewModel.openReportForm()
+
+        viewModel.updateReportDescription("a".repeat(600))
+
+        assertEquals(500, viewModel.uiState.value.reportForm.description.length)
+    }
+
     private fun alert() = PestAlert(
         id = 29,
         pestType = "pulgon",
@@ -121,10 +189,13 @@ private class FakePestAlertRepository(
     private val alerts: List<PestAlert> = emptyList(),
     private val products: Map<Int, List<PestSuggestedProduct>> = emptyMap(),
     var nearbyError: Throwable? = null,
-    private val productsError: Throwable? = null
+    private val productsError: Throwable? = null,
+    private val reportResult: PestAlert? = null,
+    private val reportError: Throwable? = null
 ) : PestAlertRepository {
     val nearbyRequests = mutableListOf<PestAlertLocation>()
     val productRequests = mutableListOf<Int>()
+    val reportRequests = mutableListOf<PestAlertReportRequest>()
 
     override suspend fun getNearbyAlerts(
         latitude: Double,
@@ -136,8 +207,11 @@ private class FakePestAlertRepository(
         return alerts
     }
 
-    override suspend fun reportPest(request: PestAlertReportRequest): PestAlert =
-        error("No se usa en estas pruebas")
+    override suspend fun reportPest(request: PestAlertReportRequest): PestAlert {
+        reportRequests += request
+        reportError?.let { throw it }
+        return checkNotNull(reportResult)
+    }
 
     override suspend fun getSuggestedProducts(alertId: Int): List<PestSuggestedProduct> {
         productRequests += alertId

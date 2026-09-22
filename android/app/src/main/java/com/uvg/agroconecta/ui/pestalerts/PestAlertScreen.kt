@@ -59,7 +59,13 @@ fun PestAlertScreen(
     onNavigateBack: () -> Unit,
     onRetry: () -> Unit,
     onAlertClick: (PestAlert) -> Unit,
-    onReportPest: () -> Unit
+    onReportPest: () -> Unit,
+    onDismissReportForm: () -> Unit = {},
+    onReportPestTypeSelected: (PestType) -> Unit = {},
+    onReportCropSelected: (String) -> Unit = {},
+    onReportDescriptionChanged: (String) -> Unit = {},
+    onSubmitReport: () -> Unit = {},
+    onDismissReportSuccess: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -105,6 +111,13 @@ fun PestAlertScreen(
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
+            uiState.reportSuccessMessage?.let { message ->
+                ReportSuccessBanner(
+                    message = message,
+                    onDismiss = onDismissReportSuccess
+                )
+            }
+
             when {
                 uiState.isLoadingAlerts && uiState.alerts.isEmpty() -> {
                     LoadingAlertsState()
@@ -130,6 +143,45 @@ fun PestAlertScreen(
                     )
                 }
             }
+        }
+    }
+
+    if (uiState.isReportFormVisible) {
+        PestAlertReportDialog(
+            formState = uiState.reportForm,
+            location = uiState.location,
+            isSubmitting = uiState.isSubmittingReport,
+            errorMessage = uiState.reportErrorMessage,
+            onDismiss = onDismissReportForm,
+            onPestTypeSelected = onReportPestTypeSelected,
+            onCropSelected = onReportCropSelected,
+            onDescriptionChanged = onReportDescriptionChanged,
+            onSubmit = onSubmitReport
+        )
+    }
+}
+
+@Composable
+private fun ReportSuccessBanner(message: String, onDismiss: () -> Unit) {
+    Surface(
+        color = GreenSurface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = message,
+                color = GreenPrimary,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
         }
     }
 }

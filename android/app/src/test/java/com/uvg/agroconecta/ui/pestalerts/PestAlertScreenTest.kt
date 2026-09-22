@@ -2,11 +2,14 @@ package com.uvg.agroconecta.ui.pestalerts
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.uvg.agroconecta.data.models.PestAlert
+import com.uvg.agroconecta.data.models.PestType
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -96,6 +99,67 @@ class PestAlertScreenTest {
         assertEquals("750 m", formatDistance(0.75))
         assertEquals("12.5 km", formatDistance(12.45))
         assertEquals("21/09/2026", formatAlertDate("2026-09-21T15:30:00Z"))
+    }
+
+    @Test
+    fun `report form shows selections and submits complete report`() {
+        var submissions = 0
+        val location = PestAlertLocation(14.6349, -90.5069)
+        compose.setContent {
+            MaterialTheme {
+                PestAlertScreen(
+                    uiState = PestAlertUiState(
+                        location = location,
+                        isReportFormVisible = true,
+                        reportForm = PestReportFormState(
+                            selectedPestType = PestType.APHID,
+                            selectedCrop = "Frijol"
+                        )
+                    ),
+                    onNavigateBack = {},
+                    onRetry = {},
+                    onAlertClick = {},
+                    onReportPest = {},
+                    onSubmitReport = { submissions += 1 }
+                )
+            }
+        }
+
+        compose.onNodeWithText("Reportar una plaga").assertIsDisplayed()
+        compose.onNodeWithText("Pulgón").assertIsDisplayed()
+        compose.onNodeWithText("Frijol").assertIsDisplayed()
+        compose.onNodeWithText("Lat. 14.63490, Long. -90.50690")
+            .performScrollTo()
+            .assertIsDisplayed()
+        compose.onNodeWithTag("submit-pest-report").performClick()
+
+        assertEquals(1, submissions)
+    }
+
+    @Test
+    fun `report form blocks submission while GPS location is unavailable`() {
+        compose.setContent {
+            MaterialTheme {
+                PestAlertScreen(
+                    uiState = PestAlertUiState(
+                        isReportFormVisible = true,
+                        reportForm = PestReportFormState(
+                            selectedPestType = PestType.THRIPS,
+                            selectedCrop = "Tomate"
+                        )
+                    ),
+                    onNavigateBack = {},
+                    onRetry = {},
+                    onAlertClick = {},
+                    onReportPest = {}
+                )
+            }
+        }
+
+        compose.onNodeWithText("Esperando ubicación GPS…")
+            .performScrollTo()
+            .assertIsDisplayed()
+        compose.onNodeWithTag("submit-pest-report").assertIsNotEnabled()
     }
 
     private fun alert() = PestAlert(

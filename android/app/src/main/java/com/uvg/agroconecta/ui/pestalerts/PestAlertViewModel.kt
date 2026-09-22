@@ -3,7 +3,9 @@ package com.uvg.agroconecta.ui.pestalerts
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.models.PestAlert
+import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
+import com.uvg.agroconecta.data.models.PestType
 import com.uvg.agroconecta.data.repository.PestAlertRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -29,7 +31,30 @@ data class PestAlertUiState(
     val isLoadingAlerts: Boolean = false,
     val isLoadingSuggestions: Boolean = false,
     val alertsErrorMessage: String? = null,
-    val detailErrorMessage: String? = null
+    val detailErrorMessage: String? = null,
+    val isReportFormVisible: Boolean = false,
+    val reportForm: PestReportFormState = PestReportFormState(),
+    val isSubmittingReport: Boolean = false,
+    val reportErrorMessage: String? = null,
+    val reportSuccessMessage: String? = null
+)
+
+data class PestReportFormState(
+    val selectedPestType: PestType? = null,
+    val selectedCrop: String = "",
+    val description: String = ""
+)
+
+val pestAlertCrops = listOf(
+    "Maíz",
+    "Frijol",
+    "Café",
+    "Tomate",
+    "Papa",
+    "Cardamomo",
+    "Banano",
+    "Hortalizas",
+    "Otro"
 )
 
 @HiltViewModel
@@ -165,6 +190,124 @@ class PestAlertViewModel @Inject constructor(
 
     fun clearAlertsError() {
         _uiState.update { it.copy(alertsErrorMessage = null) }
+    }
+
+    fun openReportForm() {
+        if (_uiState.value.isSubmittingReport) return
+        _uiState.update {
+            it.copy(
+                isReportFormVisible = true,
+                reportForm = PestReportFormState(),
+                reportErrorMessage = null,
+                reportSuccessMessage = null
+            )
+        }
+    }
+
+    fun dismissReportForm() {
+        if (_uiState.value.isSubmittingReport) return
+        _uiState.update {
+            it.copy(
+                isReportFormVisible = false,
+                reportErrorMessage = null
+            )
+        }
+    }
+
+    fun selectReportPestType(pestType: PestType) {
+        _uiState.update {
+            it.copy(
+                reportForm = it.reportForm.copy(selectedPestType = pestType),
+                reportErrorMessage = null
+            )
+        }
+    }
+
+    fun selectReportCrop(crop: String) {
+        _uiState.update {
+            it.copy(
+                reportForm = it.reportForm.copy(selectedCrop = crop),
+                reportErrorMessage = null
+            )
+        }
+    }
+
+    fun updateReportDescription(description: String) {
+        _uiState.update {
+            it.copy(
+                reportForm = it.reportForm.copy(description = description.take(MAX_DESCRIPTION_LENGTH)),
+                reportErrorMessage = null
+            )
+        }
+    }
+
+    fun submitPestReport() {
+        if (_uiState.value.isSubmittingReport) return
+        val state = _uiState.value
+        val location = state.location
+        val form = state.reportForm
+        val validationError = when {
+            form.selectedPestType == null -> "Selecciona el tipo de plaga"
+            form.selectedCrop.isBlank() -> "Selecciona el cultivo afectado"
+            location == null -> "No se pudo obtener la ubicación del reporte"
+            else -> null
+        }
+        if (validationError != null) {
+            _uiState.update { it.copy(reportErrorMessage = validationError) }
+            return
+        }
+
+        val reportLocation = checkNotNull(location)
+        val reportPestType = checkNotNull(form.selectedPestType)
+        val request = PestAlertReportRequest(
+            pestType = reportPestType.apiValue,
+            cultivo = form.selectedCrop.trim(),
+            latitud = reportLocation.latitude,
+            longitud = reportLocation.longitude,
+            descripcion = form.description.trim().ifBlank { null }
+        )
+
+        _uiState.update {
+            it.copy(
+                isSubmittingReport = true,
+                reportErrorMessage = null,
+                reportSuccessMessage = null
+            )
+        }
+        viewModelScope.launch {
+            runCatching {
+                repository.reportPest(request)
+            }.onSuccess { createdAlert ->
+                _uiState.update { current ->
+                    current.copy(
+                        alerts = (listOf(createdAlert) + current.alerts)
+                            .distinctBy(PestAlert::id),
+                        isReportFormVisible = false,
+                        reportForm = PestReportFormState(),
+                        isSubmittingReport = false,
+                        reportErrorMessage = null,
+                        reportSuccessMessage = "Alerta reportada correctamente"
+                    )
+                }
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                _uiState.update {
+                    it.copy(
+                        isSubmittingReport = false,
+                        reportErrorMessage = error.message
+                            ?: "No se pudo reportar la plaga"
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearReportSuccess() {
+        _uiState.update { it.copy(reportSuccessMessage = null) }
+    }
+
+    private companion object {
+        const val MAX_DESCRIPTION_LENGTH = 500
     }
 }
 
