@@ -2,6 +2,7 @@ package com.uvg.agroconecta.data.repository
 
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestAlertReportRequest
+import com.uvg.agroconecta.data.models.PestSuggestedProduct
 
 /**
  * Contrato de datos de HU-029. La implementación puede ser remota o local sin
@@ -16,8 +17,9 @@ interface PestAlertRepository {
 
     suspend fun reportPest(request: PestAlertReportRequest): PestAlert
 
+    suspend fun getSuggestedProducts(alertId: Int): List<PestSuggestedProduct>
+
     companion object {
         const val DEFAULT_RADIUS_KM = 25.0
     }
 }
-

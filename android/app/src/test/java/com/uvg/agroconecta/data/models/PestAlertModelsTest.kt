@@ -19,20 +19,14 @@ class PestAlertModelsTest {
                     {
                       "id_alerta": 29,
                       "tipo_plaga": "pulgon",
-                      "cultivo": "Frijol",
+                      "cultivo_afectado": "Frijol",
                       "distancia_km": 3.4,
                       "latitud": 14.6349,
                       "longitud": -90.5069,
                       "fecha_reporte": "2026-09-21T15:30:00Z",
                       "activa": true,
-                      "productos_preventivos": [
-                        {
-                          "id_producto": 7,
-                          "nombre": "Aceite de neem",
-                          "marca": "AgroVida",
-                          "uso_recomendado": "Aplicar al atardecer"
-                        }
-                      ]
+                      "severidad": "alta",
+                      "nombre_usuario": "Ana"
                     }
                   ]
                 }
@@ -48,7 +42,8 @@ class PestAlertModelsTest {
         assertEquals(14.6349, alert.latitud, 0.0)
         assertEquals(-90.5069, alert.longitud, 0.0)
         assertTrue(alert.activa)
-        assertEquals("Aceite de neem", alert.suggestedProducts.single().nombre)
+        assertEquals("alta", alert.severidad)
+        assertEquals("Ana", alert.reporterName)
     }
 
     @Test
@@ -63,11 +58,12 @@ class PestAlertModelsTest {
         val json = gson.toJsonTree(request).asJsonObject
 
         assertEquals("gusano_cogollero", json.get("tipo_plaga").asString)
-        assertEquals("Maíz", json.get("cultivo").asString)
+        assertEquals("Maíz", json.get("cultivo_afectado").asString)
         assertEquals(14.6211, json.get("latitud").asDouble, 0.0)
         assertEquals(-90.5270, json.get("longitud").asDouble, 0.0)
         assertFalse(json.has("distanceKm"))
         assertFalse(json.has("distancia_km"))
+        assertFalse(json.has("cultivo"))
     }
 
     @Test
