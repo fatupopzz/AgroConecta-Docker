@@ -7,6 +7,8 @@ import com.uvg.agroconecta.data.connectivity.AndroidConnectivityMonitor
 import com.uvg.agroconecta.data.connectivity.ConnectivityMonitor
 import com.uvg.agroconecta.data.local.AgroConectaDatabase
 import com.uvg.agroconecta.data.local.ProductCacheDao
+import com.uvg.agroconecta.data.location.AndroidCurrentLocationProvider
+import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.repository.CropCycleRepository
 import com.uvg.agroconecta.data.repository.OfflineFirstProductCatalogRepository
 import com.uvg.agroconecta.data.repository.ProductCatalogRepository
@@ -72,4 +74,10 @@ object StorageModule {
     @Singleton
     fun providePestAlertRepository(apiService: ApiService): PestAlertRepository =
         RemotePestAlertRepository(apiService)
+
+    @Provides
+    @Singleton
+    fun provideCurrentLocationProvider(
+        provider: AndroidCurrentLocationProvider
+    ): CurrentLocationProvider = provider
 }

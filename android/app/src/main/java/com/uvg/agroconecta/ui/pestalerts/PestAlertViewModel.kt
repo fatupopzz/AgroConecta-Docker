@@ -2,6 +2,7 @@ package com.uvg.agroconecta.ui.pestalerts
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
@@ -36,7 +37,9 @@ data class PestAlertUiState(
     val reportForm: PestReportFormState = PestReportFormState(),
     val isSubmittingReport: Boolean = false,
     val reportErrorMessage: String? = null,
-    val reportSuccessMessage: String? = null
+    val reportSuccessMessage: String? = null,
+    val isLocating: Boolean = false,
+    val locationErrorMessage: String? = null
 )
 
 data class PestReportFormState(
@@ -59,7 +62,8 @@ val pestAlertCrops = listOf(
 
 @HiltViewModel
 class PestAlertViewModel @Inject constructor(
-    private val repository: PestAlertRepository
+    private val repository: PestAlertRepository,
+    private val locationProvider: CurrentLocationProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PestAlertUiState())
@@ -67,6 +71,71 @@ class PestAlertViewModel @Inject constructor(
 
     private var alertsJob: Job? = null
     private var suggestionsJob: Job? = null
+    private var locationJob: Job? = null
+
+    fun refreshLocation() {
+        locationJob?.cancel()
+        _uiState.update {
+            it.copy(
+                isLocating = true,
+                locationErrorMessage = null
+            )
+        }
+        locationJob = viewModelScope.launch {
+            runCatching {
+                locationProvider.getCurrentCoordinates()
+            }.onSuccess { coordinates ->
+                if (coordinates == null) {
+                    _uiState.update {
+                        it.copy(
+                            isLocating = false,
+                            locationErrorMessage = "No se pudo determinar tu ubicación. Verifica que el GPS esté activo"
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            location = PestAlertLocation(
+                                latitude = coordinates.latitude,
+                                longitude = coordinates.longitude
+                            ),
+                            isLocating = false,
+                            locationErrorMessage = null,
+                            reportErrorMessage = null
+                        )
+                    }
+                    loadNearbyAlerts(
+                        latitude = coordinates.latitude,
+                        longitude = coordinates.longitude
+                    )
+                }
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                val message = if (error is SecurityException) {
+                    "Se necesita permiso de ubicación para mostrar alertas cercanas"
+                } else {
+                    error.message ?: "No se pudo obtener tu ubicación"
+                }
+                _uiState.update {
+                    it.copy(
+                        isLocating = false,
+                        locationErrorMessage = message
+                    )
+                }
+            }
+        }
+    }
+
+    fun onLocationPermissionDenied() {
+        locationJob?.cancel()
+        _uiState.update {
+            it.copy(
+                location = null,
+                isLocating = false,
+                locationErrorMessage = "Activa el permiso de ubicación para consultar y reportar alertas cercanas"
+            )
+        }
+    }
 
     fun loadNearbyAlerts(
         latitude: Double,

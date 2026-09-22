@@ -1,6 +1,8 @@
 package com.uvg.agroconecta.ui.pestalerts
 
 import com.uvg.agroconecta.MainDispatcherRule
+import com.uvg.agroconecta.data.location.CurrentLocationProvider
+import com.uvg.agroconecta.data.location.GeoCoordinates
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
@@ -22,7 +24,7 @@ class PestAlertViewModelTest {
     fun `loads nearby alerts and retains requested location`() {
         val alert = alert()
         val repository = FakePestAlertRepository(alerts = listOf(alert))
-        val viewModel = PestAlertViewModel(repository)
+        val viewModel = createViewModel(repository)
 
         viewModel.loadNearbyAlerts(14.63, -90.50, 12.0)
 
@@ -36,7 +38,7 @@ class PestAlertViewModelTest {
     @Test
     fun `rejects invalid coordinates without querying repository`() {
         val repository = FakePestAlertRepository()
-        val viewModel = PestAlertViewModel(repository)
+        val viewModel = createViewModel(repository)
 
         viewModel.loadNearbyAlerts(95.0, -90.50)
 
@@ -49,7 +51,7 @@ class PestAlertViewModelTest {
     fun `retains alerts and exposes message when refresh fails`() {
         val originalAlert = alert()
         val repository = FakePestAlertRepository(alerts = listOf(originalAlert))
-        val viewModel = PestAlertViewModel(repository)
+        val viewModel = createViewModel(repository)
         viewModel.loadNearbyAlerts(14.63, -90.50)
         repository.nearbyError = IllegalStateException("Sin conexión")
 
@@ -66,7 +68,7 @@ class PestAlertViewModelTest {
         val alert = alert()
         val product = PestSuggestedProduct(id = 8, nombre = "Aceite de neem")
         val repository = FakePestAlertRepository(products = mapOf(alert.id to listOf(product)))
-        val viewModel = PestAlertViewModel(repository)
+        val viewModel = createViewModel(repository)
 
         viewModel.selectAlert(alert)
 
@@ -83,7 +85,7 @@ class PestAlertViewModelTest {
         val repository = FakePestAlertRepository(
             products = mapOf(alert.id to listOf(PestSuggestedProduct(8, "Aceite de neem")))
         )
-        val viewModel = PestAlertViewModel(repository)
+        val viewModel = createViewModel(repository)
         viewModel.selectAlert(alert)
 
         viewModel.dismissAlertDetail()
@@ -99,7 +101,7 @@ class PestAlertViewModelTest {
         val repository = FakePestAlertRepository(
             productsError = IllegalStateException("No disponible")
         )
-        val viewModel = PestAlertViewModel(repository)
+        val viewModel = createViewModel(repository)
 
         viewModel.selectAlert(alert)
 
@@ -111,7 +113,7 @@ class PestAlertViewModelTest {
     @Test
     fun `report validation requires pest crop and current location`() {
         val repository = FakePestAlertRepository()
-        val viewModel = PestAlertViewModel(repository)
+        val viewModel = createViewModel(repository)
         viewModel.openReportForm()
 
         viewModel.submitPestReport()
@@ -125,7 +127,7 @@ class PestAlertViewModelTest {
     fun `submits report with selected values and prepends created alert`() {
         val createdAlert = alert().copy(id = 30, distanceKm = 0.0)
         val repository = FakePestAlertRepository(reportResult = createdAlert)
-        val viewModel = PestAlertViewModel(repository)
+        val viewModel = createViewModel(repository)
         viewModel.loadNearbyAlerts(14.63, -90.50)
         viewModel.openReportForm()
         viewModel.selectReportPestType(PestType.THRIPS)
@@ -151,7 +153,7 @@ class PestAlertViewModelTest {
         val repository = FakePestAlertRepository(
             reportError = IllegalStateException("Sin conexión")
         )
-        val viewModel = PestAlertViewModel(repository)
+        val viewModel = createViewModel(repository)
         viewModel.loadNearbyAlerts(14.63, -90.50)
         viewModel.openReportForm()
         viewModel.selectReportPestType(PestType.APHID)
@@ -166,12 +168,72 @@ class PestAlertViewModelTest {
 
     @Test
     fun `limits optional report description to backend safe length`() {
-        val viewModel = PestAlertViewModel(FakePestAlertRepository())
+        val viewModel = createViewModel(FakePestAlertRepository())
         viewModel.openReportForm()
 
         viewModel.updateReportDescription("a".repeat(600))
 
         assertEquals(500, viewModel.uiState.value.reportForm.description.length)
+    }
+
+    @Test
+    fun `GPS location automatically loads nearby alerts`() {
+        val alert = alert()
+        val repository = FakePestAlertRepository(alerts = listOf(alert))
+        val locationProvider = FakeCurrentLocationProvider(
+            coordinates = GeoCoordinates(14.6349, -90.5069)
+        )
+        val viewModel = createViewModel(repository, locationProvider)
+
+        viewModel.refreshLocation()
+
+        assertEquals(
+            PestAlertLocation(14.6349, -90.5069),
+            viewModel.uiState.value.location
+        )
+        assertEquals(listOf(alert), viewModel.uiState.value.alerts)
+        assertFalse(viewModel.uiState.value.isLocating)
+        assertNull(viewModel.uiState.value.locationErrorMessage)
+        assertEquals(1, locationProvider.requests)
+        assertEquals(1, repository.nearbyRequests.size)
+    }
+
+    @Test
+    fun `shows actionable error when GPS cannot determine location`() {
+        val repository = FakePestAlertRepository()
+        val viewModel = createViewModel(
+            repository,
+            FakeCurrentLocationProvider(coordinates = null)
+        )
+
+        viewModel.refreshLocation()
+
+        assertNull(viewModel.uiState.value.location)
+        assertFalse(viewModel.uiState.value.isLocating)
+        assertEquals(
+            "No se pudo determinar tu ubicación. Verifica que el GPS esté activo",
+            viewModel.uiState.value.locationErrorMessage
+        )
+        assertEquals(0, repository.nearbyRequests.size)
+    }
+
+    @Test
+    fun `permission denial clears location and explains required action`() {
+        val repository = FakePestAlertRepository()
+        val locationProvider = FakeCurrentLocationProvider(
+            error = SecurityException("denegado")
+        )
+        val viewModel = createViewModel(repository, locationProvider)
+
+        viewModel.refreshLocation()
+        viewModel.onLocationPermissionDenied()
+
+        assertNull(viewModel.uiState.value.location)
+        assertFalse(viewModel.uiState.value.isLocating)
+        assertEquals(
+            "Activa el permiso de ubicación para consultar y reportar alertas cercanas",
+            viewModel.uiState.value.locationErrorMessage
+        )
     }
 
     private fun alert() = PestAlert(
@@ -183,6 +245,24 @@ class PestAlertViewModelTest {
         longitud = -90.50,
         reportedAt = "2026-09-21T15:30:00Z"
     )
+
+    private fun createViewModel(
+        repository: PestAlertRepository,
+        locationProvider: CurrentLocationProvider = FakeCurrentLocationProvider()
+    ) = PestAlertViewModel(repository, locationProvider)
+}
+
+private class FakeCurrentLocationProvider(
+    var coordinates: GeoCoordinates? = null,
+    var error: Throwable? = null
+) : CurrentLocationProvider {
+    var requests = 0
+
+    override suspend fun getCurrentCoordinates(): GeoCoordinates? {
+        requests += 1
+        error?.let { throw it }
+        return coordinates
+    }
 }
 
 private class FakePestAlertRepository(

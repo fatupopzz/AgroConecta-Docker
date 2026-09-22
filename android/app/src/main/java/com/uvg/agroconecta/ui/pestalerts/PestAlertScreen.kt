@@ -67,6 +67,9 @@ fun PestAlertScreen(
     onSubmitReport: () -> Unit = {},
     onDismissReportSuccess: () -> Unit = {}
 ) {
+    val isLoadingLocationOrAlerts = uiState.isLocating || uiState.isLoadingAlerts
+    val primaryErrorMessage = uiState.locationErrorMessage ?: uiState.alertsErrorMessage
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -107,7 +110,7 @@ fun PestAlertScreen(
                 .fillMaxSize()
                 .padding(contentPadding)
         ) {
-            if (uiState.isLoadingAlerts && uiState.alerts.isNotEmpty()) {
+            if (isLoadingLocationOrAlerts && uiState.alerts.isNotEmpty()) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
@@ -119,13 +122,13 @@ fun PestAlertScreen(
             }
 
             when {
-                uiState.isLoadingAlerts && uiState.alerts.isEmpty() -> {
+                isLoadingLocationOrAlerts && uiState.alerts.isEmpty() -> {
                     LoadingAlertsState()
                 }
 
-                uiState.alertsErrorMessage != null && uiState.alerts.isEmpty() -> {
+                primaryErrorMessage != null && uiState.alerts.isEmpty() -> {
                     AlertsErrorState(
-                        message = uiState.alertsErrorMessage,
+                        message = primaryErrorMessage,
                         onRetry = onRetry
                     )
                 }
@@ -137,7 +140,7 @@ fun PestAlertScreen(
                 else -> {
                     AlertsList(
                         alerts = uiState.alerts,
-                        errorMessage = uiState.alertsErrorMessage,
+                        errorMessage = primaryErrorMessage,
                         onRetry = onRetry,
                         onAlertClick = onAlertClick
                     )
@@ -151,7 +154,7 @@ fun PestAlertScreen(
             formState = uiState.reportForm,
             location = uiState.location,
             isSubmitting = uiState.isSubmittingReport,
-            errorMessage = uiState.reportErrorMessage,
+            errorMessage = uiState.reportErrorMessage ?: uiState.locationErrorMessage,
             onDismiss = onDismissReportForm,
             onPestTypeSelected = onReportPestTypeSelected,
             onCropSelected = onReportCropSelected,
