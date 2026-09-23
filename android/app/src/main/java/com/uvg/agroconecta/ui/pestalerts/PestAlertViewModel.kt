@@ -39,8 +39,14 @@ data class PestAlertUiState(
     val reportErrorMessage: String? = null,
     val reportSuccessMessage: String? = null,
     val isLocating: Boolean = false,
-    val locationErrorMessage: String? = null
+    val locationErrorMessage: String? = null,
+    val viewMode: PestAlertViewMode = PestAlertViewMode.LIST
 )
+
+enum class PestAlertViewMode {
+    LIST,
+    MAP
+}
 
 data class PestReportFormState(
     val selectedPestType: PestType? = null,
@@ -259,6 +265,10 @@ class PestAlertViewModel @Inject constructor(
 
     fun clearAlertsError() {
         _uiState.update { it.copy(alertsErrorMessage = null) }
+    }
+
+    fun setViewMode(viewMode: PestAlertViewMode) {
+        _uiState.update { it.copy(viewMode = viewMode) }
     }
 
     fun openReportForm() {

@@ -236,6 +236,15 @@ class PestAlertViewModelTest {
         )
     }
 
+    @Test
+    fun `changes between list and map presentation modes`() {
+        val viewModel = createViewModel(FakePestAlertRepository())
+
+        viewModel.setViewMode(PestAlertViewMode.MAP)
+
+        assertEquals(PestAlertViewMode.MAP, viewModel.uiState.value.viewMode)
+    }
+
     private fun alert() = PestAlert(
         id = 29,
         pestType = "pulgon",

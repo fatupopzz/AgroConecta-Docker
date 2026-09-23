@@ -52,6 +52,7 @@ fun PestAlertRoute(
         onNavigateBack = onNavigateBack,
         onRetry = requestOrRefreshLocation,
         onAlertClick = viewModel::selectAlert,
+        onViewModeChanged = viewModel::setViewMode,
         onReportPest = {
             viewModel.openReportForm()
             if (uiState.location == null && !uiState.isLocating) {

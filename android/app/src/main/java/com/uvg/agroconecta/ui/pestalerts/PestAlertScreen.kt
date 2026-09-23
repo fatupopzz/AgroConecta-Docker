@@ -14,15 +14,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,6 +63,7 @@ fun PestAlertScreen(
     onRetry: () -> Unit,
     onAlertClick: (PestAlert) -> Unit,
     onReportPest: () -> Unit,
+    onViewModeChanged: (PestAlertViewMode) -> Unit = {},
     onDismissReportForm: () -> Unit = {},
     onReportPestTypeSelected: (PestType) -> Unit = {},
     onReportCropSelected: (String) -> Unit = {},
@@ -121,6 +125,11 @@ fun PestAlertScreen(
                 )
             }
 
+            PestAlertViewSelector(
+                selectedMode = uiState.viewMode,
+                onModeSelected = onViewModeChanged
+            )
+
             when {
                 isLoadingLocationOrAlerts && uiState.alerts.isEmpty() -> {
                     LoadingAlertsState()
@@ -138,12 +147,22 @@ fun PestAlertScreen(
                 }
 
                 else -> {
-                    AlertsList(
-                        alerts = uiState.alerts,
-                        errorMessage = primaryErrorMessage,
-                        onRetry = onRetry,
-                        onAlertClick = onAlertClick
-                    )
+                    if (uiState.viewMode == PestAlertViewMode.MAP) {
+                        PestAlertsMap(
+                            alerts = uiState.alerts,
+                            currentLocation = uiState.location,
+                            errorMessage = primaryErrorMessage,
+                            onRetry = onRetry,
+                            onAlertClick = onAlertClick
+                        )
+                    } else {
+                        AlertsList(
+                            alerts = uiState.alerts,
+                            errorMessage = primaryErrorMessage,
+                            onRetry = onRetry,
+                            onAlertClick = onAlertClick
+                        )
+                    }
                 }
             }
         }
@@ -160,6 +179,44 @@ fun PestAlertScreen(
             onCropSelected = onReportCropSelected,
             onDescriptionChanged = onReportDescriptionChanged,
             onSubmit = onSubmitReport
+        )
+    }
+}
+
+@Composable
+private fun PestAlertViewSelector(
+    selectedMode: PestAlertViewMode,
+    onModeSelected: (PestAlertViewMode) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        FilterChip(
+            selected = selectedMode == PestAlertViewMode.LIST,
+            onClick = { onModeSelected(PestAlertViewMode.LIST) },
+            label = { Text("Lista") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.List,
+                    contentDescription = null
+                )
+            },
+            modifier = Modifier.weight(1f)
+        )
+        FilterChip(
+            selected = selectedMode == PestAlertViewMode.MAP,
+            onClick = { onModeSelected(PestAlertViewMode.MAP) },
+            label = { Text("Mapa") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Map,
+                    contentDescription = null
+                )
+            },
+            modifier = Modifier.weight(1f)
         )
     }
 }
@@ -400,7 +457,7 @@ private fun AlertsErrorState(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun InlineAlertsError(message: String, onRetry: () -> Unit) {
+internal fun InlineAlertsError(message: String, onRetry: () -> Unit) {
     Surface(
         color = Color(0xFFFFEDEA),
         shape = MaterialTheme.shapes.medium,

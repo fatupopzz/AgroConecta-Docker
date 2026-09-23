@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performScrollTo
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -160,6 +161,50 @@ class PestAlertScreenTest {
             .performScrollTo()
             .assertIsDisplayed()
         compose.onNodeWithTag("submit-pest-report").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `map mode shows user and alert markers and opens selected alert`() {
+        val alert = alert()
+        var selectedAlert: PestAlert? = null
+        compose.setContent {
+            MaterialTheme {
+                PestAlertScreen(
+                    uiState = PestAlertUiState(
+                        alerts = listOf(alert),
+                        location = PestAlertLocation(14.6349, -90.5069),
+                        viewMode = PestAlertViewMode.MAP
+                    ),
+                    onNavigateBack = {},
+                    onRetry = {},
+                    onAlertClick = { selectedAlert = it },
+                    onReportPest = {}
+                )
+            }
+        }
+
+        compose.onNodeWithText("Mapa de alertas").assertIsDisplayed()
+        compose.onNodeWithTag("pest-alert-map").assertIsDisplayed()
+        compose.onNodeWithTag("current-location-marker").assertIsDisplayed()
+        compose.onNodeWithTag("pest-map-marker-29").performClick()
+
+        assertEquals(alert, selectedAlert)
+    }
+
+    @Test
+    fun `map bounds contain all coordinates and normalize marker positions`() {
+        val alert = alert()
+        val location = PestAlertLocation(14.6349, -90.5069)
+
+        val bounds = calculatePestMapBounds(listOf(alert), location)
+        val marker = normalizePestMapPoint(alert.latitud, alert.longitud, bounds)
+
+        assertTrue(bounds.minLatitude < minOf(alert.latitud, location.latitude))
+        assertTrue(bounds.maxLatitude > maxOf(alert.latitud, location.latitude))
+        assertTrue(bounds.minLongitude < minOf(alert.longitud, location.longitude))
+        assertTrue(bounds.maxLongitude > maxOf(alert.longitud, location.longitude))
+        assertTrue(marker.x in 0f..1f)
+        assertTrue(marker.y in 0f..1f)
     }
 
     private fun alert() = PestAlert(
