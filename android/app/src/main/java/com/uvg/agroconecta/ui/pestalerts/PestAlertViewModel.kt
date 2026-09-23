@@ -263,6 +263,11 @@ class PestAlertViewModel @Inject constructor(
         }
     }
 
+    fun retrySuggestedProducts() {
+        val selectedAlert = _uiState.value.selectedAlert ?: return
+        selectAlert(selectedAlert)
+    }
+
     fun clearAlertsError() {
         _uiState.update { it.copy(alertsErrorMessage = null) }
     }

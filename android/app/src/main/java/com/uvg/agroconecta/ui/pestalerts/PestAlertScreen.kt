@@ -63,6 +63,8 @@ fun PestAlertScreen(
     onRetry: () -> Unit,
     onAlertClick: (PestAlert) -> Unit,
     onReportPest: () -> Unit,
+    onDismissAlertDetail: () -> Unit = {},
+    onRetryAlertDetail: () -> Unit = {},
     onViewModeChanged: (PestAlertViewMode) -> Unit = {},
     onDismissReportForm: () -> Unit = {},
     onReportPestTypeSelected: (PestType) -> Unit = {},
@@ -179,6 +181,17 @@ fun PestAlertScreen(
             onCropSelected = onReportCropSelected,
             onDescriptionChanged = onReportDescriptionChanged,
             onSubmit = onSubmitReport
+        )
+    }
+
+    uiState.selectedAlert?.let { alert ->
+        PestAlertDetailSheet(
+            alert = alert,
+            products = uiState.suggestedProducts,
+            isLoadingProducts = uiState.isLoadingSuggestions,
+            errorMessage = uiState.detailErrorMessage,
+            onRetry = onRetryAlertDetail,
+            onDismiss = onDismissAlertDetail
         )
     }
 }

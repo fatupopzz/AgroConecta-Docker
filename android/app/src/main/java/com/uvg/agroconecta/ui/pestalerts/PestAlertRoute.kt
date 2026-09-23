@@ -52,6 +52,8 @@ fun PestAlertRoute(
         onNavigateBack = onNavigateBack,
         onRetry = requestOrRefreshLocation,
         onAlertClick = viewModel::selectAlert,
+        onDismissAlertDetail = viewModel::dismissAlertDetail,
+        onRetryAlertDetail = viewModel::retrySuggestedProducts,
         onViewModeChanged = viewModel::setViewMode,
         onReportPest = {
             viewModel.openReportForm()

@@ -111,6 +111,25 @@ class PestAlertViewModelTest {
     }
 
     @Test
+    fun `retries suggested products for the selected alert`() {
+        val alert = alert()
+        val product = PestSuggestedProduct(id = 8, nombre = "Aceite de neem")
+        val repository = FakePestAlertRepository(
+            products = mapOf(alert.id to listOf(product)),
+            productsError = IllegalStateException("No disponible")
+        )
+        val viewModel = createViewModel(repository)
+        viewModel.selectAlert(alert)
+        repository.productsError = null
+
+        viewModel.retrySuggestedProducts()
+
+        assertEquals(listOf(product), viewModel.uiState.value.suggestedProducts)
+        assertNull(viewModel.uiState.value.detailErrorMessage)
+        assertEquals(listOf(alert.id, alert.id), repository.productRequests)
+    }
+
+    @Test
     fun `report validation requires pest crop and current location`() {
         val repository = FakePestAlertRepository()
         val viewModel = createViewModel(repository)
@@ -278,7 +297,7 @@ private class FakePestAlertRepository(
     private val alerts: List<PestAlert> = emptyList(),
     private val products: Map<Int, List<PestSuggestedProduct>> = emptyMap(),
     var nearbyError: Throwable? = null,
-    private val productsError: Throwable? = null,
+    var productsError: Throwable? = null,
     private val reportResult: PestAlert? = null,
     private val reportError: Throwable? = null
 ) : PestAlertRepository {

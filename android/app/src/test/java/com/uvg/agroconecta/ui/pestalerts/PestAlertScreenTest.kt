@@ -7,8 +7,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollTo
 import com.uvg.agroconecta.data.models.PestAlert
+import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.PestType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -205,6 +207,77 @@ class PestAlertScreenTest {
         assertTrue(bounds.maxLongitude > maxOf(alert.longitud, location.longitude))
         assertTrue(marker.x in 0f..1f)
         assertTrue(marker.y in 0f..1f)
+    }
+
+    @Test
+    fun `alert detail shows preventive product information and can be dismissed`() {
+        val alert = alert().copy(descripcion = "Presencia en hojas jóvenes")
+        val product = PestSuggestedProduct(
+            id = 8,
+            nombre = "Aceite de neem",
+            marca = "Agro Verde",
+            descripcion = "Control preventivo de insectos",
+            recommendedDose = "20 ml por bomba"
+        )
+        var dismissals = 0
+        compose.setContent {
+            MaterialTheme {
+                PestAlertScreen(
+                    uiState = PestAlertUiState(
+                        alerts = listOf(alert),
+                        selectedAlert = alert,
+                        suggestedProducts = listOf(product)
+                    ),
+                    onNavigateBack = {},
+                    onRetry = {},
+                    onAlertClick = {},
+                    onReportPest = {},
+                    onDismissAlertDetail = { dismissals += 1 }
+                )
+            }
+        }
+
+        compose.onNodeWithTag("pest-alert-detail").assertIsDisplayed()
+        compose.onNodeWithTag("pest-alert-detail-content").performScrollToIndex(3)
+        compose.onNodeWithText("Productos preventivos sugeridos")
+            .assertIsDisplayed()
+        compose.onNodeWithTag("pest-alert-detail-content").performScrollToIndex(4)
+        compose.onNodeWithText("Aceite de neem")
+            .assertIsDisplayed()
+        compose.onNodeWithText("20 ml por bomba")
+            .assertIsDisplayed()
+        compose.onNodeWithTag("pest-alert-detail-content").performScrollToIndex(0)
+        compose.onNodeWithTag("dismiss-pest-alert-detail").performClick()
+
+        assertEquals(1, dismissals)
+    }
+
+    @Test
+    fun `alert detail offers retry when product suggestions fail`() {
+        var retries = 0
+        compose.setContent {
+            MaterialTheme {
+                PestAlertScreen(
+                    uiState = PestAlertUiState(
+                        selectedAlert = alert(),
+                        detailErrorMessage = "No disponible"
+                    ),
+                    onNavigateBack = {},
+                    onRetry = {},
+                    onAlertClick = {},
+                    onReportPest = {},
+                    onRetryAlertDetail = { retries += 1 }
+                )
+            }
+        }
+
+        compose.onNodeWithTag("pest-alert-detail-content").performScrollToIndex(3)
+        compose.onNodeWithText("No disponible")
+            .assertIsDisplayed()
+        compose.onNodeWithTag("retry-suggested-products")
+            .performClick()
+
+        assertEquals(1, retries)
     }
 
     private fun alert() = PestAlert(
