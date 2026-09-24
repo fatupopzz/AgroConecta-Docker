@@ -52,6 +52,11 @@ interface ApiService {
         @Path("id") alertId: Int
     ): Response<SuggestedPestProductsResponse>
 
+    @POST("alerts/pests/installations")
+    suspend fun registerPestAlertInstallation(
+        @Body request: PestAlertInstallationRequest
+    ): Response<Unit>
+
     // ── Products ─────────────────────────────────────────────────────────
     @GET("products")
     suspend fun getProducts(

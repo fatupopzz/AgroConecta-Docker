@@ -27,3 +27,11 @@ CREATE INDEX IF NOT EXISTS idx_alerta_plaga_cultivo
 
 CREATE INDEX IF NOT EXISTS idx_alerta_plaga_activa_fecha
     ON alerta_plaga (activa, fecha_reporte DESC);
+
+CREATE TABLE IF NOT EXISTS instalacion_alerta_plaga (
+    firebase_installation_id VARCHAR(255) PRIMARY KEY,
+    id_usuario               INT NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+    latitud                  DECIMAL(10,7) NOT NULL,
+    longitud                 DECIMAL(10,7) NOT NULL,
+    fecha_actualizacion      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

@@ -43,4 +43,5 @@ test("backend startup applies the pest alerts migration", () => {
 
   assert.match(backendEntryPoint, /hu029_pest_alerts_migration\.sql/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS alerta_plaga/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS instalacion_alerta_plaga/);
 });

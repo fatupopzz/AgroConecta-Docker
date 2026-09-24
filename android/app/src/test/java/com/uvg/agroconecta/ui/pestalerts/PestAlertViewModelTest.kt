@@ -218,6 +218,21 @@ class PestAlertViewModelTest {
     }
 
     @Test
+    fun `GPS location synchronizes push registration`() {
+        val repository = FakePestAlertRepository()
+        val viewModel = createViewModel(
+            repository = repository,
+            locationProvider = FakeCurrentLocationProvider(
+                coordinates = GeoCoordinates(14.6349, -90.5069)
+            )
+        )
+
+        viewModel.refreshLocation()
+
+        assertEquals(listOf(14.6349 to -90.5069), repository.pushRegistrations)
+    }
+
+    @Test
     fun `shows actionable error when GPS cannot determine location`() {
         val repository = FakePestAlertRepository()
         val viewModel = createViewModel(
@@ -304,6 +319,7 @@ private class FakePestAlertRepository(
     val nearbyRequests = mutableListOf<PestAlertLocation>()
     val productRequests = mutableListOf<Int>()
     val reportRequests = mutableListOf<PestAlertReportRequest>()
+    val pushRegistrations = mutableListOf<Pair<Double, Double>>()
 
     override suspend fun getNearbyAlerts(
         latitude: Double,
@@ -325,5 +341,9 @@ private class FakePestAlertRepository(
         productRequests += alertId
         productsError?.let { throw it }
         return products[alertId].orEmpty()
+    }
+
+    override suspend fun syncPushInstallation(latitude: Double, longitude: Double) {
+        pushRegistrations += latitude to longitude
     }
 }

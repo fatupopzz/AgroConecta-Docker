@@ -2,6 +2,7 @@ package com.uvg.agroconecta.data.repository
 
 import com.uvg.agroconecta.data.models.NearbyPestAlertsResponse
 import com.uvg.agroconecta.data.models.PestAlert
+import com.uvg.agroconecta.data.models.PestAlertInstallationRequest
 import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestAlertReportResponse
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
@@ -74,6 +75,19 @@ class RemotePestAlertRepositoryTest {
     }
 
     @Test
+    fun `registers the Firebase installation with current location`() = runTest {
+        val api = FakePestAlertApi()
+        val repository = RemotePestAlertRepository(api) { "fid-29" }
+
+        repository.syncPushInstallation(14.6349, -90.5069)
+
+        assertEquals(
+            PestAlertInstallationRequest("fid-29", 14.6349, -90.5069),
+            api.registeredInstallation
+        )
+    }
+
+    @Test
     fun `exposes backend status when nearby request fails`() = runTest {
         val api = FakePestAlertApi(
             nearbyResponse = Response.error(500, "".toResponseBody())
@@ -111,6 +125,7 @@ private class FakePestAlertApi(
     var requestedArea: Triple<Double, Double, Double>? = null
     var reportedRequest: PestAlertReportRequest? = null
     var requestedAlertId: Int? = null
+    var registeredInstallation: PestAlertInstallationRequest? = null
 
     override suspend fun getNearbyAlerts(
         latitude: Double,
@@ -133,5 +148,12 @@ private class FakePestAlertApi(
     ): Response<SuggestedPestProductsResponse> {
         requestedAlertId = alertId
         return checkNotNull(productsResponse)
+    }
+
+    override suspend fun registerInstallation(
+        request: PestAlertInstallationRequest
+    ): Response<Unit> {
+        registeredInstallation = request
+        return Response.success(Unit)
     }
 }

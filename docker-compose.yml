@@ -40,6 +40,8 @@ services:
       NODE_ENV: development
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET debe configurarse en el archivo .env}
       JWT_EXPIRES_IN: 30m
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:-}
     ports:
       - "8080:8080"
     depends_on:

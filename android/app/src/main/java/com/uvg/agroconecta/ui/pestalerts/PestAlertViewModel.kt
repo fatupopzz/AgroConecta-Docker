@@ -110,6 +110,10 @@ class PestAlertViewModel @Inject constructor(
                             reportErrorMessage = null
                         )
                     }
+                    synchronizePushRegistration(
+                        latitude = coordinates.latitude,
+                        longitude = coordinates.longitude
+                    )
                     loadNearbyAlerts(
                         latitude = coordinates.latitude,
                         longitude = coordinates.longitude
@@ -388,6 +392,18 @@ class PestAlertViewModel @Inject constructor(
 
     fun clearReportSuccess() {
         _uiState.update { it.copy(reportSuccessMessage = null) }
+    }
+
+    private fun synchronizePushRegistration(latitude: Double, longitude: Double) {
+        viewModelScope.launch {
+            try {
+                repository.syncPushInstallation(latitude, longitude)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // El registro push es best-effort y no debe bloquear la pantalla.
+            }
+        }
     }
 
     private companion object {

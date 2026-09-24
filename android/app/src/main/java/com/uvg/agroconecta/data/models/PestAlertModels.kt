@@ -64,6 +64,12 @@ data class SuggestedPestProductsResponse(
     val products: List<PestSuggestedProduct> = emptyList()
 )
 
+data class PestAlertInstallationRequest(
+    @SerializedName("installation_id") val installationId: String,
+    val latitud: Double,
+    val longitud: Double
+)
+
 /** Opciones compartidas por los formularios que reportan una plaga. */
 enum class PestType(val apiValue: String, val displayName: String) {
     APHID("pulgon", "Pulgón"),

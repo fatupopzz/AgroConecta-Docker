@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const { notifyNearbyInstallations } = require("../services/PestAlertPushService");
 
 const EARTH_RADIUS_KM = 6371;
 const DEFAULT_RADIUS_KM = 25;
@@ -50,15 +51,76 @@ const createPestAlert = async (req, res) => {
             ]
         );
 
+        const createdAlert = result.rows[0];
+
         res.status(201).json({
             message: "Alerta de plaga creada correctamente",
-            alerta: result.rows[0]
+            alerta: createdAlert
+        });
+
+        void notifyNearbyInstallations({
+            alert: createdAlert,
+            reporterUserId: id_usuario
+        }).catch((pushError) => {
+            console.error("Error al notificar alerta de plaga:", pushError);
         });
 
     } catch (error) {
         console.error("Error al crear alerta de plaga:", error);
         res.status(500).json({
             error: "Error al crear la alerta de plaga"
+        });
+    }
+};
+
+const registerPestAlertInstallation = async (req, res) => {
+    try {
+        const {
+            installation_id: rawInstallationId,
+            latitud: rawLatitude,
+            longitud: rawLongitude
+        } = req.body || {};
+        const installationId = typeof rawInstallationId === "string"
+            ? rawInstallationId.trim()
+            : null;
+        const latitude = Number(rawLatitude);
+        const longitude = Number(rawLongitude);
+
+        if (!installationId || installationId.length > 255) {
+            return res.status(400).json({
+                error: "Debe enviar un installation_id válido"
+            });
+        }
+
+        if (
+            rawLatitude == null || rawLongitude == null ||
+            !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+            !Number.isFinite(longitude) || longitude < -180 || longitude > 180
+        ) {
+            return res.status(400).json({ error: "Coordenadas inválidas" });
+        }
+
+        await pool.query(
+            `INSERT INTO instalacion_alerta_plaga
+                (id_usuario, firebase_installation_id, latitud, longitud)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (firebase_installation_id)
+             DO UPDATE SET
+                id_usuario = EXCLUDED.id_usuario,
+                latitud = EXCLUDED.latitud,
+                longitud = EXCLUDED.longitud,
+                fecha_actualizacion = NOW()`,
+            [req.user.id, installationId, latitude, longitude]
+        );
+
+        return res.status(200).json({
+            message: "Instalación registrada correctamente",
+            installation_id: installationId
+        });
+    } catch (error) {
+        console.error("Error al registrar instalación para alertas:", error);
+        return res.status(500).json({
+            error: "Error al registrar la instalación"
         });
     }
 };
@@ -217,5 +279,6 @@ module.exports = {
     createPestAlert,
     getNearbyAlerts,
     getSuggestedProducts,
-    getMyAlerts
+    getMyAlerts,
+    registerPestAlertInstallation
 };
