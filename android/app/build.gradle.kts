@@ -5,6 +5,12 @@ plugins {
     alias(libs.plugins.hilt.android)
 }
 
+// Firebase es opcional en entornos locales. Al agregar el archivo de
+// configuración del proyecto, el plugin se activa sin cambiar este build.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val configuredApiBaseUrl = providers.gradleProperty("AGROCONECTA_API_BASE_URL")
     .orElse(providers.environmentVariable("AGROCONECTA_API_BASE_URL"))
 
@@ -114,6 +120,10 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.gson)
     implementation(libs.coroutines.android)
+
+    // Push notifications
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     // Dependency injection
     implementation(libs.hilt.android)
