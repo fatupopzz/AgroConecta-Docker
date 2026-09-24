@@ -25,6 +25,8 @@ private val locationPermissions = arrayOf(
 @Composable
 fun PestAlertRoute(
     onNavigateBack: () -> Unit,
+    initialAlertId: Int? = null,
+    onInitialAlertHandled: () -> Unit = {},
     viewModel: PestAlertViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -55,6 +57,13 @@ fun PestAlertRoute(
 
     LaunchedEffect(Unit) {
         requestOrRefreshLocation()
+    }
+
+    LaunchedEffect(initialAlertId) {
+        initialAlertId?.let { alertId ->
+            viewModel.openAlert(alertId)
+            onInitialAlertHandled()
+        }
     }
 
     LaunchedEffect(isLocationPermissionResolved) {

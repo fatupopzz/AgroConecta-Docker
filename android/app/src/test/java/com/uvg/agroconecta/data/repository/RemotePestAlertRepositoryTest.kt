@@ -54,6 +54,18 @@ class RemotePestAlertRepositoryTest {
     }
 
     @Test
+    fun `loads alert detail by notification id`() = runTest {
+        val alert = alert()
+        val api = FakePestAlertApi(alertResponse = Response.success(alert))
+        val repository = RemotePestAlertRepository(api)
+
+        val result = repository.getAlert(29)
+
+        assertEquals(alert, result)
+        assertEquals(29, api.requestedDetailAlertId)
+    }
+
+    @Test
     fun `loads suggested products for selected alert`() = runTest {
         val product = PestSuggestedProduct(id = 8, nombre = "Control biológico")
         val api = FakePestAlertApi(
@@ -120,10 +132,12 @@ private class FakePestAlertApi(
         NearbyPestAlertsResponse()
     ),
     private val reportResponse: Response<PestAlertReportResponse>? = null,
+    private val alertResponse: Response<PestAlert>? = null,
     private val productsResponse: Response<SuggestedPestProductsResponse>? = null
 ) : PestAlertApi {
     var requestedArea: Triple<Double, Double, Double>? = null
     var reportedRequest: PestAlertReportRequest? = null
+    var requestedDetailAlertId: Int? = null
     var requestedAlertId: Int? = null
     var registeredInstallation: PestAlertInstallationRequest? = null
 
@@ -141,6 +155,11 @@ private class FakePestAlertApi(
     ): Response<PestAlertReportResponse> {
         reportedRequest = request
         return checkNotNull(reportResponse)
+    }
+
+    override suspend fun getAlert(alertId: Int): Response<PestAlert> {
+        requestedDetailAlertId = alertId
+        return checkNotNull(alertResponse)
     }
 
     override suspend fun getSuggestedProducts(

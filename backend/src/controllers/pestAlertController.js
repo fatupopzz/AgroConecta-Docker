@@ -197,6 +197,32 @@ const getNearbyAlerts = async (req, res) => {
     }
 };
 
+const getPestAlertById = async (req, res) => {
+    const alertId = Number(req.params.id);
+    if (!Number.isInteger(alertId) || alertId <= 0) {
+        return res.status(400).json({ error: "El id de la alerta no es válido" });
+    }
+
+    try {
+        const result = await pool.query(
+            `SELECT a.*, u.nombre AS nombre_usuario
+            FROM alerta_plaga a
+            JOIN usuario u ON u.id_usuario = a.id_usuario
+            WHERE a.id_alerta = $1`,
+            [alertId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Alerta no encontrada" });
+        }
+
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error("Error al obtener alerta de plaga:", error);
+        return res.status(500).json({ error: "Error al obtener la alerta" });
+    }
+};
+
 const getSuggestedProducts = async (req, res) => {
     try {
         const { id } = req.params;
@@ -278,6 +304,7 @@ const getMyAlerts = async (req, res) => {
 module.exports = {
     createPestAlert,
     getNearbyAlerts,
+    getPestAlertById,
     getSuggestedProducts,
     getMyAlerts,
     registerPestAlertInstallation

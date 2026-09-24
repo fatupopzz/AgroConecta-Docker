@@ -26,6 +26,8 @@ internal interface PestAlertApi {
         request: PestAlertReportRequest
     ): Response<PestAlertReportResponse>
 
+    suspend fun getAlert(alertId: Int): Response<PestAlert>
+
     suspend fun getSuggestedProducts(
         alertId: Int
     ): Response<SuggestedPestProductsResponse>
@@ -49,6 +51,9 @@ internal class RetrofitPestAlertApi(
     override suspend fun reportPest(
         request: PestAlertReportRequest
     ): Response<PestAlertReportResponse> = service.reportPestAlert(request)
+
+    override suspend fun getAlert(alertId: Int): Response<PestAlert> =
+        service.getPestAlert(alertId)
 
     override suspend fun getSuggestedProducts(
         alertId: Int
@@ -83,6 +88,9 @@ class RemotePestAlertRepository internal constructor(
         api.reportPest(request)
             .requireBody("No se pudo reportar la plaga")
             .alerta
+
+    override suspend fun getAlert(alertId: Int): PestAlert =
+        api.getAlert(alertId).requireBody("No se pudo cargar la alerta")
 
     override suspend fun getSuggestedProducts(alertId: Int): List<PestSuggestedProduct> =
         api.getSuggestedProducts(alertId)

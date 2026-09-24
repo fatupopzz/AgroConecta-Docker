@@ -112,7 +112,6 @@ fun AgroConectaNavHost(
                 launchSingleTop = true
             }
         }
-        onInitialPestAlertConsumed()
     }
 
     NavHost(
@@ -131,7 +130,6 @@ fun AgroConectaNavHost(
                     navController.navigate(destination) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
-                    if (initialPestAlertId != null) onInitialPestAlertConsumed()
                 },
                 onNavigateToRegister = {
                     navController.navigate(Screen.RegisterStep1.route)
@@ -584,7 +582,9 @@ fun AgroConectaNavHost(
 
         composable(Screen.PestAlerts.route) {
             PestAlertRoute(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                initialAlertId = initialPestAlertId,
+                onInitialAlertHandled = onInitialPestAlertConsumed
             )
         }
 

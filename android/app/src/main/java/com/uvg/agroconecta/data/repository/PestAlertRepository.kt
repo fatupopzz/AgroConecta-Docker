@@ -17,6 +17,8 @@ interface PestAlertRepository {
 
     suspend fun reportPest(request: PestAlertReportRequest): PestAlert
 
+    suspend fun getAlert(alertId: Int): PestAlert
+
     suspend fun getSuggestedProducts(alertId: Int): List<PestSuggestedProduct>
 
     suspend fun syncPushInstallation(latitude: Double, longitude: Double)

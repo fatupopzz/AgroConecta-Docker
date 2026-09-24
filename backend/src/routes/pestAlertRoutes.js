@@ -2,6 +2,7 @@ const express = require("express");
 const {
     createPestAlert,
     getNearbyAlerts,
+    getPestAlertById,
     getSuggestedProducts,
     getMyAlerts,
     registerPestAlertInstallation
@@ -23,5 +24,8 @@ router.post("/installations", registerPestAlertInstallation);
 
 // GET /api/alerts/pests/:id/products - Productos sugeridos para una alerta
 router.get("/:id/products", getSuggestedProducts);
+
+// GET /api/alerts/pests/:id - Obtener una alerta para abrir su notificación
+router.get("/:id", getPestAlertById);
 
 module.exports = router;

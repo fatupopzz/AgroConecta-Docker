@@ -80,6 +80,24 @@ class PestAlertViewModelTest {
     }
 
     @Test
+    fun `notification id opens alert detail and its suggested products`() {
+        val alert = alert()
+        val product = PestSuggestedProduct(id = 8, nombre = "Aceite de neem")
+        val repository = FakePestAlertRepository(
+            alerts = listOf(alert),
+            products = mapOf(alert.id to listOf(product))
+        )
+        val viewModel = createViewModel(repository)
+
+        viewModel.openAlert(alert.id)
+
+        assertEquals(listOf(alert.id), repository.detailRequests)
+        assertEquals(alert, viewModel.uiState.value.selectedAlert)
+        assertEquals(listOf(product), viewModel.uiState.value.suggestedProducts)
+        assertEquals(listOf(alert.id), repository.productRequests)
+    }
+
+    @Test
     fun `dismissing detail clears selected alert and suggestions`() {
         val alert = alert()
         val repository = FakePestAlertRepository(
@@ -317,6 +335,7 @@ private class FakePestAlertRepository(
     private val reportError: Throwable? = null
 ) : PestAlertRepository {
     val nearbyRequests = mutableListOf<PestAlertLocation>()
+    val detailRequests = mutableListOf<Int>()
     val productRequests = mutableListOf<Int>()
     val reportRequests = mutableListOf<PestAlertReportRequest>()
     val pushRegistrations = mutableListOf<Pair<Double, Double>>()
@@ -329,6 +348,11 @@ private class FakePestAlertRepository(
         nearbyRequests += PestAlertLocation(latitude, longitude, radiusKm)
         nearbyError?.let { throw it }
         return alerts
+    }
+
+    override suspend fun getAlert(alertId: Int): PestAlert {
+        detailRequests += alertId
+        return alerts.first { it.id == alertId }
     }
 
     override suspend fun reportPest(request: PestAlertReportRequest): PestAlert {

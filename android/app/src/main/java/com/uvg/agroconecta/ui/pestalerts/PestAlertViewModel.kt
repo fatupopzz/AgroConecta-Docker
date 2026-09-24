@@ -76,6 +76,7 @@ class PestAlertViewModel @Inject constructor(
     val uiState: StateFlow<PestAlertUiState> = _uiState.asStateFlow()
 
     private var alertsJob: Job? = null
+    private var alertDetailJob: Job? = null
     private var suggestionsJob: Job? = null
     private var locationJob: Job? = null
 
@@ -252,6 +253,25 @@ class PestAlertViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    fun openAlert(alertId: Int) {
+        if (alertId <= 0) return
+        alertDetailJob?.cancel()
+        alertDetailJob = viewModelScope.launch {
+            runCatching {
+                repository.getAlert(alertId)
+            }.onSuccess(::selectAlert)
+                .onFailure { error ->
+                    if (error is CancellationException) throw error
+                    _uiState.update {
+                        it.copy(
+                            alertsErrorMessage = error.message
+                                ?: "No se pudo abrir la alerta"
+                        )
+                    }
+                }
         }
     }
 

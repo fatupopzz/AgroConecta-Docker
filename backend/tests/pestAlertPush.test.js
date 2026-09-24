@@ -8,7 +8,10 @@ process.env.DB_PASSWORD ||= "agroconecta_pass";
 
 const { notifyNearbyInstallations } = require("../src/services/PestAlertPushService");
 const { pool } = require("../src/config/db");
-const { registerPestAlertInstallation } = require("../src/controllers/pestAlertController");
+const {
+  getPestAlertById,
+  registerPestAlertInstallation,
+} = require("../src/controllers/pestAlertController");
 const alert = {
   id_alerta: 29,
   tipo_plaga: "pulgon",
@@ -80,4 +83,25 @@ test("registration endpoint associates the FID and GPS with the authenticated us
   assert.equal(response.statusCode, 200);
   assert.match(query.sql, /ON CONFLICT \(firebase_installation_id\)/);
   assert.deepEqual(query.params, [7, "fid-29", 14.6349, -90.5069]);
+});
+
+test("detail endpoint returns the alert referenced by a notification", async (t) => {
+  const originalQuery = pool.query;
+  let query;
+  pool.query = async (sql, params) => {
+    query = { sql, params };
+    return { rows: [alert] };
+  };
+  t.after(() => { pool.query = originalQuery; });
+  const response = {
+    statusCode: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+  };
+
+  await getPestAlertById({ params: { id: "29" } }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(query.params, [29]);
+  assert.equal(response.body.id_alerta, 29);
 });
