@@ -3,12 +3,16 @@ package com.uvg.agroconecta.ui.pestalerts
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -25,9 +29,14 @@ fun PestAlertRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val permissionLauncher = rememberLauncherForActivityResult(
+    var isLocationPermissionResolved by remember { mutableStateOf(false) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
+        isLocationPermissionResolved = true
         if (permissions.values.any { it }) {
             viewModel.refreshLocation()
         } else {
@@ -37,14 +46,25 @@ fun PestAlertRoute(
 
     val requestOrRefreshLocation = {
         if (context.hasLocationPermission()) {
+            isLocationPermissionResolved = true
             viewModel.refreshLocation()
         } else {
-            permissionLauncher.launch(locationPermissions)
+            locationPermissionLauncher.launch(locationPermissions)
         }
     }
 
     LaunchedEffect(Unit) {
         requestOrRefreshLocation()
+    }
+
+    LaunchedEffect(isLocationPermissionResolved) {
+        if (
+            isLocationPermissionResolved &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !context.hasNotificationPermission()
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     PestAlertScreen(
@@ -78,4 +98,11 @@ private fun Context.hasLocationPermission(): Boolean =
         ContextCompat.checkSelfPermission(
             this,
             Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+private fun Context.hasNotificationPermission(): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
         ) == PackageManager.PERMISSION_GRANTED

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
+import com.uvg.agroconecta.notifications.PestAlertNotificationIntents
 import com.uvg.agroconecta.ui.navigation.AgroConectaNavHost
 import com.uvg.agroconecta.ui.theme.AgroConectaTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -16,10 +17,13 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    private val pendingPestAlertId = androidx.compose.runtime.mutableStateOf<Int?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         val initialTrackingOrderId = intent.getTrackingOrderId()
+        pendingPestAlertId.value = PestAlertNotificationIntents.extractAlertId(intent)
 
         setContent {
             AgroConectaTheme(darkTheme = false) {
@@ -27,11 +31,19 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     AgroConectaNavHost(
                         navController = navController,
-                        initialTrackingOrderId = initialTrackingOrderId
+                        initialTrackingOrderId = initialTrackingOrderId,
+                        initialPestAlertId = pendingPestAlertId.value,
+                        onInitialPestAlertConsumed = { pendingPestAlertId.value = null }
                     )
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingPestAlertId.value = PestAlertNotificationIntents.extractAlertId(intent)
     }
 
     private fun Intent.getTrackingOrderId(): Int? {

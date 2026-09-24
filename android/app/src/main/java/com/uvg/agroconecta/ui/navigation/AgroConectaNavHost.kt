@@ -50,7 +50,9 @@ import kotlinx.coroutines.launch
 fun AgroConectaNavHost(
     navController: NavHostController,
     authViewModel: AuthViewModel = hiltViewModel(),
-    initialTrackingOrderId: Int? = null
+    initialTrackingOrderId: Int? = null,
+    initialPestAlertId: Int? = null,
+    onInitialPestAlertConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     // Se crea fuera de cualquier composable de destino, asi que el owner es la
@@ -99,6 +101,20 @@ fun AgroConectaNavHost(
         }
     }
 
+    LaunchedEffect(initialPestAlertId, currentBackStackEntry?.destination?.route) {
+        val currentRoute = currentBackStackEntry?.destination?.route ?: return@LaunchedEffect
+        if (initialPestAlertId == null || currentRoute == Screen.Login.route) {
+            return@LaunchedEffect
+        }
+
+        if (currentRoute != Screen.PestAlerts.route) {
+            navController.navigate(Screen.PestAlerts.route) {
+                launchSingleTop = true
+            }
+        }
+        onInitialPestAlertConsumed()
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Login.route
@@ -106,12 +122,16 @@ fun AgroConectaNavHost(
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {
-                    val destination = initialTrackingOrderId?.let {
-                        Screen.OrderTracking.createRoute(it)
-                    } ?: Screen.Home.route
+                    val destination = when {
+                        initialPestAlertId != null -> Screen.PestAlerts.route
+                        initialTrackingOrderId != null ->
+                            Screen.OrderTracking.createRoute(initialTrackingOrderId)
+                        else -> Screen.Home.route
+                    }
                     navController.navigate(destination) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
+                    if (initialPestAlertId != null) onInitialPestAlertConsumed()
                 },
                 onNavigateToRegister = {
                     navController.navigate(Screen.RegisterStep1.route)
