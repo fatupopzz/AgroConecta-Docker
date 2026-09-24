@@ -24,6 +24,7 @@ import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.home.CatalogScreen
+import com.uvg.agroconecta.ui.help.HelpScreen
 import com.uvg.agroconecta.ui.notifications.DistributorNotificationViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
@@ -599,6 +600,11 @@ fun AgroConectaNavHost(
                 },
                 onAgregarClick = onAgregarClick,
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
+                onHelpClick = {
+                    navController.navigate(Screen.Help.route) {
+                        launchSingleTop = true
+                    }
+                },
                 onStatsClick = {
                     navController.navigate(Screen.DistributorStats.route) {
                         launchSingleTop = true
@@ -612,6 +618,10 @@ fun AgroConectaNavHost(
                     }
                 }
             )
+        }
+
+        composable(Screen.Help.route) {
+            HelpScreen(onNavigateBack = { navController.popBackStack() })
         }
 
         composable(Screen.DistributorStats.route) {
