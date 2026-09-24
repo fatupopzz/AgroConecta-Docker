@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.BugReport
@@ -27,6 +28,8 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -49,6 +52,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,6 +66,7 @@ import com.uvg.agroconecta.ui.theme.GreenSurface
 @Composable
 fun HelpScreen(
     onNavigateBack: () -> Unit,
+    onContactSupport: () -> Unit = {},
     sections: List<FaqSection> = helpFaqSections
 ) {
     Scaffold(
@@ -117,6 +122,70 @@ fun HelpScreen(
                 ) { faq ->
                     FaqAccordionItem(faq = faq)
                 }
+            }
+
+            item(key = "whatsapp-support") {
+                WhatsAppSupportCard(onClick = onContactSupport)
+            }
+        }
+    }
+}
+
+@Composable
+private fun WhatsAppSupportCard(onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = GreenSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Chat,
+                    contentDescription = null,
+                    tint = GreenPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    text = "¿Necesitas más ayuda?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = GreenPrimaryDark
+                )
+            }
+            Text(
+                text = "Escríbenos y el equipo de AgroConecta te ayudará.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = GrayMid
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Button(
+                onClick = onClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("whatsapp-support-button"),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Chat,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = "Contactar por WhatsApp",
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
