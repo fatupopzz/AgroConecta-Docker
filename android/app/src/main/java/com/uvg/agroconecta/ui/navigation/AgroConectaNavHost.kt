@@ -40,6 +40,7 @@ import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
 import com.uvg.agroconecta.ui.orders.OrderTrackingScreen
 import com.uvg.agroconecta.ui.orders.OrderViewModel
 import com.uvg.agroconecta.ui.orders.UrgentOrderScreen
+import com.uvg.agroconecta.ui.pestalerts.PestAlertRoute
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import com.uvg.agroconecta.ui.profile.ProfileScreen
 import kotlinx.coroutines.flow.first
@@ -49,7 +50,9 @@ import kotlinx.coroutines.launch
 fun AgroConectaNavHost(
     navController: NavHostController,
     authViewModel: AuthViewModel = hiltViewModel(),
-    initialTrackingOrderId: Int? = null
+    initialTrackingOrderId: Int? = null,
+    initialPestAlertId: Int? = null,
+    onInitialPestAlertConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     // Se crea fuera de cualquier composable de destino, asi que el owner es la
@@ -98,6 +101,19 @@ fun AgroConectaNavHost(
         }
     }
 
+    LaunchedEffect(initialPestAlertId, currentBackStackEntry?.destination?.route) {
+        val currentRoute = currentBackStackEntry?.destination?.route ?: return@LaunchedEffect
+        if (initialPestAlertId == null || currentRoute == Screen.Login.route) {
+            return@LaunchedEffect
+        }
+
+        if (currentRoute != Screen.PestAlerts.route) {
+            navController.navigate(Screen.PestAlerts.route) {
+                launchSingleTop = true
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Login.route
@@ -105,9 +121,12 @@ fun AgroConectaNavHost(
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {
-                    val destination = initialTrackingOrderId?.let {
-                        Screen.OrderTracking.createRoute(it)
-                    } ?: Screen.Home.route
+                    val destination = when {
+                        initialPestAlertId != null -> Screen.PestAlerts.route
+                        initialTrackingOrderId != null ->
+                            Screen.OrderTracking.createRoute(initialTrackingOrderId)
+                        else -> Screen.Home.route
+                    }
                     navController.navigate(destination) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
@@ -171,6 +190,11 @@ fun AgroConectaNavHost(
                 },
                 onRecommendedProductClick = { productName ->
                     navController.navigate(Screen.Catalog.createRoute(productName))
+                },
+                onPestAlertsClick = {
+                    navController.navigate(Screen.PestAlerts.route) {
+                        launchSingleTop = true
+                    }
                 },
                 onProductoClick = { productoId ->
                     navController.navigate(Screen.ProductDetail.createRoute(productoId))
@@ -553,6 +577,14 @@ fun AgroConectaNavHost(
                 },
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
                 onPerfilClick = { navController.navigate(Screen.Profile.route) }
+            )
+        }
+
+        composable(Screen.PestAlerts.route) {
+            PestAlertRoute(
+                onNavigateBack = { navController.popBackStack() },
+                initialAlertId = initialPestAlertId,
+                onInitialAlertHandled = onInitialPestAlertConsumed
             )
         }
 

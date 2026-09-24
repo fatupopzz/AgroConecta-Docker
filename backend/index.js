@@ -133,6 +133,12 @@ const runStartupMigrations = async () => {
     "utf8",
   );
   await pool.query(cropCycleMigration);
+
+  const pestAlertsMigration = await fs.readFile(
+    path.join(__dirname, "sql", "hu029_pest_alerts_migration.sql"),
+    "utf8",
+  );
+  await pool.query(pestAlertsMigration);
 };
 
 const startServer = async () => {

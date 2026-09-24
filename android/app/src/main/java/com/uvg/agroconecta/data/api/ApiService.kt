@@ -34,6 +34,34 @@ interface ApiService {
         @Path("cultivo") cultivo: String
     ): Response<CropCycleResponse>
 
+    // ── Pest alerts (HU-029) ─────────────────────────────────────────────
+    @GET("alerts/pests")
+    suspend fun getNearbyPestAlerts(
+        @Query("lat") latitude: Double,
+        @Query("lng") longitude: Double,
+        @Query("radio") radiusKm: Double
+    ): Response<NearbyPestAlertsResponse>
+
+    @POST("alerts/pests")
+    suspend fun reportPestAlert(
+        @Body request: PestAlertReportRequest
+    ): Response<PestAlertReportResponse>
+
+    @GET("alerts/pests/{id}")
+    suspend fun getPestAlert(
+        @Path("id") alertId: Int
+    ): Response<PestAlert>
+
+    @GET("alerts/pests/{id}/products")
+    suspend fun getSuggestedPestProducts(
+        @Path("id") alertId: Int
+    ): Response<SuggestedPestProductsResponse>
+
+    @POST("alerts/pests/installations")
+    suspend fun registerPestAlertToken(
+        @Body request: PestAlertPushRegistrationRequest
+    ): Response<Unit>
+
     // ── Products ─────────────────────────────────────────────────────────
     @GET("products")
     suspend fun getProducts(

@@ -27,3 +27,31 @@ CREATE INDEX IF NOT EXISTS idx_alerta_plaga_cultivo
 
 CREATE INDEX IF NOT EXISTS idx_alerta_plaga_activa_fecha
     ON alerta_plaga (activa, fecha_reporte DESC);
+
+CREATE TABLE IF NOT EXISTS instalacion_alerta_plaga (
+    fcm_registration_token   TEXT PRIMARY KEY,
+    id_usuario               INT NOT NULL REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+    latitud                  DECIMAL(10,7) NOT NULL,
+    longitud                 DECIMAL(10,7) NOT NULL,
+    fecha_actualizacion      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Actualiza instalaciones creadas por versiones anteriores de HU-029.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'instalacion_alerta_plaga'
+          AND column_name = 'firebase_installation_id'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'instalacion_alerta_plaga'
+          AND column_name = 'fcm_registration_token'
+    ) THEN
+        ALTER TABLE instalacion_alerta_plaga
+            RENAME COLUMN firebase_installation_id TO fcm_registration_token;
+    END IF;
+END $$;
+
+ALTER TABLE instalacion_alerta_plaga
+    ALTER COLUMN fcm_registration_token TYPE TEXT;

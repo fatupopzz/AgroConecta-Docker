@@ -30,3 +30,20 @@ test("environment files are ignored while the example remains versionable", () =
   assert.match(example, /^JWT_SECRET=REEMPLAZAR_/m);
   assert.doesNotMatch(example, /agroconecta_jwt_secret_dev_2026/);
 });
+
+test("backend startup applies the pest alerts migration", () => {
+  const backendEntryPoint = fs.readFileSync(
+    path.join(repositoryRoot, "backend", "index.js"),
+    "utf8"
+  );
+  const migration = fs.readFileSync(
+    path.join(repositoryRoot, "backend", "sql", "hu029_pest_alerts_migration.sql"),
+    "utf8"
+  );
+
+  assert.match(backendEntryPoint, /hu029_pest_alerts_migration\.sql/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS alerta_plaga/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS instalacion_alerta_plaga/);
+  assert.match(migration, /fcm_registration_token\s+TEXT PRIMARY KEY/);
+  assert.match(migration, /RENAME COLUMN firebase_installation_id TO fcm_registration_token/);
+});

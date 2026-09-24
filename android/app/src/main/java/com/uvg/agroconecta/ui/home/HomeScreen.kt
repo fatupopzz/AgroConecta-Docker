@@ -77,6 +77,7 @@ fun HomeScreen(
     urgentNotification: DistributorNotification? = null,
     onUrgentNotificationClick: (DistributorNotification) -> Unit = {},
     onRecommendedProductClick: (String) -> Unit = {},
+    onPestAlertsClick: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -147,6 +148,9 @@ fun HomeScreen(
                     }
                 }
             }
+            item(key = "pest-alerts-shortcut") {
+                PestAlertsShortcutCard(onClick = onPestAlertsClick)
+            }
             if (shouldShowCropCycleCard(tipoUsuario, uiState.cicloRelevante)) {
                 uiState.cicloRelevante?.let { cycle ->
                     item(key = "crop-cycle-${cycle.faseActual?.idCiclo}") {
@@ -197,6 +201,59 @@ fun HomeScreen(
                     onDistribuidorClick = onDistribuidorClick
                 )
             }
+        }
+    }
+}
+
+@Composable
+internal fun PestAlertsShortcutCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .testTag("pest-alerts-shortcut"),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+        border = BorderStroke(1.dp, VerdeClaro.copy(alpha = 0.45f))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Surface(
+                color = VerdeAgroConecta,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.BugReport,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.padding(10.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Alertas de plagas",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = VerdeAgroConecta
+                )
+                Text(
+                    text = "Consulta reportes cercanos o informa una plaga",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextoGris
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Abrir alertas de plagas",
+                tint = VerdeAgroConecta
+            )
         }
     }
 }

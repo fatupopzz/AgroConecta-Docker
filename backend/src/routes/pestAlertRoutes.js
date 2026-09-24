@@ -2,8 +2,10 @@ const express = require("express");
 const {
     createPestAlert,
     getNearbyAlerts,
+    getPestAlertById,
     getSuggestedProducts,
-    getMyAlerts
+    getMyAlerts,
+    registerPestAlertToken
 } = require("../controllers/pestAlertController");
 
 const router = express.Router();
@@ -17,7 +19,13 @@ router.get("/", getNearbyAlerts);
 // GET /api/alerts/pests/mine - Obtener mis alertas
 router.get("/mine", getMyAlerts);
 
+// POST /api/alerts/pests/installations - Registrar token FCM y ubicación para push
+router.post("/installations", registerPestAlertToken);
+
 // GET /api/alerts/pests/:id/products - Productos sugeridos para una alerta
 router.get("/:id/products", getSuggestedProducts);
+
+// GET /api/alerts/pests/:id - Obtener una alerta para abrir su notificación
+router.get("/:id", getPestAlertById);
 
 module.exports = router;

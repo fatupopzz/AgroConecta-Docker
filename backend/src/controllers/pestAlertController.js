@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const { notifyNearbyInstallations } = require("../services/PestAlertPushService");
 
 const EARTH_RADIUS_KM = 6371;
 const DEFAULT_RADIUS_KM = 25;
@@ -50,15 +51,75 @@ const createPestAlert = async (req, res) => {
             ]
         );
 
+        const createdAlert = result.rows[0];
+
         res.status(201).json({
             message: "Alerta de plaga creada correctamente",
-            alerta: result.rows[0]
+            alerta: createdAlert
+        });
+
+        void notifyNearbyInstallations({
+            alert: createdAlert,
+            reporterUserId: id_usuario
+        }).catch((pushError) => {
+            console.error("Error al notificar alerta de plaga:", pushError);
         });
 
     } catch (error) {
         console.error("Error al crear alerta de plaga:", error);
         res.status(500).json({
             error: "Error al crear la alerta de plaga"
+        });
+    }
+};
+
+const registerPestAlertToken = async (req, res) => {
+    try {
+        const {
+            token: rawToken,
+            latitud: rawLatitude,
+            longitud: rawLongitude
+        } = req.body || {};
+        const token = typeof rawToken === "string"
+            ? rawToken.trim()
+            : null;
+        const latitude = Number(rawLatitude);
+        const longitude = Number(rawLongitude);
+
+        if (!token || token.length > 4096) {
+            return res.status(400).json({
+                error: "Debe enviar un token FCM válido"
+            });
+        }
+
+        if (
+            rawLatitude == null || rawLongitude == null ||
+            !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+            !Number.isFinite(longitude) || longitude < -180 || longitude > 180
+        ) {
+            return res.status(400).json({ error: "Coordenadas inválidas" });
+        }
+
+        await pool.query(
+            `INSERT INTO instalacion_alerta_plaga
+                (id_usuario, fcm_registration_token, latitud, longitud)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (fcm_registration_token)
+             DO UPDATE SET
+                id_usuario = EXCLUDED.id_usuario,
+                latitud = EXCLUDED.latitud,
+                longitud = EXCLUDED.longitud,
+                fecha_actualizacion = NOW()`,
+            [req.user.id, token, latitude, longitude]
+        );
+
+        return res.status(200).json({
+            message: "Token FCM registrado correctamente"
+        });
+    } catch (error) {
+        console.error("Error al registrar token FCM para alertas:", error);
+        return res.status(500).json({
+            error: "Error al registrar el token FCM"
         });
     }
 };
@@ -132,6 +193,32 @@ const getNearbyAlerts = async (req, res) => {
         res.status(500).json({
             error: "Error al obtener alertas cercanas"
         });
+    }
+};
+
+const getPestAlertById = async (req, res) => {
+    const alertId = Number(req.params.id);
+    if (!Number.isInteger(alertId) || alertId <= 0) {
+        return res.status(400).json({ error: "El id de la alerta no es válido" });
+    }
+
+    try {
+        const result = await pool.query(
+            `SELECT a.*, u.nombre AS nombre_usuario
+            FROM alerta_plaga a
+            JOIN usuario u ON u.id_usuario = a.id_usuario
+            WHERE a.id_alerta = $1`,
+            [alertId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Alerta no encontrada" });
+        }
+
+        return res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error("Error al obtener alerta de plaga:", error);
+        return res.status(500).json({ error: "Error al obtener la alerta" });
     }
 };
 
@@ -216,6 +303,8 @@ const getMyAlerts = async (req, res) => {
 module.exports = {
     createPestAlert,
     getNearbyAlerts,
+    getPestAlertById,
     getSuggestedProducts,
-    getMyAlerts
+    getMyAlerts,
+    registerPestAlertToken
 };
