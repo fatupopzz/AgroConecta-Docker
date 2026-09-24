@@ -34,4 +34,7 @@
     <string name="offers_today">Oferta del día</string>
     <string name="stock_label">Stock</string>
     <string name="dose_label">Dosis</string>
+    <string name="pest_alert_notification_channel_id">pest_alerts_nearby</string>
+    <string name="pest_alert_notification_channel_name">Alertas de plagas cercanas</string>
+    <string name="pest_alert_notification_channel_description">Avisos cuando se reporta una plaga cerca de tu zona</string>
 </resources>
