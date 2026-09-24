@@ -10,7 +10,7 @@ const { notifyNearbyInstallations } = require("../src/services/PestAlertPushServ
 const { pool } = require("../src/config/db");
 const {
   getPestAlertById,
-  registerPestAlertInstallation,
+  registerPestAlertToken,
 } = require("../src/controllers/pestAlertController");
 const alert = {
   id_alerta: 29,
@@ -29,19 +29,19 @@ test("push skips database work when Firebase is not configured", async () => {
   assert.equal(result.skipped, "firebase_not_configured");
 });
 
-test("push sends the alert payload to nearby Firebase installations", async () => {
+test("push targets nearby FCM registration tokens", async () => {
   const queries = [];
   const database = {
     query: async (sql, params) => {
       queries.push({ sql, params });
-      return { rows: [{ firebase_installation_id: "fid-ok" }] };
+      return { rows: [{ fcm_registration_token: "fcm-token-ok" }] };
     },
   };
   const messages = [];
   const sender = async (_config, token, message) => {
     messages.push({ token, message });
     return {
-      ok: message.fid === "fid-ok",
+      ok: message.token === "fcm-token-ok",
       status: 200,
     };
   };
@@ -58,10 +58,12 @@ test("push sends the alert payload to nearby Firebase installations", async () =
 
   assert.deepEqual(result, { sent: 1, failed: 0 });
   assert.deepEqual(queries[0].params, [14.6349, -90.5069, 7, 25]);
+  assert.equal(messages[0].message.token, "fcm-token-ok");
+  assert.equal(messages[0].message.fid, undefined);
   assert.equal(messages[0].message.data.alert_id, "29");
 });
 
-test("registration endpoint associates the FID and GPS with the authenticated user", async (t) => {
+test("registration endpoint associates the FCM token and GPS with the authenticated user", async (t) => {
   const originalQuery = pool.query;
   let query;
   pool.query = async (sql, params) => {
@@ -75,14 +77,14 @@ test("registration endpoint associates the FID and GPS with the authenticated us
     json(body) { this.body = body; return this; },
   };
 
-  await registerPestAlertInstallation({
+  await registerPestAlertToken({
     user: { id: 7 },
-    body: { installation_id: "fid-29", latitud: 14.6349, longitud: -90.5069 },
+    body: { token: "fcm-token-29", latitud: 14.6349, longitud: -90.5069 },
   }, response);
 
   assert.equal(response.statusCode, 200);
-  assert.match(query.sql, /ON CONFLICT \(firebase_installation_id\)/);
-  assert.deepEqual(query.params, [7, "fid-29", 14.6349, -90.5069]);
+  assert.match(query.sql, /ON CONFLICT \(fcm_registration_token\)/);
+  assert.deepEqual(query.params, [7, "fcm-token-29", 14.6349, -90.5069]);
 });
 
 test("detail endpoint returns the alert referenced by a notification", async (t) => {

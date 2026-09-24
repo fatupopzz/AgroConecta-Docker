@@ -66,7 +66,7 @@ const notifyNearbyInstallations = async (
 ) => {
   if (!config) return { sent: 0, failed: 0, skipped: "firebase_not_configured" };
   const result = await database.query(
-    `SELECT firebase_installation_id
+    `SELECT fcm_registration_token
      FROM instalacion_alerta_plaga
      WHERE id_usuario <> $3 AND fecha_actualizacion > NOW() - INTERVAL '90 days'
        AND (6371 * acos(LEAST(1, GREATEST(-1,
@@ -88,7 +88,7 @@ const notifyNearbyInstallations = async (
   const deliveries = await Promise.all(result.rows.map(async (row) => {
     try {
       const response = await sender(config, accessToken, {
-        fid: row.firebase_installation_id,
+        token: row.fcm_registration_token,
         data,
         android: { priority: "high" },
       });

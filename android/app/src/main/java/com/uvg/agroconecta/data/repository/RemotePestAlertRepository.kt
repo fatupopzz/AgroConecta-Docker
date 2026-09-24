@@ -1,14 +1,13 @@
 package com.uvg.agroconecta.data.repository
 
 import com.google.android.gms.tasks.Tasks
-import com.google.firebase.installations.FirebaseInstallations
 import com.google.firebase.messaging.FirebaseMessaging
 import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.models.NearbyPestAlertsResponse
 import com.uvg.agroconecta.data.models.PestAlert
-import com.uvg.agroconecta.data.models.PestAlertInstallationRequest
 import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestAlertReportResponse
+import com.uvg.agroconecta.data.models.PestAlertPushRegistrationRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.SuggestedPestProductsResponse
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +31,7 @@ internal interface PestAlertApi {
         alertId: Int
     ): Response<SuggestedPestProductsResponse>
 
-    suspend fun registerInstallation(request: PestAlertInstallationRequest): Response<Unit>
+    suspend fun registerToken(request: PestAlertPushRegistrationRequest): Response<Unit>
 }
 
 internal class RetrofitPestAlertApi(
@@ -59,19 +58,19 @@ internal class RetrofitPestAlertApi(
         alertId: Int
     ): Response<SuggestedPestProductsResponse> = service.getSuggestedPestProducts(alertId)
 
-    override suspend fun registerInstallation(
-        request: PestAlertInstallationRequest
-    ): Response<Unit> = service.registerPestAlertInstallation(request)
+    override suspend fun registerToken(
+        request: PestAlertPushRegistrationRequest
+    ): Response<Unit> = service.registerPestAlertToken(request)
 }
 
 class RemotePestAlertRepository internal constructor(
     private val api: PestAlertApi,
-    private val installationId: suspend () -> String? = { null }
+    private val messagingToken: suspend () -> String? = { null }
 ) : PestAlertRepository {
 
     constructor(service: ApiService) : this(
         RetrofitPestAlertApi(service),
-        ::firebaseInstallationId
+        ::firebaseMessagingToken
     )
 
     override suspend fun getNearbyAlerts(
@@ -97,16 +96,15 @@ class RemotePestAlertRepository internal constructor(
             .requireBody("No se pudieron cargar los productos sugeridos")
             .products
 
-    override suspend fun syncPushInstallation(latitude: Double, longitude: Double) {
-        val id = installationId() ?: return
-        val response = api.registerInstallation(PestAlertInstallationRequest(id, latitude, longitude))
+    override suspend fun syncPushRegistration(latitude: Double, longitude: Double) {
+        val token = messagingToken() ?: return
+        val response = api.registerToken(PestAlertPushRegistrationRequest(token, latitude, longitude))
         if (!response.isSuccessful) error("No se pudo registrar el dispositivo (${response.code()})")
     }
 }
 
-private suspend fun firebaseInstallationId(): String = withContext(Dispatchers.IO) {
-    Tasks.await(FirebaseMessaging.getInstance().register())
-    Tasks.await(FirebaseInstallations.getInstance().id)
+private suspend fun firebaseMessagingToken(): String = withContext(Dispatchers.IO) {
+    Tasks.await(FirebaseMessaging.getInstance().token)
 }
 
 private fun <T> Response<T>.requireBody(errorMessage: String): T {

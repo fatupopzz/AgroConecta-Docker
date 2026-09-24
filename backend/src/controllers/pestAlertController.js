@@ -73,22 +73,22 @@ const createPestAlert = async (req, res) => {
     }
 };
 
-const registerPestAlertInstallation = async (req, res) => {
+const registerPestAlertToken = async (req, res) => {
     try {
         const {
-            installation_id: rawInstallationId,
+            token: rawToken,
             latitud: rawLatitude,
             longitud: rawLongitude
         } = req.body || {};
-        const installationId = typeof rawInstallationId === "string"
-            ? rawInstallationId.trim()
+        const token = typeof rawToken === "string"
+            ? rawToken.trim()
             : null;
         const latitude = Number(rawLatitude);
         const longitude = Number(rawLongitude);
 
-        if (!installationId || installationId.length > 255) {
+        if (!token || token.length > 4096) {
             return res.status(400).json({
-                error: "Debe enviar un installation_id válido"
+                error: "Debe enviar un token FCM válido"
             });
         }
 
@@ -102,25 +102,24 @@ const registerPestAlertInstallation = async (req, res) => {
 
         await pool.query(
             `INSERT INTO instalacion_alerta_plaga
-                (id_usuario, firebase_installation_id, latitud, longitud)
+                (id_usuario, fcm_registration_token, latitud, longitud)
              VALUES ($1, $2, $3, $4)
-             ON CONFLICT (firebase_installation_id)
+             ON CONFLICT (fcm_registration_token)
              DO UPDATE SET
                 id_usuario = EXCLUDED.id_usuario,
                 latitud = EXCLUDED.latitud,
                 longitud = EXCLUDED.longitud,
                 fecha_actualizacion = NOW()`,
-            [req.user.id, installationId, latitude, longitude]
+            [req.user.id, token, latitude, longitude]
         );
 
         return res.status(200).json({
-            message: "Instalación registrada correctamente",
-            installation_id: installationId
+            message: "Token FCM registrado correctamente"
         });
     } catch (error) {
-        console.error("Error al registrar instalación para alertas:", error);
+        console.error("Error al registrar token FCM para alertas:", error);
         return res.status(500).json({
-            error: "Error al registrar la instalación"
+            error: "Error al registrar el token FCM"
         });
     }
 };
@@ -307,5 +306,5 @@ module.exports = {
     getPestAlertById,
     getSuggestedProducts,
     getMyAlerts,
-    registerPestAlertInstallation
+    registerPestAlertToken
 };

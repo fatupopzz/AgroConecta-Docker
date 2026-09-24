@@ -58,8 +58,8 @@ interface ApiService {
     ): Response<SuggestedPestProductsResponse>
 
     @POST("alerts/pests/installations")
-    suspend fun registerPestAlertInstallation(
-        @Body request: PestAlertInstallationRequest
+    suspend fun registerPestAlertToken(
+        @Body request: PestAlertPushRegistrationRequest
     ): Response<Unit>
 
     // ── Products ─────────────────────────────────────────────────────────

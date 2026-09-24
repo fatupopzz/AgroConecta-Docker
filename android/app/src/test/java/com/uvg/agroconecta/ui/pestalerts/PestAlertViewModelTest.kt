@@ -367,7 +367,7 @@ private class FakePestAlertRepository(
         return products[alertId].orEmpty()
     }
 
-    override suspend fun syncPushInstallation(latitude: Double, longitude: Double) {
+    override suspend fun syncPushRegistration(latitude: Double, longitude: Double) {
         pushRegistrations += latitude to longitude
     }
 }

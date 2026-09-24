@@ -1,22 +1,13 @@
 package com.uvg.agroconecta.notifications
 
-import android.annotation.SuppressLint
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
-// AGP 8.3 todavía busca el callback heredado onNewToken. Firebase Messaging
-// 25 usa onRegistered para entregar y renovar el Firebase Installation ID.
-@SuppressLint("MissingFirebaseInstanceTokenRefresh")
 class PestAlertMessagingService : FirebaseMessagingService() {
 
-    override fun onRegistered(installationId: String) {
-        super.onRegistered(installationId)
-        PestAlertInstallationStore.save(this, installationId)
-    }
-
-    override fun onUnregistered(installationId: String) {
-        super.onUnregistered(installationId)
-        PestAlertInstallationStore.clear(this)
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+        PestAlertTokenStore.save(this, token)
     }
 
     override fun onMessageReceived(message: RemoteMessage) {

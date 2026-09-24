@@ -417,7 +417,7 @@ class PestAlertViewModel @Inject constructor(
     private fun synchronizePushRegistration(latitude: Double, longitude: Double) {
         viewModelScope.launch {
             try {
-                repository.syncPushInstallation(latitude, longitude)
+                repository.syncPushRegistration(latitude, longitude)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {

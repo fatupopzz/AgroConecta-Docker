@@ -64,8 +64,8 @@ data class SuggestedPestProductsResponse(
     val products: List<PestSuggestedProduct> = emptyList()
 )
 
-data class PestAlertInstallationRequest(
-    @SerializedName("installation_id") val installationId: String,
+data class PestAlertPushRegistrationRequest(
+    val token: String,
     val latitud: Double,
     val longitud: Double
 )

@@ -21,7 +21,7 @@ interface PestAlertRepository {
 
     suspend fun getSuggestedProducts(alertId: Int): List<PestSuggestedProduct>
 
-    suspend fun syncPushInstallation(latitude: Double, longitude: Double)
+    suspend fun syncPushRegistration(latitude: Double, longitude: Double)
 
     companion object {
         const val DEFAULT_RADIUS_KM = 25.0
