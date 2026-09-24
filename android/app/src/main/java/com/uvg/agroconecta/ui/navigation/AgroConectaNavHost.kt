@@ -40,6 +40,7 @@ import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
 import com.uvg.agroconecta.ui.orders.OrderTrackingScreen
 import com.uvg.agroconecta.ui.orders.OrderViewModel
 import com.uvg.agroconecta.ui.orders.UrgentOrderScreen
+import com.uvg.agroconecta.ui.pestalerts.PestAlertRoute
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import com.uvg.agroconecta.ui.profile.ProfileScreen
 import kotlinx.coroutines.flow.first
@@ -171,6 +172,11 @@ fun AgroConectaNavHost(
                 },
                 onRecommendedProductClick = { productName ->
                     navController.navigate(Screen.Catalog.createRoute(productName))
+                },
+                onPestAlertsClick = {
+                    navController.navigate(Screen.PestAlerts.route) {
+                        launchSingleTop = true
+                    }
                 },
                 onProductoClick = { productoId ->
                     navController.navigate(Screen.ProductDetail.createRoute(productoId))
@@ -553,6 +559,12 @@ fun AgroConectaNavHost(
                 },
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
                 onPerfilClick = { navController.navigate(Screen.Profile.route) }
+            )
+        }
+
+        composable(Screen.PestAlerts.route) {
+            PestAlertRoute(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
