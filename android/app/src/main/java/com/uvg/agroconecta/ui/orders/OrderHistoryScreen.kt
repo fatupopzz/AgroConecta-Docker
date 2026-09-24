@@ -29,6 +29,9 @@ fun OrderHistoryScreen(
     isLoading: Boolean,
     errorMessage: String?,
     tipoUsuario: String,
+    exportState: OrderExportState = OrderExportState.Idle,
+    exportNotice: String? = null,
+    onExportPdf: () -> Unit = {},
     onTrackOrder: (Int) -> Unit,
     onOpenAdvice: (Int) -> Unit,
     onBack: () -> Unit,
@@ -68,6 +71,27 @@ fun OrderHistoryScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
+            if (tipoUsuario == "agricultor") {
+                Button(
+                    onClick = onExportPdf,
+                    enabled = exportState !is OrderExportState.Downloading,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (exportState is OrderExportState.Downloading) "Descargando PDF…" else "Exportar PDF")
+                }
+                if (exportState is OrderExportState.Downloading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                val message = (exportState as? OrderExportState.Error)?.message ?: exportNotice
+                message?.let {
+                    Text(
+                        text = it,
+                        color = if (exportState is OrderExportState.Error) MaterialTheme.colorScheme.error else GreenPrimary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             if (isLoading) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(16.dp))
