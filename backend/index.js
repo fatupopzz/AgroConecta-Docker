@@ -139,6 +139,12 @@ const runStartupMigrations = async () => {
     "utf8",
   );
   await pool.query(pestAlertsMigration);
+
+  const favoritesMigration = await fs.readFile(
+    path.join(__dirname, "sql", "favorites_migration.sql"),
+    "utf8",
+  );
+  await pool.query(favoritesMigration);
 };
 
 const startServer = async () => {
