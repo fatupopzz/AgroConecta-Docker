@@ -3,17 +3,22 @@ package com.uvg.agroconecta.di
 import android.content.Context
 import androidx.room.Room
 import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.api.dataStore
 import com.uvg.agroconecta.data.connectivity.AndroidConnectivityMonitor
 import com.uvg.agroconecta.data.connectivity.ConnectivityMonitor
 import com.uvg.agroconecta.data.local.AgroConectaDatabase
+import com.uvg.agroconecta.data.local.DataStoreFavoriteLocalDataSource
+import com.uvg.agroconecta.data.local.FavoriteLocalDataSource
 import com.uvg.agroconecta.data.local.ProductCacheDao
 import com.uvg.agroconecta.data.location.AndroidCurrentLocationProvider
 import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.repository.CropCycleRepository
+import com.uvg.agroconecta.data.repository.FavoriteRepository
 import com.uvg.agroconecta.data.repository.OfflineFirstProductCatalogRepository
 import com.uvg.agroconecta.data.repository.ProductCatalogRepository
 import com.uvg.agroconecta.data.repository.PestAlertRepository
 import com.uvg.agroconecta.data.repository.RemoteCropCycleRepository
+import com.uvg.agroconecta.data.repository.RemoteFavoriteRepository
 import com.uvg.agroconecta.data.repository.RemotePestAlertRepository
 import com.uvg.agroconecta.data.repository.RetrofitProductCatalogApi
 import com.uvg.agroconecta.data.repository.TimeProvider
@@ -74,6 +79,19 @@ object StorageModule {
     @Singleton
     fun providePestAlertRepository(apiService: ApiService): PestAlertRepository =
         RemotePestAlertRepository(apiService)
+
+    @Provides
+    @Singleton
+    fun provideFavoriteLocalDataSource(
+        @ApplicationContext context: Context
+    ): FavoriteLocalDataSource = DataStoreFavoriteLocalDataSource(context.dataStore)
+
+    @Provides
+    @Singleton
+    fun provideFavoriteRepository(
+        apiService: ApiService,
+        localDataSource: FavoriteLocalDataSource
+    ): FavoriteRepository = RemoteFavoriteRepository(apiService, localDataSource)
 
     @Provides
     @Singleton
