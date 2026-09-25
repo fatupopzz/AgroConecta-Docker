@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,6 +44,7 @@ fun ProfileScreen(
     onHomeClick: () -> Unit,
     onAgregarClick: () -> Unit,
     onPedidosClick: () -> Unit,
+    onHelpClick: () -> Unit,
     onStatsClick: () -> Unit,
     tipoUsuario: String,
     viewModel: ProfileViewModel = hiltViewModel()
@@ -132,12 +134,14 @@ fun ProfileScreen(
                     when (val data = state.data) {
                         is ProfileData.Farmer -> FarmerProfileContent(
                             data.profile,
+                            onHelpClick = onHelpClick,
                             onEditClick = { showEditDialog = true },
                             onLogoutClick = { showLogoutDialog = true }
                         )
                         is ProfileData.Distributor -> DistributorProfileContent(
                             data.profile,
                             onStatsClick = onStatsClick,
+                            onHelpClick = onHelpClick,
                             onEditClick = { showEditDialog = true },
                             onLogoutClick = { showLogoutDialog = true }
                         )
@@ -162,6 +166,7 @@ fun ProfileScreen(
 @Composable
 fun FarmerProfileContent(
     profile: FarmerProfile,
+    onHelpClick: () -> Unit,
     onEditClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
@@ -288,6 +293,8 @@ fun FarmerProfileContent(
         }
 
         Spacer(Modifier.height(16.dp))
+        HelpButton(onClick = onHelpClick)
+        Spacer(Modifier.height(12.dp))
         EditProfileButton(onClick = onEditClick)
         Spacer(Modifier.height(12.dp))
         LogoutButton(onClick = onLogoutClick)
@@ -298,6 +305,7 @@ fun FarmerProfileContent(
 fun DistributorProfileContent(
     profile: DistributorProfile,
     onStatsClick: () -> Unit,
+    onHelpClick: () -> Unit,
     onEditClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
@@ -420,6 +428,8 @@ fun DistributorProfileContent(
         }
 
         Spacer(Modifier.height(16.dp))
+        HelpButton(onClick = onHelpClick)
+        Spacer(Modifier.height(12.dp))
         EditProfileButton(onClick = onEditClick)
         Spacer(Modifier.height(12.dp))
         LogoutButton(onClick = onLogoutClick)
@@ -486,6 +496,39 @@ fun ProfileInfoRow(
         }
     }
     if (value != "—") HorizontalDivider(color = GrayBorder.copy(alpha = 0.5f))
+}
+
+@Composable
+fun HelpButton(onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(48.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.White,
+            contentColor = GreenPrimary
+        )
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "Ayuda y preguntas frecuentes",
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.SemiBold
+        )
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+    }
 }
 
 @Composable

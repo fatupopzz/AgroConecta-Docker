@@ -29,6 +29,12 @@ val releaseApiBaseUrl = configuredApiBaseUrl
     .orElse("")
     .get()
 
+val supportWhatsAppNumber = providers.gradleProperty("AGROCONECTA_SUPPORT_WHATSAPP")
+    .orElse(providers.environmentVariable("AGROCONECTA_SUPPORT_WHATSAPP"))
+    .orElse("")
+    .get()
+    .filter(Char::isDigit)
+
 android {
     namespace = "com.uvg.agroconecta"
     compileSdk = 34
@@ -39,6 +45,11 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        buildConfigField(
+            "String",
+            "SUPPORT_WHATSAPP_NUMBER",
+            "\"$supportWhatsAppNumber\""
+        )
     }
 
     testOptions {

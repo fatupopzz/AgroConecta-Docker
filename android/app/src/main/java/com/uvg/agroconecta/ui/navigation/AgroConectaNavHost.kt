@@ -8,6 +8,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -24,6 +25,9 @@ import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.home.CatalogScreen
+import com.uvg.agroconecta.ui.help.HelpScreen
+import com.uvg.agroconecta.ui.help.openWhatsAppSupport
+import com.uvg.agroconecta.BuildConfig
 import com.uvg.agroconecta.ui.notifications.DistributorNotificationViewModel
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
@@ -599,6 +603,11 @@ fun AgroConectaNavHost(
                 },
                 onAgregarClick = onAgregarClick,
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
+                onHelpClick = {
+                    navController.navigate(Screen.Help.route) {
+                        launchSingleTop = true
+                    }
+                },
                 onStatsClick = {
                     navController.navigate(Screen.DistributorStats.route) {
                         launchSingleTop = true
@@ -609,6 +618,25 @@ fun AgroConectaNavHost(
                     authViewModel.resetLogin()
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Screen.Help.route) {
+            HelpScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onContactSupport = {
+                    val opened = openWhatsAppSupport(
+                        context = context,
+                        phoneNumber = BuildConfig.SUPPORT_WHATSAPP_NUMBER
+                    )
+                    if (!opened) {
+                        Toast.makeText(
+                            context,
+                            "No se pudo abrir WhatsApp. Intenta nuevamente.",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             )
