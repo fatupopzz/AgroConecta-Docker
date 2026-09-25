@@ -118,7 +118,7 @@ fun HelpScreen(
 
                 items(
                     items = section.questions,
-                    key = FrequentlyAskedQuestion::id
+                    key = { faq -> "${section.category.name}:${faq.id}" }
                 ) { faq ->
                     FaqAccordionItem(faq = faq)
                 }
