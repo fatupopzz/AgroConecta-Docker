@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
+import com.uvg.agroconecta.ui.favorites.FavoriteButton
 import com.uvg.agroconecta.ui.theme.ErrorRed
 import com.uvg.agroconecta.ui.theme.GrayDark
 import com.uvg.agroconecta.ui.theme.GrayLight
@@ -57,7 +58,11 @@ internal fun PestAlertDetailSheet(
     isLoadingProducts: Boolean,
     errorMessage: String?,
     onRetry: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    showFavoriteAction: Boolean = false,
+    favoriteIds: Set<Int> = emptySet(),
+    pendingFavoriteIds: Set<Int> = emptySet(),
+    onFavoriteClick: (Int) -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -113,7 +118,13 @@ internal fun PestAlertDetailSheet(
                 }
                 products.isEmpty() -> item { EmptyProductsState() }
                 else -> items(products, key = PestSuggestedProduct::id) { product ->
-                    SuggestedProductCard(product)
+                    SuggestedProductCard(
+                        product = product,
+                        showFavoriteAction = showFavoriteAction,
+                        isFavorite = product.id in favoriteIds,
+                        isUpdatingFavorite = product.id in pendingFavoriteIds,
+                        onFavoriteClick = { onFavoriteClick(product.id) }
+                    )
                 }
             }
         }
@@ -283,7 +294,13 @@ private fun EmptyProductsState() {
 }
 
 @Composable
-private fun SuggestedProductCard(product: PestSuggestedProduct) {
+private fun SuggestedProductCard(
+    product: PestSuggestedProduct,
+    showFavoriteAction: Boolean,
+    isFavorite: Boolean,
+    isUpdatingFavorite: Boolean,
+    onFavoriteClick: () -> Unit
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = androidx.compose.foundation.BorderStroke(1.dp, GrayLight),
@@ -315,6 +332,15 @@ private fun SuggestedProductCard(product: PestSuggestedProduct) {
                     product.marca?.takeIf(String::isNotBlank)?.let { brand ->
                         Text(text = brand, style = MaterialTheme.typography.bodySmall, color = GrayMid)
                     }
+                }
+                if (showFavoriteAction) {
+                    FavoriteButton(
+                        productId = product.id,
+                        isFavorite = isFavorite,
+                        isPending = isUpdatingFavorite,
+                        onClick = onFavoriteClick,
+                        containerColor = GreenSurface
+                    )
                 }
             }
 

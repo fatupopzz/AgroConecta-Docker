@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.DistributorOffer
 import com.uvg.agroconecta.data.models.ProductDetail
+import com.uvg.agroconecta.ui.favorites.FavoriteButton
 import com.uvg.agroconecta.ui.theme.GrayDark
 import com.uvg.agroconecta.ui.theme.GrayMid
 import com.uvg.agroconecta.ui.theme.GreenPale
@@ -58,7 +59,12 @@ internal fun ProductDetailTopBar(
     title: String,
     onNavigateBack: () -> Unit,
     onShare: () -> Unit,
-    onNavigateToCart: () -> Unit
+    onNavigateToCart: () -> Unit,
+    productId: Int,
+    showFavoriteAction: Boolean = false,
+    isFavorite: Boolean = false,
+    isUpdatingFavorite: Boolean = false,
+    onFavoriteClick: () -> Unit = {}
 ) {
     TopAppBar(
         title = {
@@ -78,6 +84,16 @@ internal fun ProductDetailTopBar(
             }
         },
         actions = {
+            if (showFavoriteAction) {
+                FavoriteButton(
+                    productId = productId,
+                    isFavorite = isFavorite,
+                    isPending = isUpdatingFavorite,
+                    onClick = onFavoriteClick,
+                    containerColor = Color.Transparent,
+                    inactiveTint = Color.White
+                )
+            }
             IconButton(onClick = onShare) {
                 Icon(
                     imageVector = Icons.Default.Share,
