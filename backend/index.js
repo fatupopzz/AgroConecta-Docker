@@ -4,6 +4,10 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const app = require("./app");
 const { shutdownPool, pool } = require("./src/config/db");
+const {
+  startRecurringOrderScheduler,
+  stopRecurringOrderScheduler,
+} = require("./src/services/recurringOrderScheduler");
 
 const PORT = process.env.PORT || 8080;
 
@@ -145,6 +149,12 @@ const runStartupMigrations = async () => {
     "utf8",
   );
   await pool.query(favoritesMigration);
+
+  const recurringOrdersMigration = await fs.readFile(
+    path.join(__dirname, "sql", "hu014_recurring_orders_migration.sql"),
+    "utf8",
+  );
+  await pool.query(recurringOrdersMigration);
 };
 
 const startServer = async () => {
@@ -154,6 +164,7 @@ const startServer = async () => {
         app.listen(PORT, () => {
             console.log(`Backend AgroConecta escuchando en puerto ${PORT}`);
         });
+        startRecurringOrderScheduler();
 
     } catch (error) {
         console.error(error);
@@ -164,6 +175,7 @@ const startServer = async () => {
 startServer();
 
 process.on("SIGTERM", async () => {
+    stopRecurringOrderScheduler();
     await shutdownPool();
     process.exit(0);
 });

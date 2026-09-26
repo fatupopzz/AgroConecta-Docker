@@ -4,28 +4,30 @@ const getNotifications = async (req, res) => {
     const idUsuario = req.user?.id;
     const tipoUsuario = req.user?.tipo;
 
-    if (tipoUsuario !== "distribuidor") {
+    if (!["distribuidor", "agricultor"].includes(tipoUsuario)) {
         return res.status(403).json({
-            error: "Solo distribuidores pueden ver sus notificaciones"
+            error: "Tipo de usuario sin acceso a notificaciones"
         });
     }
 
     try {
 
-        const distributorResult = await pool.query(
-            `SELECT id_distribuidor
-             FROM distribuidor
+        const profileTable = tipoUsuario === "distribuidor" ? "distribuidor" : "agricultor";
+        const profileId = tipoUsuario === "distribuidor" ? "id_distribuidor" : "id_agricultor";
+        const profileResult = await pool.query(
+            `SELECT ${profileId}
+             FROM ${profileTable}
              WHERE id_usuario = $1`,
             [Number(idUsuario)]
         );
 
-        if (distributorResult.rows.length === 0) {
+        if (profileResult.rows.length === 0) {
             return res.status(404).json({
-                error: "Distribuidor no encontrado"
+                error: "Perfil de usuario no encontrado"
             });
         }
 
-        const { id_distribuidor } = distributorResult.rows[0];
+        const ownerId = profileResult.rows[0][profileId];
 
         const result = await pool.query(
             `SELECT
@@ -36,9 +38,9 @@ const getNotifications = async (req, res) => {
                 leida,
                 fecha
              FROM notificacion
-             WHERE id_distribuidor = $1
+             WHERE ${profileId} = $1
              ORDER BY fecha DESC`,
-            [id_distribuidor]
+            [ownerId]
         );
 
         return res.json(result.rows);
@@ -57,15 +59,26 @@ const getNotifications = async (req, res) => {
 const markNotificationAsRead = async (req, res) => {
 
     const { id } = req.params;
+    const idUsuario = req.user?.id;
+    const tipoUsuario = req.user?.tipo;
+
+    if (!["distribuidor", "agricultor"].includes(tipoUsuario)) {
+        return res.status(403).json({ error: "Tipo de usuario sin acceso a notificaciones" });
+    }
 
     try {
 
+        const profileTable = tipoUsuario === "distribuidor" ? "distribuidor" : "agricultor";
+        const profileId = tipoUsuario === "distribuidor" ? "id_distribuidor" : "id_agricultor";
         const result = await pool.query(
-            `UPDATE notificacion
+            `UPDATE notificacion n
              SET leida = TRUE
-             WHERE id_notificacion = $1
-             RETURNING *`,
-            [Number(id)]
+             FROM ${profileTable} p
+             WHERE n.id_notificacion = $1
+               AND p.id_usuario = $2
+               AND n.${profileId} = p.${profileId}
+             RETURNING n.*`,
+            [Number(id), Number(idUsuario)]
         );
 
         if (result.rows.length === 0) {
