@@ -27,6 +27,12 @@ fun PestAlertRoute(
     onNavigateBack: () -> Unit,
     initialAlertId: Int? = null,
     onInitialAlertHandled: () -> Unit = {},
+    showFavoriteAction: Boolean = false,
+    favoriteIds: Set<Int> = emptySet(),
+    pendingFavoriteIds: Set<Int> = emptySet(),
+    favoriteErrorMessage: String? = null,
+    onFavoriteClick: (Int) -> Unit = {},
+    onFavoriteErrorShown: () -> Unit = {},
     viewModel: PestAlertViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -95,7 +101,13 @@ fun PestAlertRoute(
         onReportCropSelected = viewModel::selectReportCrop,
         onReportDescriptionChanged = viewModel::updateReportDescription,
         onSubmitReport = viewModel::submitPestReport,
-        onDismissReportSuccess = viewModel::clearReportSuccess
+        onDismissReportSuccess = viewModel::clearReportSuccess,
+        showFavoriteAction = showFavoriteAction,
+        favoriteIds = favoriteIds,
+        pendingFavoriteIds = pendingFavoriteIds,
+        favoriteErrorMessage = favoriteErrorMessage,
+        onFavoriteClick = onFavoriteClick,
+        onFavoriteErrorShown = onFavoriteErrorShown
     )
 }
 
