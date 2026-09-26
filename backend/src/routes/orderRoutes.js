@@ -25,7 +25,15 @@ const {
   sendAdviceMessage,
 } = require("../controllers/adviceController");
 const { exportOrderHistoryPdf } = require("../controllers/orderExportController");
+const {
+  createRecurringOrder,
+  listRecurringOrders,
+  updateRecurringOrder,
+} = require("../controllers/recurringOrderController");
 
+router.post("/recurring", verifyToken, createRecurringOrder);
+router.get("/recurring", verifyToken, listRecurringOrders);
+router.patch("/recurring/:id", verifyToken, updateRecurringOrder);
 router.post("/", verifyToken, canCreateOrder, createOrder);
 router.get("/export/pdf", verifyToken, exportOrderHistoryPdf);
 router.get("/farmer/:id", verifyToken, getOrdersByFarmer);
