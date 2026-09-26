@@ -43,6 +43,9 @@ import com.uvg.agroconecta.ui.orders.AdviceViewModel
 import com.uvg.agroconecta.ui.orders.CheckoutViewModel
 import com.uvg.agroconecta.ui.orders.OrderAdviceScreen
 import com.uvg.agroconecta.ui.orders.OrderHistoryScreen
+import com.uvg.agroconecta.ui.orders.OrderExportViewModel
+import com.uvg.agroconecta.ui.orders.OrderExportState
+import com.uvg.agroconecta.ui.orders.OrderPdfOpener
 import com.uvg.agroconecta.ui.orders.OrderTrackingScreen
 import com.uvg.agroconecta.ui.orders.OrderViewModel
 import com.uvg.agroconecta.ui.orders.UrgentOrderScreen
@@ -440,9 +443,24 @@ fun AgroConectaNavHost(
 
         composable(Screen.OrderHistory.route) {
             val orderViewModel: OrderViewModel = hiltViewModel()
+            val exportViewModel: OrderExportViewModel = hiltViewModel()
+            val exportState by exportViewModel.state.collectAsState()
+            var exportNotice by remember { mutableStateOf<String?>(null) }
             val orders by orderViewModel.orders.collectAsState()
             val isLoading by orderViewModel.isLoading.collectAsState()
             val errorMessage by orderViewModel.errorMessage.collectAsState()
+
+            LaunchedEffect(exportState) {
+                val completed = exportState as? OrderExportState.Completed
+                if (completed != null) {
+                    exportNotice = if (OrderPdfOpener.open(context, completed.uri)) {
+                        "PDF descargado y abierto."
+                    } else {
+                        "PDF descargado. Instala un lector de PDF para abrirlo."
+                    }
+                    exportViewModel.clearResult()
+                }
+            }
 
             LaunchedEffect(Unit) {
                 val role = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
@@ -463,7 +481,13 @@ fun AgroConectaNavHost(
                 orders = orders,
                 isLoading = isLoading,
                 errorMessage = errorMessage,
-                tipoUsuario = tipoUsuario,
+                tipoUsuario = tipoUsuarioFlow ?: "",
+                exportState = exportState,
+                exportNotice = exportNotice,
+                onExportPdf = {
+                    exportNotice = null
+                    exportViewModel.export()
+                },
                 onTrackOrder = { orderId ->
                     navController.navigate(Screen.OrderTracking.createRoute(orderId))
                 },

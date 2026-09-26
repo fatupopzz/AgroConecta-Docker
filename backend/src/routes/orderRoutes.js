@@ -24,8 +24,10 @@ const {
   getAdviceMessages,
   sendAdviceMessage,
 } = require("../controllers/adviceController");
+const { exportOrderHistoryPdf } = require("../controllers/orderExportController");
 
 router.post("/", verifyToken, canCreateOrder, createOrder);
+router.get("/export/pdf", verifyToken, exportOrderHistoryPdf);
 router.get("/farmer/:id", verifyToken, getOrdersByFarmer);
 router.get("/distributor/:id", verifyToken, canViewDistributorOrders, getOrdersByDistributor);
 router.patch("/:id/status", verifyToken, canManageOrderStatus, updateOrderStatus);
