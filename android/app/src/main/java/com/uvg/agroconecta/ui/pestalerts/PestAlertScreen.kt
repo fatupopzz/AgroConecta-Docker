@@ -32,12 +32,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -71,12 +75,27 @@ fun PestAlertScreen(
     onReportCropSelected: (String) -> Unit = {},
     onReportDescriptionChanged: (String) -> Unit = {},
     onSubmitReport: () -> Unit = {},
-    onDismissReportSuccess: () -> Unit = {}
+    onDismissReportSuccess: () -> Unit = {},
+    showFavoriteAction: Boolean = false,
+    favoriteIds: Set<Int> = emptySet(),
+    pendingFavoriteIds: Set<Int> = emptySet(),
+    favoriteErrorMessage: String? = null,
+    onFavoriteClick: (Int) -> Unit = {},
+    onFavoriteErrorShown: () -> Unit = {}
 ) {
     val isLoadingLocationOrAlerts = uiState.isLocating || uiState.isLoadingAlerts
     val primaryErrorMessage = uiState.locationErrorMessage ?: uiState.alertsErrorMessage
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(favoriteErrorMessage) {
+        favoriteErrorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            onFavoriteErrorShown()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Alertas de plagas") },
@@ -191,7 +210,11 @@ fun PestAlertScreen(
             isLoadingProducts = uiState.isLoadingSuggestions,
             errorMessage = uiState.detailErrorMessage,
             onRetry = onRetryAlertDetail,
-            onDismiss = onDismissAlertDetail
+            onDismiss = onDismissAlertDetail,
+            showFavoriteAction = showFavoriteAction,
+            favoriteIds = favoriteIds,
+            pendingFavoriteIds = pendingFavoriteIds,
+            onFavoriteClick = onFavoriteClick
         )
     }
 }

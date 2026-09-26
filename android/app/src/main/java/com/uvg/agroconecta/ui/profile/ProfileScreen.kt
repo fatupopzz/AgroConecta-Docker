@@ -44,6 +44,7 @@ fun ProfileScreen(
     onHomeClick: () -> Unit,
     onAgregarClick: () -> Unit,
     onPedidosClick: () -> Unit,
+    onFavoritesClick: () -> Unit,
     onHelpClick: () -> Unit,
     onStatsClick: () -> Unit,
     tipoUsuario: String,
@@ -134,6 +135,7 @@ fun ProfileScreen(
                     when (val data = state.data) {
                         is ProfileData.Farmer -> FarmerProfileContent(
                             data.profile,
+                            onFavoritesClick = onFavoritesClick,
                             onHelpClick = onHelpClick,
                             onEditClick = { showEditDialog = true },
                             onLogoutClick = { showLogoutDialog = true }
@@ -166,6 +168,7 @@ fun ProfileScreen(
 @Composable
 fun FarmerProfileContent(
     profile: FarmerProfile,
+    onFavoritesClick: () -> Unit,
     onHelpClick: () -> Unit,
     onEditClick: () -> Unit,
     onLogoutClick: () -> Unit
@@ -293,6 +296,8 @@ fun FarmerProfileContent(
         }
 
         Spacer(Modifier.height(16.dp))
+        FavoriteProductsButton(onClick = onFavoritesClick)
+        Spacer(Modifier.height(12.dp))
         HelpButton(onClick = onHelpClick)
         Spacer(Modifier.height(12.dp))
         EditProfileButton(onClick = onEditClick)
@@ -496,6 +501,40 @@ fun ProfileInfoRow(
         }
     }
     if (value != "—") HorizontalDivider(color = GrayBorder.copy(alpha = 0.5f))
+}
+
+@Composable
+fun FavoriteProductsButton(onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(48.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.White,
+            contentColor = GreenPrimary
+        )
+    ) {
+        Icon(
+            imageVector = Icons.Default.Favorite,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = ErrorRed
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "Mis favoritos",
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.SemiBold
+        )
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+    }
 }
 
 @Composable

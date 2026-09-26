@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.models.DistributorReview
 import com.uvg.agroconecta.data.models.Product
+import com.uvg.agroconecta.ui.favorites.FavoriteButton
 import com.uvg.agroconecta.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -33,6 +34,12 @@ fun DistributorProfileScreen(
     distributorId: Int,
     onNavigateBack: () -> Unit,
     onProductoClick: (Int) -> Unit,
+    showFavoriteAction: Boolean = false,
+    favoriteIds: Set<Int> = emptySet(),
+    pendingFavoriteIds: Set<Int> = emptySet(),
+    favoriteErrorMessage: String? = null,
+    onFavoriteClick: (Int) -> Unit = {},
+    onFavoriteErrorShown: () -> Unit = {},
     viewModel: DistributorViewModel = hiltViewModel()
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -55,6 +62,13 @@ fun DistributorProfileScreen(
         uiState.reviewSubmitError?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearReviewMessages()
+        }
+    }
+
+    LaunchedEffect(favoriteErrorMessage) {
+        favoriteErrorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            onFavoriteErrorShown()
         }
     }
 
@@ -215,7 +229,11 @@ fun DistributorProfileScreen(
                 items(productosAMostrar) { producto ->
                     ProductoDistribuidorCard(
                         producto = producto,
-                        onClick = { onProductoClick(producto.id) }
+                        onClick = { onProductoClick(producto.id) },
+                        showFavoriteAction = showFavoriteAction,
+                        isFavorite = producto.id in favoriteIds,
+                        isUpdatingFavorite = producto.id in pendingFavoriteIds,
+                        onFavoriteClick = { onFavoriteClick(producto.id) }
                     )
                 }
 
@@ -304,7 +322,11 @@ private fun SectionHeader(title: String) {
 @Composable
 private fun ProductoDistribuidorCard(
     producto: Product,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showFavoriteAction: Boolean,
+    isFavorite: Boolean,
+    isUpdatingFavorite: Boolean,
+    onFavoriteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -356,6 +378,16 @@ private fun ProductoDistribuidorCard(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = GreenPrimary
+                )
+            }
+            if (showFavoriteAction) {
+                Spacer(Modifier.width(8.dp))
+                FavoriteButton(
+                    productId = producto.id,
+                    isFavorite = isFavorite,
+                    isPending = isUpdatingFavorite,
+                    onClick = onFavoriteClick,
+                    containerColor = GreenSurface
                 )
             }
         }

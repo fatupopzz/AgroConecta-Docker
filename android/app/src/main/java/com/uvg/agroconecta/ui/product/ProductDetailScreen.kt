@@ -23,6 +23,11 @@ fun ProductDetailScreen(
     onNavigateBack: () -> Unit,
     onNavigateToCart: () -> Unit = {},
     onAddedToCart: () -> Unit = {},
+    isFavorite: Boolean = false,
+    isUpdatingFavorite: Boolean = false,
+    favoriteErrorMessage: String? = null,
+    onFavoriteClick: () -> Unit = {},
+    onFavoriteErrorShown: () -> Unit = {},
     viewModel: ProductViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -81,6 +86,12 @@ fun ProductDetailScreen(
     LaunchedEffect(error) {
         error?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
     }
+    LaunchedEffect(favoriteErrorMessage) {
+        favoriteErrorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            onFavoriteErrorShown()
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -111,7 +122,12 @@ fun ProductDetailScreen(
                         )
                     }
                 },
-                onNavigateToCart = onNavigateToCart
+                onNavigateToCart = onNavigateToCart,
+                productId = productId,
+                showFavoriteAction = isFarmer,
+                isFavorite = isFavorite,
+                isUpdatingFavorite = isUpdatingFavorite,
+                onFavoriteClick = onFavoriteClick
             )
         },
         bottomBar = {

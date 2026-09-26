@@ -40,6 +40,7 @@ import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.components.StarRating
+import com.uvg.agroconecta.ui.favorites.FavoriteButton
 import androidx.compose.ui.draw.clip
 
 private val VerdeAgroConecta = Color(0xFF2D6A1F)
@@ -78,6 +79,11 @@ fun HomeScreen(
     onUrgentNotificationClick: (DistributorNotification) -> Unit = {},
     onRecommendedProductClick: (String) -> Unit = {},
     onPestAlertsClick: () -> Unit = {},
+    favoriteIds: Set<Int> = emptySet(),
+    pendingFavoriteIds: Set<Int> = emptySet(),
+    favoriteErrorMessage: String? = null,
+    onFavoriteClick: (Int) -> Unit = {},
+    onFavoriteErrorShown: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -87,6 +93,13 @@ fun HomeScreen(
         uiState.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(favoriteErrorMessage) {
+        favoriteErrorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            onFavoriteErrorShown()
         }
     }
 
@@ -166,7 +179,10 @@ fun HomeScreen(
                     RecommendedProductsSection(
                         productos = uiState.productosRecomendados,
                         isLoading = uiState.isLoadingRecomendados,
-                        onProductoClick = onProductoClick
+                        onProductoClick = onProductoClick,
+                        favoriteIds = favoriteIds,
+                        pendingFavoriteIds = pendingFavoriteIds,
+                        onFavoriteClick = onFavoriteClick
                     )
                 }
             }
@@ -183,14 +199,22 @@ fun HomeScreen(
                     productos = uiState.productos.take(4),
                     isLoading = uiState.isLoadingProductos,
                     onProductoClick = onProductoClick,
-                    onVerMas = onVerMasProductos
+                    onVerMas = onVerMasProductos,
+                    showFavoriteAction = tipoUsuario == "agricultor",
+                    favoriteIds = favoriteIds,
+                    pendingFavoriteIds = pendingFavoriteIds,
+                    onFavoriteClick = onFavoriteClick
                 )
             }
             uiState.ofertaDelDia?.let { oferta ->
                 item {
                     OfertaBanner(
                         producto = oferta,
-                        onClick = { onProductoClick(oferta.id) }
+                        onClick = { onProductoClick(oferta.id) },
+                        showFavoriteAction = tipoUsuario == "agricultor",
+                        isFavorite = oferta.id in favoriteIds,
+                        isUpdatingFavorite = oferta.id in pendingFavoriteIds,
+                        onFavoriteClick = { onFavoriteClick(oferta.id) }
                     )
                 }
             }
@@ -499,7 +523,10 @@ private fun UrgentOrderNotificationAlert(
 private fun RecommendedProductsSection(
     productos: List<Product>,
     isLoading: Boolean,
-    onProductoClick: (Int) -> Unit
+    onProductoClick: (Int) -> Unit,
+    favoriteIds: Set<Int>,
+    pendingFavoriteIds: Set<Int>,
+    onFavoriteClick: (Int) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -532,6 +559,10 @@ private fun RecommendedProductsSection(
                     ProductCard(
                         producto = producto,
                         onClick = { onProductoClick(producto.id) },
+                        showFavoriteAction = true,
+                        isFavorite = producto.id in favoriteIds,
+                        isUpdatingFavorite = producto.id in pendingFavoriteIds,
+                        onFavoriteClick = { onFavoriteClick(producto.id) },
                         modifier = Modifier.width(190.dp)
                     )
                 }
@@ -696,7 +727,11 @@ private fun SeccionProductosDestacados(
     productos: List<Product>,
     isLoading: Boolean,
     onProductoClick: (Int) -> Unit,
-    onVerMas: () -> Unit
+    onVerMas: () -> Unit,
+    showFavoriteAction: Boolean,
+    favoriteIds: Set<Int>,
+    pendingFavoriteIds: Set<Int>,
+    onFavoriteClick: (Int) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
         Row(
@@ -734,6 +769,10 @@ private fun SeccionProductosDestacados(
                             ProductCard(
                                 producto = producto,
                                 onClick = { onProductoClick(producto.id) },
+                                showFavoriteAction = showFavoriteAction,
+                                isFavorite = producto.id in favoriteIds,
+                                isUpdatingFavorite = producto.id in pendingFavoriteIds,
+                                onFavoriteClick = { onFavoriteClick(producto.id) },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -749,6 +788,10 @@ private fun SeccionProductosDestacados(
 fun ProductCard(
     producto: Product,
     onClick: () -> Unit,
+    showFavoriteAction: Boolean = false,
+    isFavorite: Boolean = false,
+    isUpdatingFavorite: Boolean = false,
+    onFavoriteClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val tieneStock = (producto.precioDesde ?: 0.0) > 0.0
@@ -777,13 +820,24 @@ fun ProductCard(
                 if (!tieneStock) {
                     Box(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
+                            .align(if (showFavoriteAction) Alignment.TopStart else Alignment.TopEnd)
                             .padding(6.dp)
                             .background(Color(0xFFB71C1C), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text("Sin stock", color = Color.White, fontSize = 10.sp)
                     }
+                }
+                if (showFavoriteAction) {
+                    FavoriteButton(
+                        productId = producto.id,
+                        isFavorite = isFavorite,
+                        isPending = isUpdatingFavorite,
+                        onClick = onFavoriteClick,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                    )
                 }
             }
             Column(modifier = Modifier.padding(10.dp)) {
@@ -841,7 +895,14 @@ fun ProductCard(
 }
 
 @Composable
-private fun OfertaBanner(producto: Product, onClick: () -> Unit) {
+private fun OfertaBanner(
+    producto: Product,
+    onClick: () -> Unit,
+    showFavoriteAction: Boolean,
+    isFavorite: Boolean,
+    isUpdatingFavorite: Boolean,
+    onFavoriteClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -852,14 +913,28 @@ private fun OfertaBanner(producto: Product, onClick: () -> Unit) {
         border = androidx.compose.foundation.BorderStroke(1.5.dp, NaranjaOferta)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Surface(shape = RoundedCornerShape(20.dp), color = NaranjaOferta) {
-                Text(
-                    "Oferta del día",
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(shape = RoundedCornerShape(20.dp), color = NaranjaOferta) {
+                    Text(
+                        "Oferta del día",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+                if (showFavoriteAction) {
+                    FavoriteButton(
+                        productId = producto.id,
+                        isFavorite = isFavorite,
+                        isPending = isUpdatingFavorite,
+                        onClick = onFavoriteClick
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(

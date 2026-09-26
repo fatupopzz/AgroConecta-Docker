@@ -102,6 +102,20 @@ interface ApiService {
         @Path("id") id: Int
     ): Response<ProductFollowResponse>
 
+    // ── Favorites (KAN-96) ───────────────────────────────────────────────
+    @GET("favorites")
+    suspend fun getFavorites(): Response<List<Product>>
+
+    @POST("favorites")
+    suspend fun addFavorite(
+        @Body request: AddFavoriteRequest
+    ): Response<FavoriteMutationResponse>
+
+    @DELETE("favorites/{productId}")
+    suspend fun removeFavorite(
+        @Path("productId") productId: Int
+    ): Response<Unit>
+
     // ── Categories ───────────────────────────────────────────────────────
     @GET("categories")
     suspend fun getCategories(): Response<List<Category>>

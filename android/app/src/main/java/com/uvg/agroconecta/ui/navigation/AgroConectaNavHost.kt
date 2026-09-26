@@ -36,6 +36,8 @@ import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
 import com.uvg.agroconecta.ui.distributor.DistributorStatsScreen
 import com.uvg.agroconecta.ui.dosecalculator.DoseCalculatorScreen
+import com.uvg.agroconecta.ui.favorites.FavoriteViewModel
+import com.uvg.agroconecta.ui.favorites.FavoritesScreen
 import com.uvg.agroconecta.ui.orders.OrderConfirmationScreen
 import com.uvg.agroconecta.ui.orders.AdviceViewModel
 import com.uvg.agroconecta.ui.orders.CheckoutViewModel
@@ -66,10 +68,14 @@ fun AgroConectaNavHost(
     // MainActivity: una sola instancia compartida por todas las pantallas.
     val sharedCartViewModel: CartViewModel = hiltViewModel()
     val cartItems by sharedCartViewModel.cartItems.collectAsState()
+    val sharedFavoriteViewModel: FavoriteViewModel = hiltViewModel()
+    val favoriteUiState by sharedFavoriteViewModel.uiState.collectAsState()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
 
     // ── tipoUsuario a nivel global del NavHost ──
     val tipoUsuarioFlow by SessionManager.getTipoUsuario(context)
+        .collectAsState(initial = null)
+    val userIdFlow by SessionManager.getUserId(context)
         .collectAsState(initial = null)
     val tipoUsuario = tipoUsuarioFlow ?: "agricultor"
 
@@ -106,6 +112,13 @@ fun AgroConectaNavHost(
                 }
             }
         }
+    }
+
+    LaunchedEffect(tipoUsuarioFlow, userIdFlow) {
+        val favoriteUserId = userIdFlow?.takeIf {
+            tipoUsuarioFlow == "agricultor" && it > 0
+        }
+        sharedFavoriteViewModel.onUserChanged(favoriteUserId)
     }
 
     LaunchedEffect(initialPestAlertId, currentBackStackEntry?.destination?.route) {
@@ -218,7 +231,12 @@ fun AgroConectaNavHost(
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
                 onDistribuidorClick = { distribuidorId ->
                     navController.navigate(Screen.DistributorProfile.createRoute(distribuidorId))
-                }
+                },
+                favoriteIds = favoriteUiState.favoriteIds,
+                pendingFavoriteIds = favoriteUiState.pendingProductIds,
+                favoriteErrorMessage = favoriteUiState.errorMessage,
+                onFavoriteClick = sharedFavoriteViewModel::toggleFavorite,
+                onFavoriteErrorShown = sharedFavoriteViewModel::clearError
             )
         }
 
@@ -236,7 +254,13 @@ fun AgroConectaNavHost(
                 onBack = { navController.popBackStack() },
                 onProductClick = { productId ->
                     navController.navigate(Screen.ProductDetail.createRoute(productId))
-                }
+                },
+                showFavoriteAction = tipoUsuario == "agricultor",
+                favoriteIds = favoriteUiState.favoriteIds,
+                pendingFavoriteIds = favoriteUiState.pendingProductIds,
+                favoriteErrorMessage = favoriteUiState.errorMessage,
+                onFavoriteClick = sharedFavoriteViewModel::toggleFavorite,
+                onFavoriteErrorShown = sharedFavoriteViewModel::clearError
             )
         }
 
@@ -561,7 +585,12 @@ fun AgroConectaNavHost(
                             sharedCartViewModel.loadCart(idAgricultor = farmerId)
                         }
                     }
-                }
+                },
+                isFavorite = productoId in favoriteUiState.favoriteIds,
+                isUpdatingFavorite = productoId in favoriteUiState.pendingProductIds,
+                favoriteErrorMessage = favoriteUiState.errorMessage,
+                onFavoriteClick = { sharedFavoriteViewModel.toggleFavorite(productoId) },
+                onFavoriteErrorShown = sharedFavoriteViewModel::clearError
             )
         }
 
@@ -575,7 +604,13 @@ fun AgroConectaNavHost(
                 onNavigateBack = { navController.popBackStack() },
                 onProductoClick = { productoId ->
                     navController.navigate(Screen.ProductDetail.createRoute(productoId))
-                }
+                },
+                showFavoriteAction = tipoUsuario == "agricultor",
+                favoriteIds = favoriteUiState.favoriteIds,
+                pendingFavoriteIds = favoriteUiState.pendingProductIds,
+                favoriteErrorMessage = favoriteUiState.errorMessage,
+                onFavoriteClick = sharedFavoriteViewModel::toggleFavorite,
+                onFavoriteErrorShown = sharedFavoriteViewModel::clearError
             )
         }
 
@@ -612,7 +647,13 @@ fun AgroConectaNavHost(
             PestAlertRoute(
                 onNavigateBack = { navController.popBackStack() },
                 initialAlertId = initialPestAlertId,
-                onInitialAlertHandled = onInitialPestAlertConsumed
+                onInitialAlertHandled = onInitialPestAlertConsumed,
+                showFavoriteAction = tipoUsuario == "agricultor",
+                favoriteIds = favoriteUiState.favoriteIds,
+                pendingFavoriteIds = favoriteUiState.pendingProductIds,
+                favoriteErrorMessage = favoriteUiState.errorMessage,
+                onFavoriteClick = sharedFavoriteViewModel::toggleFavorite,
+                onFavoriteErrorShown = sharedFavoriteViewModel::clearError
             )
         }
 
@@ -627,6 +668,11 @@ fun AgroConectaNavHost(
                 },
                 onAgregarClick = onAgregarClick,
                 onPedidosClick = { navController.navigate(Screen.OrderHistory.route) },
+                onFavoritesClick = {
+                    navController.navigate(Screen.Favorites.route) {
+                        launchSingleTop = true
+                    }
+                },
                 onHelpClick = {
                     navController.navigate(Screen.Help.route) {
                         launchSingleTop = true
@@ -644,6 +690,22 @@ fun AgroConectaNavHost(
                         popUpTo(0) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable(Screen.Favorites.route) {
+            LaunchedEffect(Unit) {
+                sharedFavoriteViewModel.loadFavorites()
+            }
+            FavoritesScreen(
+                uiState = favoriteUiState,
+                onNavigateBack = { navController.popBackStack() },
+                onProductClick = { productId ->
+                    navController.navigate(Screen.ProductDetail.createRoute(productId))
+                },
+                onToggleFavorite = sharedFavoriteViewModel::toggleFavorite,
+                onRetry = sharedFavoriteViewModel::loadFavorites,
+                onErrorShown = sharedFavoriteViewModel::clearError
             )
         }
 

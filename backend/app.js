@@ -20,6 +20,7 @@ const distribuidorReviewRoutes = require("./src/routes/distribuitorReviewRoutes"
 const notificationRoutes = require("./src/routes/notificationRoutes");
 const cropCycleRoutes = require("./src/routes/cropCycleRoutes");
 const pestAlertRoutes = require("./src/routes/pestAlertRoutes");
+const favoriteRoutes = require("./src/routes/favoriteRoutes");
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/distribuidoresReview", distribuidorReviewRoutes);
 app.use("/api/alerts/pests", verifyToken, pestAlertRoutes);
+app.use("/api/favorites", verifyToken, favoriteRoutes);
 
 app.get("/", (req, res) => {
     res.json({

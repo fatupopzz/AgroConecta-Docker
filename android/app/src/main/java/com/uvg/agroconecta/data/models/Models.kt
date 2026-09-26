@@ -118,6 +118,22 @@ data class ProductsResponse(
     val products: List<Product>
 )
 
+data class AddFavoriteRequest(
+    @SerializedName("productId") val productId: Int
+)
+
+data class FavoriteRecord(
+    val id: Int,
+    @SerializedName("id_usuario") val userId: Int,
+    @SerializedName("id_producto") val productId: Int,
+    @SerializedName("fecha_agregado") val addedAt: String?
+)
+
+data class FavoriteMutationResponse(
+    val message: String,
+    val favorite: FavoriteRecord
+)
+
 // ─── Product Detail (with distributor offers) ─────────────────────────────
 
 data class ProductDetail(
