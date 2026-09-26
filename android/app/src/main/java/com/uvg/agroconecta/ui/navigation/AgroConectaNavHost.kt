@@ -75,6 +75,8 @@ fun AgroConectaNavHost(
     // ── tipoUsuario a nivel global del NavHost ──
     val tipoUsuarioFlow by SessionManager.getTipoUsuario(context)
         .collectAsState(initial = null)
+    val userIdFlow by SessionManager.getUserId(context)
+        .collectAsState(initial = null)
     val tipoUsuario = tipoUsuarioFlow ?: "agricultor"
 
     LaunchedEffect(Unit) {
@@ -112,10 +114,11 @@ fun AgroConectaNavHost(
         }
     }
 
-    LaunchedEffect(tipoUsuarioFlow) {
-        if (tipoUsuarioFlow == "agricultor") {
-            sharedFavoriteViewModel.loadFavorites()
+    LaunchedEffect(tipoUsuarioFlow, userIdFlow) {
+        val favoriteUserId = userIdFlow?.takeIf {
+            tipoUsuarioFlow == "agricultor" && it > 0
         }
+        sharedFavoriteViewModel.onUserChanged(favoriteUserId)
     }
 
     LaunchedEffect(initialPestAlertId, currentBackStackEntry?.destination?.route) {
@@ -691,9 +694,6 @@ fun AgroConectaNavHost(
         }
 
         composable(Screen.Favorites.route) {
-            LaunchedEffect(Unit) {
-                sharedFavoriteViewModel.loadFavorites()
-            }
             FavoritesScreen(
                 uiState = favoriteUiState,
                 onNavigateBack = { navController.popBackStack() },

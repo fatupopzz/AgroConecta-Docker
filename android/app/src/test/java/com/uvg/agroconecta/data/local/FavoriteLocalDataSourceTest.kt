@@ -12,28 +12,41 @@ import org.junit.Test
 
 class FavoriteLocalDataSourceTest {
 
+    private val userId = 25
+
     @Test
     fun `DataStore preferences retain favorite additions and removals`() = runTest {
         val source = DataStoreFavoriteLocalDataSource(InMemoryPreferencesDataStore())
 
-        assertEquals(emptySet<Int>(), source.favoriteIds.first())
+        assertEquals(emptySet<Int>(), source.favoriteIds(userId).first())
 
-        source.setFavorite(productId = 7, favorite = true)
-        source.setFavorite(productId = 12, favorite = true)
-        assertEquals(setOf(7, 12), source.favoriteIds.first())
+        source.setFavorite(userId = userId, productId = 7, favorite = true)
+        source.setFavorite(userId = userId, productId = 12, favorite = true)
+        assertEquals(setOf(7, 12), source.favoriteIds(userId).first())
 
-        source.setFavorite(productId = 7, favorite = false)
-        assertEquals(setOf(12), source.favoriteIds.first())
+        source.setFavorite(userId = userId, productId = 7, favorite = false)
+        assertEquals(setOf(12), source.favoriteIds(userId).first())
     }
 
     @Test
     fun `server refresh replaces stale IDs and discards invalid values`() = runTest {
         val source = DataStoreFavoriteLocalDataSource(InMemoryPreferencesDataStore())
 
-        source.setFavorite(productId = 99, favorite = true)
-        source.replaceFavoriteIds(setOf(-1, 4, 8))
+        source.setFavorite(userId = userId, productId = 99, favorite = true)
+        source.replaceFavoriteIds(userId = userId, productIds = setOf(-1, 4, 8))
 
-        assertEquals(setOf(4, 8), source.favoriteIds.first())
+        assertEquals(setOf(4, 8), source.favoriteIds(userId).first())
+    }
+
+    @Test
+    fun `favorite IDs are isolated between users`() = runTest {
+        val source = DataStoreFavoriteLocalDataSource(InMemoryPreferencesDataStore())
+
+        source.setFavorite(userId = 10, productId = 7, favorite = true)
+        source.setFavorite(userId = 20, productId = 12, favorite = true)
+
+        assertEquals(setOf(7), source.favoriteIds(10).first())
+        assertEquals(setOf(12), source.favoriteIds(20).first())
     }
 }
 

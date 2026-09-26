@@ -6,16 +6,18 @@ import com.uvg.agroconecta.data.models.AddFavoriteRequest
 import com.uvg.agroconecta.data.models.FavoriteMutationResponse
 import com.uvg.agroconecta.data.models.Product
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import retrofit2.Response
 
 interface FavoriteRepository {
-    val favoriteIds: Flow<Set<Int>>
+    fun favoriteIds(userId: Int): Flow<Set<Int>>
 
-    suspend fun loadFavorites(): List<Product>
+    suspend fun loadFavorites(userId: Int): List<Product>
 
-    suspend fun setFavorite(productId: Int, favorite: Boolean)
+    suspend fun setFavorite(userId: Int, productId: Int, favorite: Boolean)
 }
 
 internal interface FavoriteApi {
@@ -49,9 +51,11 @@ class RemoteFavoriteRepository internal constructor(
         localDataSource: FavoriteLocalDataSource
     ) : this(RetrofitFavoriteApi(service), localDataSource)
 
-    override val favoriteIds: Flow<Set<Int>> = localDataSource.favoriteIds
+    override fun favoriteIds(userId: Int): Flow<Set<Int>> =
+        localDataSource.favoriteIds(userId)
 
-    override suspend fun loadFavorites(): List<Product> {
+    override suspend fun loadFavorites(userId: Int): List<Product> {
+        require(userId > 0) { "userId debe ser positivo" }
         val response = api.getFavorites()
         if (!response.isSuccessful) {
             error("No se pudieron cargar los favoritos (${response.code()})")
@@ -59,15 +63,19 @@ class RemoteFavoriteRepository internal constructor(
 
         val favorites = response.body()
             ?: error("No se pudieron cargar los favoritos: respuesta vacía")
-        localDataSource.replaceFavoriteIds(favorites.mapTo(mutableSetOf(), Product::id))
+        localDataSource.replaceFavoriteIds(
+            userId = userId,
+            productIds = favorites.mapTo(mutableSetOf(), Product::id)
+        )
         return favorites
     }
 
-    override suspend fun setFavorite(productId: Int, favorite: Boolean) {
+    override suspend fun setFavorite(userId: Int, productId: Int, favorite: Boolean) {
+        require(userId > 0) { "userId debe ser positivo" }
         require(productId > 0) { "productId debe ser positivo" }
 
-        val wasFavorite = productId in favoriteIds.first()
-        localDataSource.setFavorite(productId, favorite)
+        val wasFavorite = productId in favoriteIds(userId).first()
+        localDataSource.setFavorite(userId, productId, favorite)
 
         try {
             val response = if (favorite) {
@@ -86,10 +94,12 @@ class RemoteFavoriteRepository internal constructor(
                 )
             }
         } catch (cancelled: CancellationException) {
-            localDataSource.setFavorite(productId, wasFavorite)
+            withContext(NonCancellable) {
+                localDataSource.setFavorite(userId, productId, wasFavorite)
+            }
             throw cancelled
         } catch (error: Throwable) {
-            localDataSource.setFavorite(productId, wasFavorite)
+            localDataSource.setFavorite(userId, productId, wasFavorite)
             throw error
         }
     }

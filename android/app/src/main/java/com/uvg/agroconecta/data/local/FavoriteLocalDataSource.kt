@@ -8,41 +8,52 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 interface FavoriteLocalDataSource {
-    val favoriteIds: Flow<Set<Int>>
+    fun favoriteIds(userId: Int): Flow<Set<Int>>
 
-    suspend fun setFavorite(productId: Int, favorite: Boolean)
+    suspend fun setFavorite(userId: Int, productId: Int, favorite: Boolean)
 
-    suspend fun replaceFavoriteIds(productIds: Set<Int>)
+    suspend fun replaceFavoriteIds(userId: Int, productIds: Set<Int>)
 }
 
 class DataStoreFavoriteLocalDataSource internal constructor(
     private val dataStore: DataStore<Preferences>
 ) : FavoriteLocalDataSource {
 
-    override val favoriteIds: Flow<Set<Int>> = dataStore.data.map { preferences ->
-        preferences[FAVORITE_PRODUCT_IDS]
-            .orEmpty()
-            .mapNotNull(String::toIntOrNull)
-            .filterTo(mutableSetOf()) { it > 0 }
+    override fun favoriteIds(userId: Int): Flow<Set<Int>> {
+        require(userId > 0) { "userId debe ser positivo" }
+        val key = favoriteIdsKey(userId)
+        return dataStore.data.map { preferences ->
+            preferences[key]
+                .orEmpty()
+                .mapNotNull(String::toIntOrNull)
+                .filterTo(mutableSetOf()) { it > 0 }
+        }
     }
 
-    override suspend fun setFavorite(productId: Int, favorite: Boolean) {
+    override suspend fun setFavorite(userId: Int, productId: Int, favorite: Boolean) {
+        require(userId > 0) { "userId debe ser positivo" }
         require(productId > 0) { "productId debe ser positivo" }
+        val key = favoriteIdsKey(userId)
 
         dataStore.edit { preferences ->
-            val ids = preferences[FAVORITE_PRODUCT_IDS].orEmpty().toMutableSet()
+            val ids = preferences[key]
+                .orEmpty()
+                .toMutableSet()
             if (favorite) {
                 ids += productId.toString()
             } else {
                 ids -= productId.toString()
             }
-            preferences[FAVORITE_PRODUCT_IDS] = ids
+            preferences[key] = ids
         }
     }
 
-    override suspend fun replaceFavoriteIds(productIds: Set<Int>) {
+    override suspend fun replaceFavoriteIds(userId: Int, productIds: Set<Int>) {
+        require(userId > 0) { "userId debe ser positivo" }
+        val key = favoriteIdsKey(userId)
+
         dataStore.edit { preferences ->
-            preferences[FAVORITE_PRODUCT_IDS] = productIds
+            preferences[key] = productIds
                 .asSequence()
                 .filter { it > 0 }
                 .map(Int::toString)
@@ -51,6 +62,7 @@ class DataStoreFavoriteLocalDataSource internal constructor(
     }
 
     private companion object {
-        val FAVORITE_PRODUCT_IDS = stringSetPreferencesKey("favorite_product_ids")
+        fun favoriteIdsKey(userId: Int) =
+            stringSetPreferencesKey("favorite_product_ids_$userId")
     }
 }

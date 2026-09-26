@@ -6,6 +6,9 @@ import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.data.repository.FavoriteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,42 +36,69 @@ class FavoriteViewModel @Inject constructor(
     // Se conserva la ultima respuesta completa para poder restaurar visualmente
     // un producto si una eliminacion optimista falla y DataStore hace rollback.
     private var loadedFavorites: List<Product> = emptyList()
+    private var activeUserId: Int? = null
+    private var sessionGeneration: Long = 0
+    private var sessionJob: Job = newSessionJob()
+    private var sessionScope = CoroutineScope(viewModelScope.coroutineContext + sessionJob)
 
-    init {
-        observeFavoriteIds()
+    fun onUserChanged(userId: Int?) {
+        val normalizedUserId = userId?.takeIf { it > 0 }
+        if (activeUserId == normalizedUserId) return
+
+        sessionJob.cancel()
+        sessionGeneration += 1
+        sessionJob = newSessionJob()
+        sessionScope = CoroutineScope(viewModelScope.coroutineContext + sessionJob)
+        activeUserId = normalizedUserId
+        loadedFavorites = emptyList()
+        _uiState.value = FavoriteUiState()
+
+        if (normalizedUserId != null) {
+            observeFavoriteIds(normalizedUserId, sessionGeneration)
+            loadFavorites()
+        }
     }
 
     fun loadFavorites() {
+        val userId = activeUserId ?: return
         if (_uiState.value.isLoading) return
+        val generation = sessionGeneration
 
-        viewModelScope.launch {
+        sessionScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                val favorites = repository.loadFavorites()
+                val favorites = repository.loadFavorites(userId)
+                if (!isCurrentSession(userId, generation)) return@launch
+
                 loadedFavorites = favorites
-                _uiState.update { state ->
-                    state.copy(
-                        favoriteProducts = favorites.filter { it.id in state.favoriteIds },
+                val favoriteIds = favorites.mapTo(mutableSetOf(), Product::id)
+                _uiState.update {
+                    it.copy(
+                        favoriteProducts = favorites,
+                        favoriteIds = favoriteIds,
                         isLoading = false
                     )
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = error.message ?: "No se pudieron cargar los favoritos"
-                    )
+                if (isCurrentSession(userId, generation)) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.message ?: "No se pudieron cargar los favoritos"
+                        )
+                    }
                 }
             }
         }
     }
 
     fun toggleFavorite(productId: Int) {
+        val userId = activeUserId ?: return
         val state = _uiState.value
         if (productId <= 0 || productId in state.pendingProductIds) return
-
+        val generation = sessionGeneration
         val shouldBeFavorite = productId !in state.favoriteIds
         _uiState.update {
             it.copy(
@@ -77,20 +107,24 @@ class FavoriteViewModel @Inject constructor(
             )
         }
 
-        viewModelScope.launch {
+        sessionScope.launch {
             try {
-                repository.setFavorite(productId, shouldBeFavorite)
+                repository.setFavorite(userId, productId, shouldBeFavorite)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
-                _uiState.update {
-                    it.copy(
-                        errorMessage = error.message ?: "No se pudo actualizar el favorito"
-                    )
+                if (isCurrentSession(userId, generation)) {
+                    _uiState.update {
+                        it.copy(
+                            errorMessage = error.message ?: "No se pudo actualizar el favorito"
+                        )
+                    }
                 }
             } finally {
-                _uiState.update {
-                    it.copy(pendingProductIds = it.pendingProductIds - productId)
+                if (isCurrentSession(userId, generation)) {
+                    _uiState.update {
+                        it.copy(pendingProductIds = it.pendingProductIds - productId)
+                    }
                 }
             }
         }
@@ -100,18 +134,26 @@ class FavoriteViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
-    private fun observeFavoriteIds() {
-        viewModelScope.launch {
-            repository.favoriteIds.collectLatest { favoriteIds ->
-                _uiState.update {
-                    it.copy(
-                        favoriteIds = favoriteIds,
-                        favoriteProducts = loadedFavorites.filter { product ->
-                            product.id in favoriteIds
-                        }
-                    )
+    private fun observeFavoriteIds(userId: Int, generation: Long) {
+        sessionScope.launch {
+            repository.favoriteIds(userId).collectLatest { favoriteIds ->
+                if (isCurrentSession(userId, generation)) {
+                    _uiState.update {
+                        it.copy(
+                            favoriteIds = favoriteIds,
+                            favoriteProducts = loadedFavorites.filter { product ->
+                                product.id in favoriteIds
+                            }
+                        )
+                    }
                 }
             }
         }
     }
+
+    private fun isCurrentSession(userId: Int, generation: Long): Boolean =
+        activeUserId == userId && sessionGeneration == generation
+
+    private fun newSessionJob(): Job =
+        SupervisorJob(viewModelScope.coroutineContext[Job])
 }

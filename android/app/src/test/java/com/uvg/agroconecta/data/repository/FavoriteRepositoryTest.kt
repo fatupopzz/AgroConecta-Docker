@@ -7,6 +7,7 @@ import com.uvg.agroconecta.data.models.FavoriteRecord
 import com.uvg.agroconecta.data.models.Product
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -23,6 +24,8 @@ import retrofit2.Response
 @OptIn(ExperimentalCoroutinesApi::class)
 class FavoriteRepositoryTest {
 
+    private val userId = 25
+
     @Test
     fun `loadFavorites refreshes local IDs from backend products`() = runTest {
         val local = FakeFavoriteLocalDataSource(setOf(99))
@@ -32,10 +35,10 @@ class FavoriteRepositoryTest {
             localDataSource = local
         )
 
-        val result = repository.loadFavorites()
+        val result = repository.loadFavorites(userId)
 
         assertEquals(products, result)
-        assertEquals(setOf(4, 8), local.currentIds())
+        assertEquals(setOf(4, 8), local.currentIds(userId))
     }
 
     @Test
@@ -45,17 +48,39 @@ class FavoriteRepositoryTest {
         val api = FakeFavoriteApi(addCall = { response.await() })
         val repository = RemoteFavoriteRepository(api, local)
 
-        val job = launch { repository.setFavorite(productId = 7, favorite = true) }
+        val job = launch {
+            repository.setFavorite(userId = userId, productId = 7, favorite = true)
+        }
         runCurrent()
 
-        assertEquals(setOf(7), local.currentIds())
+        assertEquals(setOf(7), local.currentIds(userId))
         assertEquals(AddFavoriteRequest(7), api.addedRequest)
         assertFalse(job.isCompleted)
 
         response.complete(Response.success(mutationResponse(productId = 7)))
         job.join()
         assertTrue(job.isCompleted)
-        assertEquals(setOf(7), local.currentIds())
+        assertEquals(setOf(7), local.currentIds(userId))
+    }
+
+    @Test
+    fun `cancelled mutation restores the scoped local state`() = runTest {
+        val response = CompletableDeferred<Response<FavoriteMutationResponse>>()
+        val local = FakeFavoriteLocalDataSource(setOf(3))
+        val repository = RemoteFavoriteRepository(
+            api = FakeFavoriteApi(addCall = { response.await() }),
+            localDataSource = local
+        )
+
+        val job = launch {
+            repository.setFavorite(userId = userId, productId = 7, favorite = true)
+        }
+        runCurrent()
+        assertEquals(setOf(3, 7), local.currentIds(userId))
+
+        job.cancelAndJoin()
+
+        assertEquals(setOf(3), local.currentIds(userId))
     }
 
     @Test
@@ -69,12 +94,12 @@ class FavoriteRepositoryTest {
         )
 
         val error = runCatching {
-            repository.setFavorite(productId = 7, favorite = true)
+            repository.setFavorite(userId = userId, productId = 7, favorite = true)
         }.exceptionOrNull()
 
         assertNotNull(error)
         assertEquals("No se pudo guardar el favorito (500)", error?.message)
-        assertEquals(setOf(3), local.currentIds())
+        assertEquals(setOf(3), local.currentIds(userId))
     }
 
     @Test
@@ -83,9 +108,9 @@ class FavoriteRepositoryTest {
         val api = FakeFavoriteApi(removeResponse = Response.success(Unit))
         val repository = RemoteFavoriteRepository(api, local)
 
-        repository.setFavorite(productId = 7, favorite = false)
+        repository.setFavorite(userId = userId, productId = 7, favorite = false)
 
-        assertEquals(setOf(3), local.currentIds())
+        assertEquals(setOf(3), local.currentIds(userId))
         assertEquals(7, api.removedProductId)
     }
 
@@ -100,11 +125,11 @@ class FavoriteRepositoryTest {
         )
 
         val error = runCatching {
-            repository.setFavorite(productId = 7, favorite = false)
+            repository.setFavorite(userId = userId, productId = 7, favorite = false)
         }.exceptionOrNull()
 
         assertEquals("No se pudo eliminar el favorito (503)", error?.message)
-        assertEquals(setOf(7), local.currentIds())
+        assertEquals(setOf(7), local.currentIds(userId))
     }
 
     @Test
@@ -117,10 +142,10 @@ class FavoriteRepositoryTest {
             localDataSource = local
         )
 
-        val error = runCatching { repository.loadFavorites() }.exceptionOrNull()
+        val error = runCatching { repository.loadFavorites(userId) }.exceptionOrNull()
 
         assertEquals("No se pudieron cargar los favoritos (500)", error?.message)
-        assertEquals(setOf(3, 7), local.currentIds())
+        assertEquals(setOf(3, 7), local.currentIds(userId))
     }
 
     private fun product(id: Int) = Product(
@@ -150,21 +175,28 @@ class FavoriteRepositoryTest {
 }
 
 private class FakeFavoriteLocalDataSource(
-    initialIds: Set<Int> = emptySet()
+    initialIds: Set<Int> = emptySet(),
+    initialUserId: Int = 25
 ) : FavoriteLocalDataSource {
-    private val ids = MutableStateFlow(initialIds)
+    private val idsByUser = mutableMapOf(
+        initialUserId to MutableStateFlow(initialIds)
+    )
 
-    override val favoriteIds: Flow<Set<Int>> = ids
+    override fun favoriteIds(userId: Int): Flow<Set<Int>> = idsFor(userId)
 
-    override suspend fun setFavorite(productId: Int, favorite: Boolean) {
+    override suspend fun setFavorite(userId: Int, productId: Int, favorite: Boolean) {
+        val ids = idsFor(userId)
         ids.value = if (favorite) ids.value + productId else ids.value - productId
     }
 
-    override suspend fun replaceFavoriteIds(productIds: Set<Int>) {
-        ids.value = productIds
+    override suspend fun replaceFavoriteIds(userId: Int, productIds: Set<Int>) {
+        idsFor(userId).value = productIds
     }
 
-    fun currentIds(): Set<Int> = ids.value
+    fun currentIds(userId: Int): Set<Int> = idsFor(userId).value
+
+    private fun idsFor(userId: Int): MutableStateFlow<Set<Int>> =
+        idsByUser.getOrPut(userId) { MutableStateFlow(emptySet()) }
 }
 
 private class FakeFavoriteApi(
