@@ -694,6 +694,9 @@ fun AgroConectaNavHost(
         }
 
         composable(Screen.Favorites.route) {
+            LaunchedEffect(Unit) {
+                sharedFavoriteViewModel.loadFavorites()
+            }
             FavoritesScreen(
                 uiState = favoriteUiState,
                 onNavigateBack = { navController.popBackStack() },
