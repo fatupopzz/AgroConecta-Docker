@@ -2,6 +2,7 @@ package com.uvg.agroconecta.data.api
 
 import com.uvg.agroconecta.data.models.*
 import retrofit2.Response
+import okhttp3.ResponseBody
 import retrofit2.http.*
 import com.uvg.agroconecta.ui.profile.FarmerProfile
 import com.uvg.agroconecta.ui.profile.DistributorProfile
@@ -140,6 +141,10 @@ interface ApiService {
     ): Response<Map<String, Any>>
 
     // ── Orders (HU-015) ──────────────────────────────────────────────────
+    @Streaming
+    @GET("orders/export/pdf")
+    suspend fun exportOrderHistoryPdf(): Response<ResponseBody>
+
     @POST("orders")
     suspend fun createOrder(
         @Body request: CreateOrderRequest
