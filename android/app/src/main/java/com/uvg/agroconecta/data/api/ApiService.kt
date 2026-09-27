@@ -30,6 +30,10 @@ interface ApiService {
         @Body request: UpdateMyProfileRequest
     ): Response<MeResponse>
 
+    // ── Farmer dashboard ─────────────────────────────────────────────────
+    @GET("users/dashboard")
+    suspend fun getFarmerDashboard(): Response<FarmerDashboardResponse>
+
     @GET("ciclos/{cultivo}")
     suspend fun getCropCycles(
         @Path("cultivo") cultivo: String

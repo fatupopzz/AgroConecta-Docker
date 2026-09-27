@@ -11,9 +11,11 @@ const {
   createUser,
   updateUser,
   deleteUser,
+  getFarmerDashboard,
 } = require("../controllers/userController");
 
 router.get("/", getUsers);
+router.get("/dashboard", getFarmerDashboard);
 router.get("/:id", getUserById);
 //router.post("/", createUser);
 router.put("/:id", canUpdateUserByRole, updateUser);

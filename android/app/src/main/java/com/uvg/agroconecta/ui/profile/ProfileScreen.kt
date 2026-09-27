@@ -45,6 +45,7 @@ fun ProfileScreen(
     onAgregarClick: () -> Unit,
     onPedidosClick: () -> Unit,
     onFavoritesClick: () -> Unit,
+    onDashboardClick: () -> Unit,
     onHelpClick: () -> Unit,
     onStatsClick: () -> Unit,
     tipoUsuario: String,
@@ -136,6 +137,7 @@ fun ProfileScreen(
                         is ProfileData.Farmer -> FarmerProfileContent(
                             data.profile,
                             onFavoritesClick = onFavoritesClick,
+                            onDashboardClick = onDashboardClick,
                             onHelpClick = onHelpClick,
                             onEditClick = { showEditDialog = true },
                             onLogoutClick = { showLogoutDialog = true }
@@ -169,6 +171,7 @@ fun ProfileScreen(
 fun FarmerProfileContent(
     profile: FarmerProfile,
     onFavoritesClick: () -> Unit,
+    onDashboardClick: () -> Unit,
     onHelpClick: () -> Unit,
     onEditClick: () -> Unit,
     onLogoutClick: () -> Unit
@@ -296,6 +299,8 @@ fun FarmerProfileContent(
         }
 
         Spacer(Modifier.height(16.dp))
+        FarmerDashboardButton(onClick = onDashboardClick)
+        Spacer(Modifier.height(12.dp))
         FavoriteProductsButton(onClick = onFavoritesClick)
         Spacer(Modifier.height(12.dp))
         HelpButton(onClick = onHelpClick)
@@ -526,6 +531,39 @@ fun FavoriteProductsButton(onClick: () -> Unit) {
         Spacer(Modifier.width(8.dp))
         Text(
             text = "Mis favoritos",
+            modifier = Modifier.weight(1f),
+            fontWeight = FontWeight.SemiBold
+        )
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+@Composable
+fun FarmerDashboardButton(onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(48.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.White,
+            contentColor = GreenPrimary
+        )
+    ) {
+        Icon(
+            imageVector = Icons.Default.Analytics,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "Mi resumen",
             modifier = Modifier.weight(1f),
             fontWeight = FontWeight.SemiBold
         )
