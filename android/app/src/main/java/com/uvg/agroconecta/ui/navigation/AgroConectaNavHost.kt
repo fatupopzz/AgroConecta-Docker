@@ -35,6 +35,7 @@ import com.uvg.agroconecta.ui.cart.CartScreen
 import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
 import com.uvg.agroconecta.ui.distributor.DistributorStatsScreen
+import com.uvg.agroconecta.ui.dashboard.FarmerDashboardScreen
 import com.uvg.agroconecta.ui.dosecalculator.DoseCalculatorScreen
 import com.uvg.agroconecta.ui.favorites.FavoriteViewModel
 import com.uvg.agroconecta.ui.favorites.FavoritesScreen
@@ -673,6 +674,11 @@ fun AgroConectaNavHost(
                         launchSingleTop = true
                     }
                 },
+                onDashboardClick = {
+                    navController.navigate(Screen.FarmerDashboard.route) {
+                        launchSingleTop = true
+                    }
+                },
                 onHelpClick = {
                     navController.navigate(Screen.Help.route) {
                         launchSingleTop = true
@@ -730,6 +736,12 @@ fun AgroConectaNavHost(
 
         composable(Screen.DistributorStats.route) {
             DistributorStatsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.FarmerDashboard.route) {
+            FarmerDashboardScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

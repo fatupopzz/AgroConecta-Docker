@@ -442,3 +442,34 @@ data class OrdersByStatus(
     val estado: String,
     val cantidad: Int
 )
+
+// ─── Farmer Dashboard ────────────────────────────────────────────────────────
+
+data class FarmerDashboardResponse(
+    val totalGastadoHistorico: Double,
+    val totalGastadoMesActual: Double,
+    val cantidadPedidos: Int,
+    val gastosPorMes: List<FarmerMonthlySpending>,
+    val productosMasComprados: List<FarmerTopProduct>,
+    val ultimoPedido: FarmerLastOrder?
+)
+
+data class FarmerMonthlySpending(
+    val mes: String,
+    val total: Double
+)
+
+data class FarmerTopProduct(
+    val idProducto: Int,
+    val nombre: String,
+    val cantidad: Int,
+    val totalGastado: Double
+)
+
+data class FarmerLastOrder(
+    val id: Int,
+    val fechaPedido: String,
+    val estado: String,
+    val totalPedido: Double,
+    val distribuidorNombre: String
+)

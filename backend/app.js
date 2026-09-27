@@ -44,6 +44,7 @@ app.use("/api/ciclos", cropCycleRoutes);
 app.use("/api/agricultores", verifyToken, agricultorRoutes);
 app.use("/api/distribuidores", verifyToken, distribuidorRoutes);
 app.use("/api/usuarios", verifyToken, userRoutes);
+app.use("/api/users", verifyToken, userRoutes);
 app.use("/api/farmers", farmerRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
