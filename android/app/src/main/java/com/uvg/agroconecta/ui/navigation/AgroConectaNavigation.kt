@@ -16,6 +16,10 @@ sealed class Screen(val route: String) {
     data object PaymentMethod : Screen("payment_method")
     data object OrderConfirmation : Screen("order_confirmation")
     data object OrderHistory : Screen("order_history")
+    data object RecurringOrders : Screen("recurring_orders")
+    data object RecurringForm : Screen("recurring_form/{source}/{id}") {
+        fun createRoute(source: String, id: Int = 0) = "recurring_form/$source/$id"
+    }
     data object OrderTracking : Screen("order_tracking/{orderId}") {
         fun createRoute(orderId: Int) = "order_tracking/$orderId"
     }

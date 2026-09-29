@@ -107,6 +107,7 @@ dependencies {
     testImplementation("androidx.test:core-ktx:1.5.0")
     testImplementation("org.robolectric:robolectric:4.12.2")
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.androidx.work.testing)
     testImplementation("androidx.compose.ui:ui-test-junit4:${libs.versions.composeUi.get()}")
     debugImplementation("androidx.compose.ui:ui-test-manifest:${libs.versions.composeUi.get()}")
 
@@ -135,6 +136,7 @@ dependencies {
     // Push notifications
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Dependency injection
     implementation(libs.hilt.android)

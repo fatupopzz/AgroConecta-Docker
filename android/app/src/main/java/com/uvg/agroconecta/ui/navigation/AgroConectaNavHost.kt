@@ -49,6 +49,9 @@ import com.uvg.agroconecta.ui.orders.OrderExportState
 import com.uvg.agroconecta.ui.orders.OrderPdfOpener
 import com.uvg.agroconecta.ui.orders.OrderTrackingScreen
 import com.uvg.agroconecta.ui.orders.OrderViewModel
+import com.uvg.agroconecta.ui.orders.RecurringOrderViewModel
+import com.uvg.agroconecta.ui.orders.RecurringOrderScreen
+import com.uvg.agroconecta.ui.orders.RecurringOrderFormScreen
 import com.uvg.agroconecta.ui.orders.UrgentOrderScreen
 import com.uvg.agroconecta.ui.pestalerts.PestAlertRoute
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
@@ -68,6 +71,7 @@ fun AgroConectaNavHost(
     // Se crea fuera de cualquier composable de destino, asi que el owner es la
     // MainActivity: una sola instancia compartida por todas las pantallas.
     val sharedCartViewModel: CartViewModel = hiltViewModel()
+    val recurringViewModel: RecurringOrderViewModel = hiltViewModel()
     val cartItems by sharedCartViewModel.cartItems.collectAsState()
     val sharedFavoriteViewModel: FavoriteViewModel = hiltViewModel()
     val favoriteUiState by sharedFavoriteViewModel.uiState.collectAsState()
@@ -120,6 +124,7 @@ fun AgroConectaNavHost(
             tipoUsuarioFlow == "agricultor" && it > 0
         }
         sharedFavoriteViewModel.onUserChanged(favoriteUserId)
+        recurringViewModel.onSessionChanged(favoriteUserId)
     }
 
     LaunchedEffect(initialPestAlertId, currentBackStackEntry?.destination?.route) {
@@ -506,8 +511,72 @@ fun AgroConectaNavHost(
                     }
                 },
                 onAgregarClick = onAgregarClick,
-                onPerfilClick = { navController.navigate(Screen.Profile.route) }
+                onPerfilClick = { navController.navigate(Screen.Profile.route) },
+                onRecurringOrders = { navController.navigate(Screen.RecurringOrders.route) },
+                onMakeRecurring = { id -> navController.navigate(Screen.RecurringForm.createRoute("order", id)) }
             )
+        }
+
+        composable(Screen.RecurringOrders.route) {
+            val state by recurringViewModel.list.collectAsState()
+            LaunchedEffect(currentBackStackEntry?.destination?.route, userIdFlow, tipoUsuarioFlow) {
+                if (currentBackStackEntry?.destination?.route == Screen.RecurringOrders.route &&
+                    tipoUsuarioFlow == "agricultor" && (userIdFlow ?: -1) > 0
+                ) recurringViewModel.load(userIdFlow!!)
+            }
+            if (tipoUsuarioFlow == "agricultor") {
+                RecurringOrderScreen(
+                    state = state,
+                    onRetry = { userIdFlow?.let(recurringViewModel::load) },
+                    onCreateNew = { navController.navigate(Screen.RecurringForm.createRoute("cart")) },
+                    onEdit = { id -> navController.navigate(Screen.RecurringForm.createRoute("edit", id)) },
+                    onAction = recurringViewModel::action,
+                    onPermissionGranted = recurringViewModel::onNotificationPermissionGranted,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
+            Screen.RecurringForm.route,
+            arguments = listOf(
+                navArgument("source") { type = NavType.StringType },
+                navArgument("id") { type = NavType.IntType }
+            )
+        ) { entry ->
+            val source = entry.arguments?.getString("source") ?: return@composable
+            val id = entry.arguments?.getInt("id") ?: 0
+            val state by recurringViewModel.form.collectAsState()
+            val submitting by recurringViewModel.submitting.collectAsState()
+            LaunchedEffect(source, id, userIdFlow, tipoUsuarioFlow) {
+                if (tipoUsuarioFlow == "agricultor" && (userIdFlow ?: -1) > 0) {
+                    val farmerId = SessionManager.getFarmerId(context).first() ?: -1
+                    recurringViewModel.prepare(source, id, userIdFlow!!, farmerId)
+                }
+            }
+            LaunchedEffect(state.complete) {
+                if (state.complete) {
+                    recurringViewModel.clearFormCompletion()
+                    if (source == "order") {
+                        navController.navigate(Screen.RecurringOrders.route) {
+                            popUpTo(Screen.OrderHistory.route) { inclusive = false }
+                        }
+                    } else {
+                        navController.popBackStack()
+                    }
+                }
+            }
+            if (tipoUsuarioFlow == "agricultor") {
+                RecurringOrderFormScreen(
+                    state = state,
+                    submitting = submitting,
+                    onFrequency = recurringViewModel::setFrequency,
+                    onAddress = recurringViewModel::setAddress,
+                    onNextDate = recurringViewModel::setNextDate,
+                    onSubmit = recurringViewModel::submit,
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
 
         composable(

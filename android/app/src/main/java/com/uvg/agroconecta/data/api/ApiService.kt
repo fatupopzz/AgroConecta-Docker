@@ -168,6 +168,21 @@ interface ApiService {
         @Body request: CreateOrderRequest
     ): Response<OrderResponse>
 
+    @GET("orders/recurring")
+    suspend fun getRecurringOrders(): Response<List<RecurringOrderDto>>
+
+    @POST("orders/recurring")
+    suspend fun createRecurringOrder(@Body request: CreateRecurringOrderRequest): Response<RecurringOrderResponse>
+
+    @PATCH("orders/recurring/{id}")
+    suspend fun updateRecurringOrder(
+        @Path("id") id: Int,
+        @Body request: UpdateRecurringOrderRequest
+    ): Response<RecurringOrderResponse>
+
+    @GET("orders/{id}")
+    suspend fun getOrderById(@Path("id") id: Int): Response<OrderDetailDto>
+
     @GET("orders/farmer/{id}")
     suspend fun getOrdersByFarmer(
         @Path("id") idAgricultor: Int,
