@@ -2,6 +2,7 @@ package com.uvg.agroconecta
 
 import android.app.Application
 import com.uvg.agroconecta.notifications.PestAlertNotifications
+import com.uvg.agroconecta.notifications.RecurringReminderNotifications
 import dagger.hilt.android.HiltAndroidApp
 
 /**
@@ -14,5 +15,6 @@ class AgroConectaApp : Application() {
     override fun onCreate() {
         super.onCreate()
         PestAlertNotifications.createChannel(this)
+        RecurringReminderNotifications.createChannel(this)
     }
 }

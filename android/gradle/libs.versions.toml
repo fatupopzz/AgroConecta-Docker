@@ -13,6 +13,7 @@ coroutines = "1.8.1"
 datastore = "1.1.1"
 room = "2.6.1"
 firebaseBom = "34.19.0"
+work = "2.9.1"
 
 # DI — Hilt 2.51.1 es la ultima serie compatible con Kotlin 1.9.23 + kapt
 hilt = "2.51.1"
@@ -74,6 +75,8 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 # Push notifications
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+androidx-work-testing = { group = "androidx.work", name = "work-testing", version.ref = "work" }
 
 # DI — Hilt
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }

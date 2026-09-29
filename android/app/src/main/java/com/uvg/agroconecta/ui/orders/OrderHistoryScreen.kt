@@ -37,7 +37,9 @@ fun OrderHistoryScreen(
     onBack: () -> Unit,
     onHomeClick: () -> Unit,
     onAgregarClick: () -> Unit,
-    onPerfilClick: () -> Unit
+    onPerfilClick: () -> Unit,
+    onRecurringOrders: () -> Unit = {},
+    onMakeRecurring: (Int) -> Unit = {}
 ) {
     val isDistributor = tipoUsuario == "distribuidor"
 
@@ -72,6 +74,9 @@ fun OrderHistoryScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             if (tipoUsuario == "agricultor") {
+                OutlinedButton(onClick = onRecurringOrders, modifier = Modifier.fillMaxWidth()) {
+                    Text("Pedidos recurrentes")
+                }
                 Button(
                     onClick = onExportPdf,
                     enabled = exportState !is OrderExportState.Downloading,
@@ -221,6 +226,11 @@ fun OrderHistoryScreen(
                                         label = { Text("Pago contra entrega") }
                                     )
                                     Column(horizontalAlignment = Alignment.End) {
+                                        if (!isDistributor && order.estado == "entregado") {
+                                            TextButton(onClick = { onMakeRecurring(order.id) }) {
+                                                Text("Hacer recurrente")
+                                            }
+                                        }
                                         TextButton(onClick = { onOpenAdvice(order.id) }) {
                                             Icon(
                                                 imageVector = Icons.AutoMirrored.Filled.Chat,
