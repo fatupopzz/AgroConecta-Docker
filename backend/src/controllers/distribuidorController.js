@@ -12,12 +12,15 @@ const getDistributors = async (req, res) => {
               COALESCE(reviews.cantidad_resenas, 0)::int AS cantidad_resenas
        FROM distribuidor d
        JOIN usuario u ON d.id_usuario = u.id_usuario
+       -- Misma fuente que /:id/rating y /:id/reviews: reseñas de los productos
+       -- que vende el distribuidor.
        LEFT JOIN (
-         SELECT id_distribuidor,
-                ROUND(AVG(calificacion)::numeric, 2) AS calificacion_promedio,
-                COUNT(*)::int AS cantidad_resenas
-         FROM resena_distribuidor
-         GROUP BY id_distribuidor
+         SELECT i.id_distribuidor,
+                ROUND(AVG(r.calificacion)::numeric, 1) AS calificacion_promedio,
+                COUNT(r.id_resena)::int AS cantidad_resenas
+         FROM inventario_distribuidor i
+         JOIN resena r ON r.id_producto = i.id_producto
+         GROUP BY i.id_distribuidor
        ) reviews ON reviews.id_distribuidor = d.id_distribuidor
        WHERE d.estado_verificacion = 'verificado'
        ORDER BY d.nombre_negocio ASC`

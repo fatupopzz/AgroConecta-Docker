@@ -19,7 +19,7 @@ describe("GET /api/distribuidores", () => {
     jwt.verify.mockReturnValue({ id: 12, tipo: "agricultor" });
   });
 
-  test("devuelve el promedio actual de resena_distribuidor como número", async () => {
+  test("devuelve el promedio de reseñas de productos del distribuidor como número", async () => {
     pool.query.mockResolvedValueOnce({
       rows: [
         {
@@ -60,8 +60,10 @@ describe("GET /api/distribuidores", () => {
     ]);
 
     const [sql] = pool.query.mock.calls[0];
-    expect(sql).toMatch(/FROM resena_distribuidor/);
-    expect(sql).toMatch(/AVG\(calificacion\)/);
+    expect(sql).not.toMatch(/resena_distribuidor/);
+    expect(sql).toMatch(/FROM inventario_distribuidor i/);
+    expect(sql).toMatch(/JOIN resena r ON r\.id_producto = i\.id_producto/);
+    expect(sql).toMatch(/AVG\(r\.calificacion\)/);
     expect(sql).toMatch(/LEFT JOIN/);
   });
 
