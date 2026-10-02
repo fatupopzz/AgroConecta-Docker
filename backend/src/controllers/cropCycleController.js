@@ -66,40 +66,35 @@ const createGetCropCycles = ({ database = pool, now = () => new Date() } = {}) =
       return res.status(400).json({ error: "Cultivo inválido" });
     }
 
-    try {
-      const result = await database.query(
-        `SELECT id_ciclo, cultivo, fase, mes_inicio, mes_fin,
-                descripcion, productos_recomendados
-         FROM ciclo_cultivo
-         WHERE LOWER(cultivo) = $1
-         ORDER BY mes_inicio ASC, id_ciclo ASC`,
-        [cropName],
-      );
+    const result = await database.query(
+      `SELECT id_ciclo, cultivo, fase, mes_inicio, mes_fin,
+              descripcion, productos_recomendados
+       FROM ciclo_cultivo
+       WHERE LOWER(cultivo) = $1
+       ORDER BY mes_inicio ASC, id_ciclo ASC`,
+      [cropName],
+    );
 
-      if (result.rows.length === 0) {
-        return res.status(404).json({
-          error: "No se encontraron ciclos para el cultivo solicitado",
-        });
-      }
-
-      const currentMonth = getGuatemalaMonth(now());
-      const { activePhases, nextPhase } = resolveCropPhases(
-        result.rows,
-        currentMonth,
-      );
-      const formattedActivePhases = activePhases.map(formatPhase);
-
-      return res.status(200).json({
-        cultivo: result.rows[0].cultivo,
-        mes_actual: currentMonth,
-        fase_actual: formattedActivePhases[0] || null,
-        fases_activas: formattedActivePhases,
-        proxima_fase: formatPhase(nextPhase),
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: "No se encontraron ciclos para el cultivo solicitado",
       });
-    } catch (error) {
-      console.error("Error al obtener ciclos de cultivo:", error);
-      return res.status(500).json({ error: "Error al obtener ciclos de cultivo" });
     }
+
+    const currentMonth = getGuatemalaMonth(now());
+    const { activePhases, nextPhase } = resolveCropPhases(
+      result.rows,
+      currentMonth,
+    );
+    const formattedActivePhases = activePhases.map(formatPhase);
+
+    return res.status(200).json({
+      cultivo: result.rows[0].cultivo,
+      mes_actual: currentMonth,
+      fase_actual: formattedActivePhases[0] || null,
+      fases_activas: formattedActivePhases,
+      proxima_fase: formatPhase(nextPhase),
+    });
   };
 
 const getCropCycles = createGetCropCycles();

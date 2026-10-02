@@ -12,19 +12,20 @@ const {
   upsertFarmerProfile,
   getFarmerProfile,
 } = require("../controllers/farmerController");
+const asyncHandler = require("../middleware/asyncHandler");
 
 /**
  * POST /api/farmers/profile
  * @route   POST /api/farmers/profile
  * @access  Privado — requiere token JWT válido
  */
-router.post("/profile", verifyToken, upsertFarmerProfile);
+router.post("/profile", verifyToken, asyncHandler(upsertFarmerProfile));
 
 /**
  * GET /api/farmers/profile/:id
  * @route   GET /api/farmers/profile/:id
  * @access  Privado — requiere token JWT válido
  */
-router.get("/profile/:id", verifyToken, getFarmerProfile);
+router.get("/profile/:id", verifyToken, asyncHandler(getFarmerProfile));
 
 module.exports = router;

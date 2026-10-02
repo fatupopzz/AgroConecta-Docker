@@ -7,11 +7,12 @@ const {
   removeItem,
   clearCart,
 } = require("../controllers/cartController");
+const asyncHandler = require("../middleware/asyncHandler");
 
-router.get("/:id_agricultor", getCart);
-router.post("/:id_agricultor/items", addItem);
-router.patch("/:id_agricultor/items/:id_item", updateItem);
-router.delete("/:id_agricultor/items/:id_item", removeItem);
-router.delete("/:id_agricultor", clearCart);
+router.get("/:id_agricultor", asyncHandler(getCart));
+router.post("/:id_agricultor/items", asyncHandler(addItem));
+router.patch("/:id_agricultor/items/:id_item", asyncHandler(updateItem));
+router.delete("/:id_agricultor/items/:id_item", asyncHandler(removeItem));
+router.delete("/:id_agricultor", asyncHandler(clearCart));
 
 module.exports = router;

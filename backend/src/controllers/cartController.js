@@ -9,47 +9,42 @@ const getCart = async (req, res) => {
   if (!isPositiveInteger(id_agricultor)) {
     return res.status(400).json({ error: "id_agricultor inválido" });
   }
-  try {
-    const carrito = await pool.query(
-      `SELECT c.id_carrito, c.fecha_actualizacion,
-              COALESCE(
-                json_agg(json_build_object(
-                  'id_item', ic.id_item,
-                  'id_inventario', ic.id_inventario,
-                  'id_distribuidor', i.id_distribuidor,
-                  'cantidad', ic.cantidad,
-                  'precio_unitario', i.precio,
-                  'subtotal', ic.cantidad * i.precio,
-                  'producto', p.nombre,
-                  'marca', p.marca,
-                  'distribuidor', d.nombre_negocio,
-                  'stock_disponible', i.stock_disponible,
-                  'unidad_medida', i.unidad_medida
-                )) FILTER (WHERE ic.id_item IS NOT NULL),
-                '[]'::json
-              ) AS items
-       FROM carrito c
-       LEFT JOIN item_carrito ic ON c.id_carrito = ic.id_carrito
-       LEFT JOIN inventario_distribuidor i ON ic.id_inventario = i.id_inventario
-       LEFT JOIN producto p ON i.id_producto = p.id_producto
-       LEFT JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
-       WHERE c.id_agricultor = $1
-       GROUP BY c.id_carrito, c.fecha_actualizacion`,
-      [Number(id_agricultor)],
-    );
+  const carrito = await pool.query(
+    `SELECT c.id_carrito, c.fecha_actualizacion,
+            COALESCE(
+              json_agg(json_build_object(
+                'id_item', ic.id_item,
+                'id_inventario', ic.id_inventario,
+                'id_distribuidor', i.id_distribuidor,
+                'cantidad', ic.cantidad,
+                'precio_unitario', i.precio,
+                'subtotal', ic.cantidad * i.precio,
+                'producto', p.nombre,
+                'marca', p.marca,
+                'distribuidor', d.nombre_negocio,
+                'stock_disponible', i.stock_disponible,
+                'unidad_medida', i.unidad_medida
+              )) FILTER (WHERE ic.id_item IS NOT NULL),
+              '[]'::json
+            ) AS items
+     FROM carrito c
+     LEFT JOIN item_carrito ic ON c.id_carrito = ic.id_carrito
+     LEFT JOIN inventario_distribuidor i ON ic.id_inventario = i.id_inventario
+     LEFT JOIN producto p ON i.id_producto = p.id_producto
+     LEFT JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
+     WHERE c.id_agricultor = $1
+     GROUP BY c.id_carrito, c.fecha_actualizacion`,
+    [Number(id_agricultor)],
+  );
 
-    if (carrito.rows.length === 0) {
-      return res.json({ id_carrito: null, items: [], total: 0 });
-    }
-
-    const items = carrito.rows[0].items;
-    const total = calculateCartTotal(items);
-
-    return res.json({ ...carrito.rows[0], total });
-  } catch (error) {
-    console.error("Error en getCart:", error);
-    return res.status(500).json({ error: "Error al obtener carrito" });
+  if (carrito.rows.length === 0) {
+    return res.json({ id_carrito: null, items: [], total: 0 });
   }
+
+  const items = carrito.rows[0].items;
+  const total = calculateCartTotal(items);
+
+  return res.json({ ...carrito.rows[0], total });
 };
 
 // POST /api/cart/:id_agricultor/items
@@ -107,8 +102,7 @@ const addItem = async (req, res) => {
       .json({ message: "Item agregado al carrito", item: itemResult.rows[0] });
   } catch (error) {
     if (client) await client.query("ROLLBACK");
-    console.error("Error en addItem:", error);
-    return res.status(500).json({ error: "Error al agregar item" });
+    throw error;
   } finally {
     if (client) client.release();
   }
@@ -163,8 +157,7 @@ const updateItem = async (req, res) => {
     return res.json({ message: "Item actualizado", item: result.rows[0] });
   } catch (error) {
     if (client) await client.query("ROLLBACK");
-    console.error("Error en updateItem:", error);
-    return res.status(500).json({ error: "Error al actualizar item" });
+    throw error;
   } finally {
     if (client) client.release();
   }
@@ -209,8 +202,7 @@ const removeItem = async (req, res) => {
     return res.json({ message: "Item eliminado" });
   } catch (error) {
     if (client) await client.query("ROLLBACK");
-    console.error("Error en removeItem:", error);
-    return res.status(500).json({ error: "Error al eliminar item" });
+    throw error;
   } finally {
     if (client) client.release();
   }
@@ -222,15 +214,10 @@ const clearCart = async (req, res) => {
   if (!isPositiveInteger(id_agricultor)) {
     return res.status(400).json({ error: "id_agricultor inválido" });
   }
-  try {
-    await pool.query(`DELETE FROM carrito WHERE id_agricultor = $1`, [
-      Number(id_agricultor),
-    ]);
-    return res.json({ message: "Carrito vaciado" });
-  } catch (error) {
-    console.error("Error en clearCart:", error);
-    return res.status(500).json({ error: "Error al vaciar carrito" });
-  }
+  await pool.query(`DELETE FROM carrito WHERE id_agricultor = $1`, [
+    Number(id_agricultor),
+  ]);
+  return res.json({ message: "Carrito vaciado" });
 };
 
 module.exports = { getCart, addItem, updateItem, removeItem, clearCart };

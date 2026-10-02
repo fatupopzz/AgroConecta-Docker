@@ -167,195 +167,176 @@ const createOrder = (req, res) =>
   });
 
 const getOrderById = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    if (!isPositiveInteger(id)) {
-      return res.status(400).json({ error: "ID de pedido inválido" });
-    }
-
-    const orderDetail = await getOrderDetailData(pool, Number(id));
-
-    if (!orderDetail) {
-      return res.status(404).json({ error: "Pedido no encontrado" });
-    }
-
-    return res.json(orderDetail);
-  } catch (error) {
-    console.error("Error en getOrderById:", error);
-    return res.status(500).json({ error: "Error al obtener el pedido" });
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({ error: "ID de pedido inválido" });
   }
+
+  const orderDetail = await getOrderDetailData(pool, Number(id));
+
+  if (!orderDetail) {
+    return res.status(404).json({ error: "Pedido no encontrado" });
+  }
+
+  return res.json(orderDetail);
 };
 
 const getOrdersByFarmer = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    if (!isPositiveInteger(id)) {
-      return res.status(400).json({ error: "ID de agricultor inválido" });
-    }
-
-    const farmerId = Number(id);
-
-    const requesterId = req.user ? Number(req.user.id) : null;
-    const requesterTipo = req.user ? req.user.tipo : null;
-
-    const farmerResult = await pool.query(
-      `SELECT id_usuario FROM agricultor
-       WHERE id_agricultor = $1
-         AND (id_usuario = $2 OR $3::text = 'administrador')`,
-      [farmerId, requesterId, requesterTipo]
-    );
-
-    if (farmerResult.rows.length === 0) {
-      return res.status(404).json({ error: "Agricultor no encontrado" });
-    }
-
-    const { page: pageParam, limit: limitParam, estado: estadoParam } = req.query;
-
-    const page = pageParam === undefined ? 1 : Number(pageParam);
-    const limit = limitParam === undefined ? 10 : Number(limitParam);
-
-    if (!Number.isInteger(page) || page < 1) {
-      return res.status(400).json({ error: "page inválido" });
-    }
-
-    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-      return res.status(400).json({ error: "limit inválido (1-100)" });
-    }
-
-    let estadoFiltro = null;
-    if (estadoParam !== undefined && estadoParam !== "") {
-      if (
-        typeof estadoParam !== "string" ||
-        !ORDER_STATES_FILTERABLE.includes(estadoParam.trim())
-      ) {
-        return res.status(400).json({
-          error: `estado inválido. Use: ${ORDER_STATES_FILTERABLE.join(" | ")}`,
-        });
-      }
-      estadoFiltro = estadoParam.trim();
-    }
-
-    const filters = ["p.id_agricultor = $1"];
-    const params = [farmerId];
-
-    if (estadoFiltro) {
-      params.push(estadoFiltro);
-      filters.push(`p.estado = $${params.length}`);
-    }
-
-    const whereClause = filters.join(" AND ");
-
-    const countResult = await pool.query(
-      `SELECT COUNT(*)::int AS total FROM pedido p WHERE ${whereClause}`,
-      params
-    );
-
-    const total = countResult.rows[0].total;
-    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
-    const offset = (page - 1) * limit;
-
-    const dataParams = [...params, limit, offset];
-
-    const result = await pool.query(
-      `SELECT
-          p.id_pedido          AS id,
-          CASE
-            WHEN p.estado = '${LEGACY_ORDER_STATES.PENDING}' THEN '${ORDER_STATES.CONFIRMED}'
-            WHEN p.estado = '${LEGACY_ORDER_STATES.IN_TRANSIT}' THEN '${ORDER_STATES.IN_ROUTE}'
-            ELSE p.estado
-          END AS estado,
-          p.fecha_pedido,
-          p.total_pedido,
-          p.es_urgente,
-          p.tipo_plaga,
-          d.nombre_negocio     AS distribuidor_nombre,
-          COALESCE(COUNT(dp.id_detalle), 0)::int AS cantidad_productos
-       FROM pedido p
-       JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
-       LEFT JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
-       WHERE ${whereClause}
-       GROUP BY p.id_pedido, p.estado, p.fecha_pedido, p.total_pedido, p.es_urgente, p.tipo_plaga, d.nombre_negocio
-       ORDER BY p.fecha_pedido DESC, p.id_pedido DESC
-       LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
-      dataParams
-    );
-
-    return res.json({
-      data: result.rows,
-      total,
-      page,
-      totalPages,
-    });
-  } catch (error) {
-    console.error("Error en getOrdersByFarmer:", error);
-    return res.status(500).json({
-      error: "Error al obtener pedidos del agricultor",
-    });
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({ error: "ID de agricultor inválido" });
   }
+
+  const farmerId = Number(id);
+
+  const requesterId = req.user ? Number(req.user.id) : null;
+  const requesterTipo = req.user ? req.user.tipo : null;
+
+  const farmerResult = await pool.query(
+    `SELECT id_usuario FROM agricultor
+     WHERE id_agricultor = $1
+       AND (id_usuario = $2 OR $3::text = 'administrador')`,
+    [farmerId, requesterId, requesterTipo]
+  );
+
+  if (farmerResult.rows.length === 0) {
+    return res.status(404).json({ error: "Agricultor no encontrado" });
+  }
+
+  const { page: pageParam, limit: limitParam, estado: estadoParam } = req.query;
+
+  const page = pageParam === undefined ? 1 : Number(pageParam);
+  const limit = limitParam === undefined ? 10 : Number(limitParam);
+
+  if (!Number.isInteger(page) || page < 1) {
+    return res.status(400).json({ error: "page inválido" });
+  }
+
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return res.status(400).json({ error: "limit inválido (1-100)" });
+  }
+
+  let estadoFiltro = null;
+  if (estadoParam !== undefined && estadoParam !== "") {
+    if (
+      typeof estadoParam !== "string" ||
+      !ORDER_STATES_FILTERABLE.includes(estadoParam.trim())
+    ) {
+      return res.status(400).json({
+        error: `estado inválido. Use: ${ORDER_STATES_FILTERABLE.join(" | ")}`,
+      });
+    }
+    estadoFiltro = estadoParam.trim();
+  }
+
+  const filters = ["p.id_agricultor = $1"];
+  const params = [farmerId];
+
+  if (estadoFiltro) {
+    params.push(estadoFiltro);
+    filters.push(`p.estado = $${params.length}`);
+  }
+
+  const whereClause = filters.join(" AND ");
+
+  const countResult = await pool.query(
+    `SELECT COUNT(*)::int AS total FROM pedido p WHERE ${whereClause}`,
+    params
+  );
+
+  const total = countResult.rows[0].total;
+  const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+  const offset = (page - 1) * limit;
+
+  const dataParams = [...params, limit, offset];
+
+  const result = await pool.query(
+    `SELECT
+        p.id_pedido          AS id,
+        CASE
+          WHEN p.estado = '${LEGACY_ORDER_STATES.PENDING}' THEN '${ORDER_STATES.CONFIRMED}'
+          WHEN p.estado = '${LEGACY_ORDER_STATES.IN_TRANSIT}' THEN '${ORDER_STATES.IN_ROUTE}'
+          ELSE p.estado
+        END AS estado,
+        p.fecha_pedido,
+        p.total_pedido,
+        p.es_urgente,
+        p.tipo_plaga,
+        d.nombre_negocio     AS distribuidor_nombre,
+        COALESCE(COUNT(dp.id_detalle), 0)::int AS cantidad_productos
+     FROM pedido p
+     JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
+     LEFT JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
+     WHERE ${whereClause}
+     GROUP BY p.id_pedido, p.estado, p.fecha_pedido, p.total_pedido, p.es_urgente, p.tipo_plaga, d.nombre_negocio
+     ORDER BY p.fecha_pedido DESC, p.id_pedido DESC
+     LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+    dataParams
+  );
+
+  return res.json({
+    data: result.rows,
+    total,
+    page,
+    totalPages,
+  });
 };
 
 const getOrdersByDistributor = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    if (!isPositiveInteger(id)) {
-      return res.status(400).json({ error: "ID de distribuidor inválido" });
-    }
-
-    const distributorId = Number(id);
-
-    const distributorResult = await pool.query(
-      "SELECT 1 FROM distribuidor WHERE id_distribuidor = $1",
-      [distributorId]
-    );
-
-    if (distributorResult.rows.length === 0) {
-      return res.status(404).json({ error: "Distribuidor no encontrado" });
-    }
-
-    const result = await pool.query(
-      `SELECT
-          p.id_pedido AS id,
-          p.fecha_pedido,
-          CASE
-            WHEN p.estado = '${LEGACY_ORDER_STATES.PENDING}' THEN '${ORDER_STATES.CONFIRMED}'
-            WHEN p.estado = '${LEGACY_ORDER_STATES.IN_TRANSIT}' THEN '${ORDER_STATES.IN_ROUTE}'
-            ELSE p.estado
-          END AS estado,
-          p.direccion_entrega,
-          p.es_urgente,
-          p.tipo_plaga,
-          p.total_pedido,
-          p.costo_envio,
-          p.notas,
-          a.id_agricultor,
-          ua.nombre AS agricultor_nombre,
-          COALESCE(COUNT(dp.id_detalle), 0)::int AS cantidad_productos,
-          ua.email AS agricultor_email,
-          ua.telefono AS agricultor_telefono,
-          pa.metodo_pago,
-          pa.estado_pago
-       FROM pedido p
-       JOIN agricultor a ON p.id_agricultor = a.id_agricultor
-       JOIN usuario ua ON a.id_usuario = ua.id_usuario
-       LEFT JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
-       LEFT JOIN pago pa ON p.id_pedido = pa.id_pedido
-       WHERE p.id_distribuidor = $1
-       GROUP BY p.id_pedido, a.id_agricultor, ua.nombre, ua.email, ua.telefono,
-                pa.metodo_pago, pa.estado_pago
-       ORDER BY p.es_urgente DESC, p.fecha_pedido DESC, p.id_pedido DESC`,
-      [distributorId]
-    );
-
-    return res.json(result.rows);
-  } catch (error) {
-    console.error("Error en getOrdersByDistributor:", error);
-    return res.status(500).json({
-      error: "Error al obtener pedidos del distribuidor",
-    });
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({ error: "ID de distribuidor inválido" });
   }
+
+  const distributorId = Number(id);
+
+  const distributorResult = await pool.query(
+    "SELECT 1 FROM distribuidor WHERE id_distribuidor = $1",
+    [distributorId]
+  );
+
+  if (distributorResult.rows.length === 0) {
+    return res.status(404).json({ error: "Distribuidor no encontrado" });
+  }
+
+  const result = await pool.query(
+    `SELECT
+        p.id_pedido AS id,
+        p.fecha_pedido,
+        CASE
+          WHEN p.estado = '${LEGACY_ORDER_STATES.PENDING}' THEN '${ORDER_STATES.CONFIRMED}'
+          WHEN p.estado = '${LEGACY_ORDER_STATES.IN_TRANSIT}' THEN '${ORDER_STATES.IN_ROUTE}'
+          ELSE p.estado
+        END AS estado,
+        p.direccion_entrega,
+        p.es_urgente,
+        p.tipo_plaga,
+        p.total_pedido,
+        p.costo_envio,
+        p.notas,
+        a.id_agricultor,
+        ua.nombre AS agricultor_nombre,
+        COALESCE(COUNT(dp.id_detalle), 0)::int AS cantidad_productos,
+        ua.email AS agricultor_email,
+        ua.telefono AS agricultor_telefono,
+        pa.metodo_pago,
+        pa.estado_pago
+     FROM pedido p
+     JOIN agricultor a ON p.id_agricultor = a.id_agricultor
+     JOIN usuario ua ON a.id_usuario = ua.id_usuario
+     LEFT JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
+     LEFT JOIN pago pa ON p.id_pedido = pa.id_pedido
+     WHERE p.id_distribuidor = $1
+     GROUP BY p.id_pedido, a.id_agricultor, ua.nombre, ua.email, ua.telefono,
+              pa.metodo_pago, pa.estado_pago
+     ORDER BY p.es_urgente DESC, p.fecha_pedido DESC, p.id_pedido DESC`,
+    [distributorId]
+  );
+
+  return res.json(result.rows);
 };
 
 const updateOrderStatus = async (req, res) => {
@@ -449,71 +430,61 @@ const updateOrderStatus = async (req, res) => {
       );
     }
 
-    console.error("Error en updateOrderStatus:", error);
-    return res.status(500).json({
-      error: "Error al actualizar estado del pedido",
-    });
+    throw error;
   } finally {
     client.release();
   }
 };
 
 const getOrderTracking = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const requesterId = req.user ? Number(req.user.id) : null;
-    const requesterTipo = req.user ? req.user.tipo : null;
+  const { id } = req.params;
+  const requesterId = req.user ? Number(req.user.id) : null;
+  const requesterTipo = req.user ? req.user.tipo : null;
 
-    if (!isPositiveInteger(id)) {
-      return res.status(400).json({ error: "ID de pedido inválido" });
-    }
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({ error: "ID de pedido inválido" });
+  }
 
-    if (!requesterId || !requesterTipo) {
-      return res.status(401).json({ error: "Usuario no autenticado" });
-    }
+  if (!requesterId || !requesterTipo) {
+    return res.status(401).json({ error: "Usuario no autenticado" });
+  }
 
-    const orderId = Number(id);
+  const orderId = Number(id);
 
-    const permissionResult = await pool.query(
-      `SELECT
-          a.id_usuario AS agricultor_usuario_id,
-          d.id_usuario AS distribuidor_usuario_id
-       FROM pedido p
-       JOIN agricultor a ON p.id_agricultor = a.id_agricultor
-       JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
-       WHERE p.id_pedido = $1`,
-      [orderId]
-    );
+  const permissionResult = await pool.query(
+    `SELECT
+        a.id_usuario AS agricultor_usuario_id,
+        d.id_usuario AS distribuidor_usuario_id
+     FROM pedido p
+     JOIN agricultor a ON p.id_agricultor = a.id_agricultor
+     JOIN distribuidor d ON p.id_distribuidor = d.id_distribuidor
+     WHERE p.id_pedido = $1`,
+    [orderId]
+  );
 
-    if (permissionResult.rows.length === 0) {
-      return res.status(404).json({ error: "Pedido no encontrado" });
-    }
+  if (permissionResult.rows.length === 0) {
+    return res.status(404).json({ error: "Pedido no encontrado" });
+  }
 
-    const orderPermission = permissionResult.rows[0];
-    const canView =
-      requesterTipo === "administrador" ||
-      Number(orderPermission.agricultor_usuario_id) === requesterId ||
-      Number(orderPermission.distribuidor_usuario_id) === requesterId;
+  const orderPermission = permissionResult.rows[0];
+  const canView =
+    requesterTipo === "administrador" ||
+    Number(orderPermission.agricultor_usuario_id) === requesterId ||
+    Number(orderPermission.distribuidor_usuario_id) === requesterId;
 
-    if (!canView) {
-      return res.status(403).json({
-        error: "No tienes permiso para ver el seguimiento de este pedido",
-      });
-    }
-
-    const tracking = await getOrderTrackingData(pool, orderId);
-
-    if (!tracking) {
-      return res.status(404).json({ error: "Pedido no encontrado" });
-    }
-
-    return res.json(tracking);
-  } catch (error) {
-    console.error("Error en getOrderTracking:", error);
-    return res.status(500).json({
-      error: "Error al obtener seguimiento del pedido",
+  if (!canView) {
+    return res.status(403).json({
+      error: "No tienes permiso para ver el seguimiento de este pedido",
     });
   }
+
+  const tracking = await getOrderTrackingData(pool, orderId);
+
+  if (!tracking) {
+    return res.status(404).json({ error: "Pedido no encontrado" });
+  }
+
+  return res.json(tracking);
 };
 
 
@@ -622,10 +593,7 @@ const receiveOrder = async (req, res) => {
       console.error("Error al hacer rollback en receiveOrder:", rollbackError);
     }
 
-    console.error("Error en receiveOrder:", error);
-    return res.status(500).json({
-      error: "Error al confirmar recepción del pedido",
-    });
+    throw error;
   } finally {
     client.release();
   }

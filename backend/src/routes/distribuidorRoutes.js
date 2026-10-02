@@ -15,15 +15,16 @@ const {
 const {
   canViewDistributorStats,
 } = require("../middleware/orderAuthorizationMiddleware");
+const asyncHandler = require("../middleware/asyncHandler");
 
-router.get("/", getDistributors);
-router.get("/:id/rating", getDistributorRating);
-router.get("/:id/reviews", getDistributorReviews);
-router.get("/:id/productos", getDistributorProducts);
-router.get("/:id/stats", canViewDistributorStats, getDistributorStats);
-router.get("/:id", getDistributorById);
-router.post("/", createDistributor);
-router.put("/:id", updateDistributor);
-router.delete("/:id", deleteDistributor);
+router.get("/", asyncHandler(getDistributors));
+router.get("/:id/rating", asyncHandler(getDistributorRating));
+router.get("/:id/reviews", asyncHandler(getDistributorReviews));
+router.get("/:id/productos", asyncHandler(getDistributorProducts));
+router.get("/:id/stats", canViewDistributorStats, asyncHandler(getDistributorStats));
+router.get("/:id", asyncHandler(getDistributorById));
+router.post("/", asyncHandler(createDistributor));
+router.put("/:id", asyncHandler(updateDistributor));
+router.delete("/:id", asyncHandler(deleteDistributor));
 
 module.exports = router;

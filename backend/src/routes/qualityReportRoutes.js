@@ -9,11 +9,12 @@ const {
     getAllQualityReports,
     updateQualityReport
 } = require("../controllers/qualityReportController");
+const asyncHandler = require("../middleware/asyncHandler");
 
-router.post("/quality-reports", verifyToken, createQualityReport);
+router.post("/quality-reports", verifyToken, asyncHandler(createQualityReport));
 
-router.get("/admin/quality-reports", verifyAdmin, getAllQualityReports);
+router.get("/admin/quality-reports", verifyAdmin, asyncHandler(getAllQualityReports));
 
-router.patch("/admin/quality-reports/:id", verifyAdmin, updateQualityReport);
+router.patch("/admin/quality-reports/:id", verifyAdmin, asyncHandler(updateQualityReport));
 
 module.exports = router;

@@ -13,12 +13,13 @@ const {
   deleteUser,
   getFarmerDashboard,
 } = require("../controllers/userController");
+const asyncHandler = require("../middleware/asyncHandler");
 
-router.get("/", getUsers);
-router.get("/dashboard", getFarmerDashboard);
-router.get("/:id", getUserById);
+router.get("/", asyncHandler(getUsers));
+router.get("/dashboard", asyncHandler(getFarmerDashboard));
+router.get("/:id", asyncHandler(getUserById));
 //router.post("/", createUser);
-router.put("/:id", canUpdateUserByRole, updateUser);
-router.delete("/:id", canDeleteUserByRole, deleteUser);
+router.put("/:id", canUpdateUserByRole, asyncHandler(updateUser));
+router.delete("/:id", canDeleteUserByRole, asyncHandler(deleteUser));
 
 module.exports = router;

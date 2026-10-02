@@ -123,7 +123,7 @@ describe("GET /api/productos/recomendados", () => {
 
     expect(response.statusCode).toBe(500);
     expect(response.body).toEqual({
-      error: "Error al obtener productos recomendados",
+      error: "Error interno del servidor",
     });
     consoleError.mockRestore();
   });

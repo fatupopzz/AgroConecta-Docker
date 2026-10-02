@@ -5,42 +5,37 @@ const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
 
 const getDistributors = async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT d.*, u.nombre, u.telefono, u.email,
-              COALESCE(reviews.calificacion_promedio, 0) AS promedio_resenas,
-              COALESCE(reviews.cantidad_resenas, 0)::int AS cantidad_resenas
-       FROM distribuidor d
-       JOIN usuario u ON d.id_usuario = u.id_usuario
-       -- Misma fuente que /:id/rating y /:id/reviews: reseñas de los productos
-       -- que vende el distribuidor.
-       LEFT JOIN (
-         SELECT i.id_distribuidor,
-                ROUND(AVG(r.calificacion)::numeric, 1) AS calificacion_promedio,
-                COUNT(r.id_resena)::int AS cantidad_resenas
-         FROM inventario_distribuidor i
-         JOIN resena r ON r.id_producto = i.id_producto
-         GROUP BY i.id_distribuidor
-       ) reviews ON reviews.id_distribuidor = d.id_distribuidor
-       WHERE d.estado_verificacion = 'verificado'
-       ORDER BY d.nombre_negocio ASC`
-    );
+  const result = await pool.query(
+    `SELECT d.*, u.nombre, u.telefono, u.email,
+            COALESCE(reviews.calificacion_promedio, 0) AS promedio_resenas,
+            COALESCE(reviews.cantidad_resenas, 0)::int AS cantidad_resenas
+     FROM distribuidor d
+     JOIN usuario u ON d.id_usuario = u.id_usuario
+     -- Misma fuente que /:id/rating y /:id/reviews: reseñas de los productos
+     -- que vende el distribuidor.
+     LEFT JOIN (
+       SELECT i.id_distribuidor,
+              ROUND(AVG(r.calificacion)::numeric, 1) AS calificacion_promedio,
+              COUNT(r.id_resena)::int AS cantidad_resenas
+       FROM inventario_distribuidor i
+       JOIN resena r ON r.id_producto = i.id_producto
+       GROUP BY i.id_distribuidor
+     ) reviews ON reviews.id_distribuidor = d.id_distribuidor
+     WHERE d.estado_verificacion = 'verificado'
+     ORDER BY d.nombre_negocio ASC`
+  );
 
-    const distributors = result.rows.map(({
-      promedio_resenas,
-      cantidad_resenas,
-      ...distributor
-    }) => ({
-      ...distributor,
-      calificacion_promedio: Number(promedio_resenas ?? 0),
-      cantidad_resenas: Number(cantidad_resenas ?? 0),
-    }));
+  const distributors = result.rows.map(({
+    promedio_resenas,
+    cantidad_resenas,
+    ...distributor
+  }) => ({
+    ...distributor,
+    calificacion_promedio: Number(promedio_resenas ?? 0),
+    cantidad_resenas: Number(cantidad_resenas ?? 0),
+  }));
 
-    res.json(distributors);
-  } catch (error) {
-    console.error("Error en getDistributors:", error);
-    res.status(500).json({ error: "Error al obtener distribuidores" });
-  }
+  res.json(distributors);
 };
 
 
@@ -51,48 +46,40 @@ const getDistributorById = async (req, res) => {
     return res.status(400).json({ error: "ID inválido" });
   }
 
-  try {
-    // Obtener información del distribuidor
-    const result = await pool.query(
-      `SELECT d.*, u.nombre, u.telefono, u.email
-       FROM distribuidor d
-       JOIN usuario u ON d.id_usuario = u.id_usuario
-       WHERE d.id_distribuidor = $1`,
-      [id]
-    );
+  // Obtener información del distribuidor
+  const result = await pool.query(
+    `SELECT d.*, u.nombre, u.telefono, u.email
+     FROM distribuidor d
+     JOIN usuario u ON d.id_usuario = u.id_usuario
+     WHERE d.id_distribuidor = $1`,
+    [id]
+  );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        error: "Distribuidor no encontrado",
-      });
-    }
-
-    // Obtener promedio y cantidad de reseñas
-    const reviews = await pool.query(
-      `SELECT
-          ROUND(AVG(calificacion),2) AS calificacion_promedio,
-          COUNT(*) AS cantidad_resenas
-       FROM resena_distribuidor
-       WHERE id_distribuidor = $1`,
-      [id]
-    );
-
-    res.json({
-      ...result.rows[0],
-
-      calificacion_promedio:
-        reviews.rows[0].calificacion_promedio ?? 0,
-
-      cantidad_resenas:
-        Number(reviews.rows[0].cantidad_resenas)
-    });
-
-  } catch (error) {
-    console.error("Error en getDistributorById:", error);
-    res.status(500).json({
-      error: "Error al obtener distribuidor",
+  if (result.rows.length === 0) {
+    return res.status(404).json({
+      error: "Distribuidor no encontrado",
     });
   }
+
+  // Obtener promedio y cantidad de reseñas
+  const reviews = await pool.query(
+    `SELECT
+        ROUND(AVG(calificacion),2) AS calificacion_promedio,
+        COUNT(*) AS cantidad_resenas
+     FROM resena_distribuidor
+     WHERE id_distribuidor = $1`,
+    [id]
+  );
+
+  res.json({
+    ...result.rows[0],
+
+    calificacion_promedio:
+      reviews.rows[0].calificacion_promedio ?? 0,
+
+    cantidad_resenas:
+      Number(reviews.rows[0].cantidad_resenas)
+  });
 };
 
 
@@ -124,47 +111,40 @@ const createDistributor = async (req, res) => {
     });
   }
 
-  try {
-    const user = await pool.query(
-      "SELECT id_usuario FROM usuario WHERE id_usuario = $1",
-      [id_usuario]
-    );
+  const user = await pool.query(
+    "SELECT id_usuario FROM usuario WHERE id_usuario = $1",
+    [id_usuario]
+  );
 
-    if (user.rows.length === 0) {
-      return res.status(404).json({
-        error: "Usuario no existe",
-      });
-    }
-
-    const result = await pool.query(
-      `INSERT INTO distribuidor (
-         id_usuario,
-         nombre_negocio,
-         nit,
-         departamento,
-         direccion
-       )
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [
-        id_usuario,
-        nombre_negocio.trim(),
-        nit || null,
-        departamento || null,
-        direccion || null,
-      ]
-    );
-
-    res.status(201).json({
-      message: "Distribuidor creado correctamente",
-      distribuidor: result.rows[0],
-    });
-  } catch (error) {
-    console.error("Error en createDistributor:", error);
-    res.status(500).json({
-      error: "Error al crear distribuidor",
+  if (user.rows.length === 0) {
+    return res.status(404).json({
+      error: "Usuario no existe",
     });
   }
+
+  const result = await pool.query(
+    `INSERT INTO distribuidor (
+       id_usuario,
+       nombre_negocio,
+       nit,
+       departamento,
+       direccion
+     )
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [
+      id_usuario,
+      nombre_negocio.trim(),
+      nit || null,
+      departamento || null,
+      direccion || null,
+    ]
+  );
+
+  res.status(201).json({
+    message: "Distribuidor creado correctamente",
+    distribuidor: result.rows[0],
+  });
 };
 const updateDistributor = async (req, res) => {
   const { id } = req.params;
@@ -174,47 +154,42 @@ const updateDistributor = async (req, res) => {
     return res.status(400).json({ error: "ID inválido" });
   }
 
-  try {
-    if (req.user.tipo !== "administrador") {
-      if (req.user.tipo !== "distribuidor") {
-        return res.status(403).json({ error: "Solo puedes actualizar tu propio perfil de distribuidor" });
-      }
-
-      const owner = await pool.query(
-        "SELECT id_usuario FROM distribuidor WHERE id_distribuidor = $1",
-        [id]
-      );
-      if (owner.rows.length === 0) {
-        return res.status(404).json({ error: "Distribuidor no encontrado" });
-      }
-      if (Number(owner.rows[0].id_usuario) !== Number(req.user.id)) {
-        return res.status(403).json({ error: "Solo puedes actualizar tu propio perfil de distribuidor" });
-      }
+  if (req.user.tipo !== "administrador") {
+    if (req.user.tipo !== "distribuidor") {
+      return res.status(403).json({ error: "Solo puedes actualizar tu propio perfil de distribuidor" });
     }
 
-    const result = await pool.query(
-      `UPDATE distribuidor SET
-         nombre_negocio = COALESCE($2, nombre_negocio),
-         nit = COALESCE($3, nit),
-         departamento = COALESCE($4, departamento),
-         direccion = COALESCE($5, direccion)
-       WHERE id_distribuidor = $1
-       RETURNING *`,
-      [id, nombre_negocio, nit, departamento, direccion]
+    const owner = await pool.query(
+      "SELECT id_usuario FROM distribuidor WHERE id_distribuidor = $1",
+      [id]
     );
-
-    if (result.rows.length === 0) {
+    if (owner.rows.length === 0) {
       return res.status(404).json({ error: "Distribuidor no encontrado" });
     }
-
-    res.json({
-      message: "Distribuidor actualizado",
-      distribuidor: result.rows[0],
-    });
-  } catch (error) {
-    console.error("Error en updateDistributor:", error);
-    res.status(500).json({ error: "Error al actualizar distribuidor" });
+    if (Number(owner.rows[0].id_usuario) !== Number(req.user.id)) {
+      return res.status(403).json({ error: "Solo puedes actualizar tu propio perfil de distribuidor" });
+    }
   }
+
+  const result = await pool.query(
+    `UPDATE distribuidor SET
+       nombre_negocio = COALESCE($2, nombre_negocio),
+       nit = COALESCE($3, nit),
+       departamento = COALESCE($4, departamento),
+       direccion = COALESCE($5, direccion)
+     WHERE id_distribuidor = $1
+     RETURNING *`,
+    [id, nombre_negocio, nit, departamento, direccion]
+  );
+
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: "Distribuidor no encontrado" });
+  }
+
+  res.json({
+    message: "Distribuidor actualizado",
+    distribuidor: result.rows[0],
+  });
 };
 
 const deleteDistributor = async (req, res) => {
@@ -224,22 +199,16 @@ const deleteDistributor = async (req, res) => {
     return res.status(400).json({ error: "ID inválido" });
   }
 
-  try {
-    const result = await pool.query(
-      "DELETE FROM distribuidor WHERE id_distribuidor = $1 RETURNING *",
-      [id]
-    );
+  const result = await pool.query(
+    "DELETE FROM distribuidor WHERE id_distribuidor = $1 RETURNING *",
+    [id]
+  );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Distribuidor no encontrado" });
-    }
-
-    res.json({ message: "Distribuidor eliminado" });
-
-  } catch (error) {
-    console.error("Error en deleteDistributor:", error);
-    res.status(500).json({ error: "Error al eliminar distribuidor" });
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: "Distribuidor no encontrado" });
   }
+
+  res.json({ message: "Distribuidor eliminado" });
 };
 
 const getDistributorRating = async (req, res) => {
@@ -249,56 +218,51 @@ const getDistributorRating = async (req, res) => {
     return res.status(400).json({ error: "ID inválido" });
   }
 
-  try {
-    const distributorExists = await pool.query(
-      "SELECT id_distribuidor FROM distribuidor WHERE id_distribuidor = $1",
-      [Number(id)]
-    );
+  const distributorExists = await pool.query(
+    "SELECT id_distribuidor FROM distribuidor WHERE id_distribuidor = $1",
+    [Number(id)]
+  );
 
-    if (distributorExists.rows.length === 0) {
-      return res.status(404).json({ error: "Distribuidor no encontrado" });
-    }
-
-    const result = await pool.query(
-      `SELECT
-         COALESCE(ROUND(AVG(r.calificacion)::numeric, 1), 0) AS calificacion_promedio,
-         COUNT(r.id_resena)::int AS total_resenas,
-         COUNT(r.id_resena) FILTER (WHERE r.calificacion = 5)::int AS cinco_estrellas,
-         COUNT(r.id_resena) FILTER (WHERE r.calificacion = 4)::int AS cuatro_estrellas,
-         COUNT(r.id_resena) FILTER (WHERE r.calificacion = 3)::int AS tres_estrellas,
-         COUNT(r.id_resena) FILTER (WHERE r.calificacion = 2)::int AS dos_estrellas,
-         COUNT(r.id_resena) FILTER (WHERE r.calificacion = 1)::int AS una_estrella
-       FROM inventario_distribuidor i
-       JOIN producto p ON i.id_producto = p.id_producto
-       LEFT JOIN resena r ON r.id_producto = p.id_producto
-       WHERE i.id_distribuidor = $1`,
-      [Number(id)]
-    );
-
-    await pool.query(
-      `UPDATE distribuidor
-       SET calificacion_promedio = $2
-       WHERE id_distribuidor = $1
-         AND calificacion_promedio IS DISTINCT FROM $2`,
-      [Number(id), result.rows[0].calificacion_promedio]
-    );
-
-    return res.json({
-      id_distribuidor: Number(id),
-      calificacion_promedio: Number(result.rows[0].calificacion_promedio),
-      total_resenas: Number(result.rows[0].total_resenas),
-      distribucion: {
-        5: Number(result.rows[0].cinco_estrellas),
-        4: Number(result.rows[0].cuatro_estrellas),
-        3: Number(result.rows[0].tres_estrellas),
-        2: Number(result.rows[0].dos_estrellas),
-        1: Number(result.rows[0].una_estrella),
-      },
-    });
-  } catch (error) {
-    console.error("Error en getDistributorRating:", error);
-    return res.status(500).json({ error: "Error al obtener rating del distribuidor" });
+  if (distributorExists.rows.length === 0) {
+    return res.status(404).json({ error: "Distribuidor no encontrado" });
   }
+
+  const result = await pool.query(
+    `SELECT
+       COALESCE(ROUND(AVG(r.calificacion)::numeric, 1), 0) AS calificacion_promedio,
+       COUNT(r.id_resena)::int AS total_resenas,
+       COUNT(r.id_resena) FILTER (WHERE r.calificacion = 5)::int AS cinco_estrellas,
+       COUNT(r.id_resena) FILTER (WHERE r.calificacion = 4)::int AS cuatro_estrellas,
+       COUNT(r.id_resena) FILTER (WHERE r.calificacion = 3)::int AS tres_estrellas,
+       COUNT(r.id_resena) FILTER (WHERE r.calificacion = 2)::int AS dos_estrellas,
+       COUNT(r.id_resena) FILTER (WHERE r.calificacion = 1)::int AS una_estrella
+     FROM inventario_distribuidor i
+     JOIN producto p ON i.id_producto = p.id_producto
+     LEFT JOIN resena r ON r.id_producto = p.id_producto
+     WHERE i.id_distribuidor = $1`,
+    [Number(id)]
+  );
+
+  await pool.query(
+    `UPDATE distribuidor
+     SET calificacion_promedio = $2
+     WHERE id_distribuidor = $1
+       AND calificacion_promedio IS DISTINCT FROM $2`,
+    [Number(id), result.rows[0].calificacion_promedio]
+  );
+
+  return res.json({
+    id_distribuidor: Number(id),
+    calificacion_promedio: Number(result.rows[0].calificacion_promedio),
+    total_resenas: Number(result.rows[0].total_resenas),
+    distribucion: {
+      5: Number(result.rows[0].cinco_estrellas),
+      4: Number(result.rows[0].cuatro_estrellas),
+      3: Number(result.rows[0].tres_estrellas),
+      2: Number(result.rows[0].dos_estrellas),
+      1: Number(result.rows[0].una_estrella),
+    },
+  });
 };
 
 const getDistributorReviews = async (req, res) => {
@@ -315,108 +279,91 @@ const getDistributorReviews = async (req, res) => {
     return res.status(400).json({ error: "Parámetros de paginación inválidos" });
   }
 
-  try {
-    const distributorExists = await pool.query(
-      "SELECT id_distribuidor FROM distribuidor WHERE id_distribuidor = $1",
-      [Number(id)]
-    );
+  const distributorExists = await pool.query(
+    "SELECT id_distribuidor FROM distribuidor WHERE id_distribuidor = $1",
+    [Number(id)]
+  );
 
-    if (distributorExists.rows.length === 0) {
-      return res.status(404).json({ error: "Distribuidor no encontrado" });
-    }
-
-    const reviewsResult = await pool.query(
-      `SELECT r.id_resena,
-              r.calificacion,
-              r.comentario,
-              r.fecha_resena,
-              p.id_producto,
-              p.nombre AS producto_nombre,
-              u.nombre AS agricultor_nombre
-       FROM resena r
-       JOIN producto p ON r.id_producto = p.id_producto
-       JOIN inventario_distribuidor i ON i.id_producto = p.id_producto
-       JOIN agricultor a ON r.id_agricultor = a.id_agricultor
-       JOIN usuario u ON a.id_usuario = u.id_usuario
-       WHERE i.id_distribuidor = $1
-       ORDER BY r.fecha_resena DESC
-       LIMIT $2 OFFSET $3`,
-      [Number(id), limit, offset]
-    );
-
-    const countResult = await pool.query(
-      `SELECT COUNT(r.id_resena)::int AS total
-       FROM resena r
-       JOIN producto p ON r.id_producto = p.id_producto
-       JOIN inventario_distribuidor i ON i.id_producto = p.id_producto
-       WHERE i.id_distribuidor = $1`,
-      [Number(id)]
-    );
-
-    const total = Number(countResult.rows[0].total);
-
-    return res.json({
-      page,
-      limit,
-      total,
-      total_pages: Math.ceil(total / limit),
-      reviews: reviewsResult.rows,
-    });
-  } catch (error) {
-    console.error("Error en getDistributorReviews:", error);
-    return res.status(500).json({ error: "Error al obtener reseñas del distribuidor" });
+  if (distributorExists.rows.length === 0) {
+    return res.status(404).json({ error: "Distribuidor no encontrado" });
   }
+
+  const reviewsResult = await pool.query(
+    `SELECT r.id_resena,
+            r.calificacion,
+            r.comentario,
+            r.fecha_resena,
+            p.id_producto,
+            p.nombre AS producto_nombre,
+            u.nombre AS agricultor_nombre
+     FROM resena r
+     JOIN producto p ON r.id_producto = p.id_producto
+     JOIN inventario_distribuidor i ON i.id_producto = p.id_producto
+     JOIN agricultor a ON r.id_agricultor = a.id_agricultor
+     JOIN usuario u ON a.id_usuario = u.id_usuario
+     WHERE i.id_distribuidor = $1
+     ORDER BY r.fecha_resena DESC
+     LIMIT $2 OFFSET $3`,
+    [Number(id), limit, offset]
+  );
+
+  const countResult = await pool.query(
+    `SELECT COUNT(r.id_resena)::int AS total
+     FROM resena r
+     JOIN producto p ON r.id_producto = p.id_producto
+     JOIN inventario_distribuidor i ON i.id_producto = p.id_producto
+     WHERE i.id_distribuidor = $1`,
+    [Number(id)]
+  );
+
+  const total = Number(countResult.rows[0].total);
+
+  return res.json({
+    page,
+    limit,
+    total,
+    total_pages: Math.ceil(total / limit),
+    reviews: reviewsResult.rows,
+  });
 };
 
 const getDistributorProducts = async (req, res) => {
 
     const { id } = req.params;
 
-    try {
+    const result = await pool.query(
+        `
+        SELECT
+            p.id_producto,
+            p.nombre,
+            p.marca,
+            p.descripcion,
+            p.composicion,
+            p.dosis_recomendada,
+            p.instrucciones_uso,
+            p.calificacion_promedio,
+            p.activo,
+            p.id_categoria,
 
-        const result = await pool.query(
-            `
-            SELECT
-                p.id_producto,
-                p.nombre,
-                p.marca,
-                p.descripcion,
-                p.composicion,
-                p.dosis_recomendada,
-                p.instrucciones_uso,
-                p.calificacion_promedio,
-                p.activo,
-                p.id_categoria,
+            i.precio,
+            i.stock_disponible,
+            i.unidad_medida,
+            i.tiempo_entrega_dias,
+            i.ultima_actualizacion
 
-                i.precio,
-                i.stock_disponible,
-                i.unidad_medida,
-                i.tiempo_entrega_dias,
-                i.ultima_actualizacion
+        FROM inventario_distribuidor i
 
-            FROM inventario_distribuidor i
+        INNER JOIN producto p
+            ON p.id_producto = i.id_producto
 
-            INNER JOIN producto p
-                ON p.id_producto = i.id_producto
+        WHERE i.id_distribuidor = $1
 
-            WHERE i.id_distribuidor = $1
+        ORDER BY p.nombre ASC
+        `,
+        [Number(id)]
+    );
 
-            ORDER BY p.nombre ASC
-            `,
-            [Number(id)]
-        );
-
-        return res.json(result.rows);
-
-    } catch (error) {
-
-        console.error("Error en getDistributorProducts:", error);
-
-        return res.status(500).json({
-            error: "Error al obtener productos del distribuidor"
-        });
-
-    }
+    return res.json(result.rows);
 
 };
 
@@ -429,69 +376,62 @@ const getDistributorStats = async (req, res) => {
 
   const distributorId = Number(id);
 
-  try {
-    const [summaryResult, topProductsResult, ordersByStatusResult] =
-      await Promise.all([
-        pool.query(
-          `SELECT
-             COUNT(*)::int AS total_pedidos,
-             COALESCE(
-               SUM(total_pedido) FILTER (WHERE estado = $2),
-               0
-             ) AS ingresos_totales
-           FROM pedido
-           WHERE id_distribuidor = $1`,
-          [distributorId, ORDER_STATES.DELIVERED]
-        ),
-        pool.query(
-          `SELECT
-             pr.nombre,
-             SUM(dp.cantidad)::int AS cantidad,
-             COALESCE(SUM(dp.subtotal), 0) AS ingresos
-           FROM pedido pe
-           JOIN detalle_pedido dp ON pe.id_pedido = dp.id_pedido
-           JOIN inventario_distribuidor i ON dp.id_inventario = i.id_inventario
-           JOIN producto pr ON i.id_producto = pr.id_producto
-           WHERE pe.id_distribuidor = $1
-             AND pe.estado = $2
-           GROUP BY pr.id_producto, pr.nombre
-           ORDER BY cantidad DESC, ingresos DESC, pr.nombre ASC
-           LIMIT 5`,
-          [distributorId, ORDER_STATES.DELIVERED]
-        ),
-        pool.query(
-          `SELECT estado, COUNT(*)::int AS cantidad
-           FROM pedido
-           WHERE id_distribuidor = $1
-           GROUP BY estado`,
-          [distributorId]
-        ),
-      ]);
+  const [summaryResult, topProductsResult, ordersByStatusResult] =
+    await Promise.all([
+      pool.query(
+        `SELECT
+           COUNT(*)::int AS total_pedidos,
+           COALESCE(
+             SUM(total_pedido) FILTER (WHERE estado = $2),
+             0
+           ) AS ingresos_totales
+         FROM pedido
+         WHERE id_distribuidor = $1`,
+        [distributorId, ORDER_STATES.DELIVERED]
+      ),
+      pool.query(
+        `SELECT
+           pr.nombre,
+           SUM(dp.cantidad)::int AS cantidad,
+           COALESCE(SUM(dp.subtotal), 0) AS ingresos
+         FROM pedido pe
+         JOIN detalle_pedido dp ON pe.id_pedido = dp.id_pedido
+         JOIN inventario_distribuidor i ON dp.id_inventario = i.id_inventario
+         JOIN producto pr ON i.id_producto = pr.id_producto
+         WHERE pe.id_distribuidor = $1
+           AND pe.estado = $2
+         GROUP BY pr.id_producto, pr.nombre
+         ORDER BY cantidad DESC, ingresos DESC, pr.nombre ASC
+         LIMIT 5`,
+        [distributorId, ORDER_STATES.DELIVERED]
+      ),
+      pool.query(
+        `SELECT estado, COUNT(*)::int AS cantidad
+         FROM pedido
+         WHERE id_distribuidor = $1
+         GROUP BY estado`,
+        [distributorId]
+      ),
+    ]);
 
-    const ordersByStatus = new Map(
-      ordersByStatusResult.rows.map((row) => [row.estado, Number(row.cantidad)])
-    );
-    const summary = summaryResult.rows[0];
+  const ordersByStatus = new Map(
+    ordersByStatusResult.rows.map((row) => [row.estado, Number(row.cantidad)])
+  );
+  const summary = summaryResult.rows[0];
 
-    return res.json({
-      totalPedidos: Number(summary.total_pedidos),
-      ingresosTotales: Number(summary.ingresos_totales),
-      productosMasVendidos: topProductsResult.rows.map((product) => ({
-        nombre: product.nombre,
-        cantidad: Number(product.cantidad),
-        ingresos: Number(product.ingresos),
-      })),
-      pedidosPorEstado: Object.values(ORDER_STATES).map((estado) => ({
-        estado,
-        cantidad: ordersByStatus.get(estado) || 0,
-      })),
-    });
-  } catch (error) {
-    console.error("Error en getDistributorStats:", error);
-    return res.status(500).json({
-      error: "Error al obtener estadísticas del distribuidor",
-    });
-  }
+  return res.json({
+    totalPedidos: Number(summary.total_pedidos),
+    ingresosTotales: Number(summary.ingresos_totales),
+    productosMasVendidos: topProductsResult.rows.map((product) => ({
+      nombre: product.nombre,
+      cantidad: Number(product.cantidad),
+      ingresos: Number(product.ingresos),
+    })),
+    pedidosPorEstado: Object.values(ORDER_STATES).map((estado) => ({
+      estado,
+      cantidad: ordersByStatus.get(estado) || 0,
+    })),
+  });
 };
 
 module.exports = {
