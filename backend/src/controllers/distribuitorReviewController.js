@@ -87,11 +87,7 @@ const createDistributorReview = async (req, res) => {
       });
     }
 
-    console.error("Error en createDistributorReview:", error);
-
-    return res.status(500).json({
-      error: "Error interno del servidor",
-    });
+    throw error;
   }
 };
 
@@ -101,46 +97,35 @@ const createDistributorReview = async (req, res) => {
 
 const getDistributorReviews = async (req, res) => {
 
-  try {
+  const { id } = req.params;
 
-    const { id } = req.params;
-
-    if (!isPositiveInteger(id)) {
-      return res.status(400).json({
-        error: "ID de distribuidor inválido",
-      });
-    }
-
-    const result = await pool.query(
-      `SELECT
-          r.id_resena,
-          r.calificacion,
-          r.comentario,
-          r.fecha_resena,
-          u.nombre AS agricultor
-       FROM resena_distribuidor r
-       JOIN agricultor a
-            ON r.id_agricultor = a.id_agricultor
-       JOIN usuario u
-            ON a.id_usuario = u.id_usuario
-       WHERE r.id_distribuidor = $1
-       ORDER BY r.fecha_resena DESC`,
-      [id]
-    );
-
-    return res.json({
-      total: result.rowCount,
-      reviews: result.rows,
-    });
-
-  } catch (error) {
-
-    console.error("Error en getDistributorReviews:", error);
-
-    return res.status(500).json({
-      error: "Error al obtener reseñas",
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({
+      error: "ID de distribuidor inválido",
     });
   }
+
+  const result = await pool.query(
+    `SELECT
+        r.id_resena,
+        r.calificacion,
+        r.comentario,
+        r.fecha_resena,
+        u.nombre AS agricultor
+     FROM resena_distribuidor r
+     JOIN agricultor a
+          ON r.id_agricultor = a.id_agricultor
+     JOIN usuario u
+          ON a.id_usuario = u.id_usuario
+     WHERE r.id_distribuidor = $1
+     ORDER BY r.fecha_resena DESC`,
+    [id]
+  );
+
+  return res.json({
+    total: result.rowCount,
+    reviews: result.rows,
+  });
 
 };
 

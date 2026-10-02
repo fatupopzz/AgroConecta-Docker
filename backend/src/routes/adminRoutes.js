@@ -8,17 +8,18 @@ const {
   rejectDistributor,
 } = require("../controllers/adminDistributorController");
 const { getAdminMetrics } = require("../controllers/adminMetricsController");
+const asyncHandler = require("../middleware/asyncHandler");
 
 // GET /api/admin/metrics
-router.get("/metrics", verifyAdmin, getAdminMetrics);
+router.get("/metrics", verifyAdmin, asyncHandler(getAdminMetrics));
 
 // GET /api/admin/distributors/pending
-router.get("/distributors/pending", verifyAdmin, getPendingDistributors);
+router.get("/distributors/pending", verifyAdmin, asyncHandler(getPendingDistributors));
 
 // PATCH /api/admin/distributors/:id/verify
-router.patch("/distributors/:id/verify", verifyAdmin, verifyDistributor);
+router.patch("/distributors/:id/verify", verifyAdmin, asyncHandler(verifyDistributor));
 
 // PATCH /api/admin/distributors/:id/reject
-router.patch("/distributors/:id/reject", verifyAdmin, rejectDistributor);
+router.patch("/distributors/:id/reject", verifyAdmin, asyncHandler(rejectDistributor));
 
 module.exports = router;

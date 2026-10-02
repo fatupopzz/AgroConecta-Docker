@@ -10,33 +10,28 @@ const getResenasByProducto = async (req, res) => {
     return res.status(400).json({ error: "ID de producto inválido" });
   }
 
-  try {
-    const result = await pool.query(
-      `SELECT r.id_resena, r.calificacion, r.comentario, r.fecha_resena,
-              u.nombre AS agricultor_nombre
-       FROM resena r
-       JOIN agricultor a ON r.id_agricultor = a.id_agricultor
-       JOIN usuario u ON a.id_usuario = u.id_usuario
-       WHERE r.id_producto = $1
-       ORDER BY r.fecha_resena DESC`,
-      [Number(id)]
-    );
+  const result = await pool.query(
+    `SELECT r.id_resena, r.calificacion, r.comentario, r.fecha_resena,
+            u.nombre AS agricultor_nombre
+     FROM resena r
+     JOIN agricultor a ON r.id_agricultor = a.id_agricultor
+     JOIN usuario u ON a.id_usuario = u.id_usuario
+     WHERE r.id_producto = $1
+     ORDER BY r.fecha_resena DESC`,
+    [Number(id)]
+  );
 
-    const total = result.rows.length;
-    const promedio =
-      total > 0
-        ? result.rows.reduce((sum, r) => sum + r.calificacion, 0) / total
-        : 0;
+  const total = result.rows.length;
+  const promedio =
+    total > 0
+      ? result.rows.reduce((sum, r) => sum + r.calificacion, 0) / total
+      : 0;
 
-    return res.json({
-      promedio: Number(promedio.toFixed(2)),
-      total,
-      resenas: result.rows,
-    });
-  } catch (error) {
-    console.error("Error en getResenasByProducto:", error);
-    return res.status(500).json({ error: "Error al obtener reseñas" });
-  }
+  return res.json({
+    promedio: Number(promedio.toFixed(2)),
+    total,
+    resenas: result.rows,
+  });
 };
 
 // POST /api/products/:id/reviews
@@ -98,8 +93,7 @@ const createResena = async (req, res) => {
         error: "Ya dejaste una reseña para este producto",
       });
     }
-    console.error("Error en createResena:", error);
-    return res.status(500).json({ error: "Error al crear reseña" });
+    throw error;
   }
 };
 

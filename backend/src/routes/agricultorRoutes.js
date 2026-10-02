@@ -8,11 +8,12 @@ const {
   updateAgricultor,
   deleteAgricultor
 } = require("../controllers/agricultorController");
+const asyncHandler = require("../middleware/asyncHandler");
 
-router.get("/", getAgricultores);
-router.get("/:id", getAgricultorById);
-router.post("/", createAgricultor);
-router.put("/:id", updateAgricultor);
-router.delete("/:id", deleteAgricultor);
+router.get("/", asyncHandler(getAgricultores));
+router.get("/:id", asyncHandler(getAgricultorById));
+router.post("/", asyncHandler(createAgricultor));
+router.put("/:id", asyncHandler(updateAgricultor));
+router.delete("/:id", asyncHandler(deleteAgricultor));
 
 module.exports = router;

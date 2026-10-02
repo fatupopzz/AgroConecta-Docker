@@ -117,7 +117,7 @@ test("getAdminMetrics returns zero distributor counters when states are missing"
   });
 });
 
-test("getAdminMetrics returns 500 when an aggregate query fails", async () => {
+test("getAdminMetrics delega al middleware central cuando falla una consulta", async () => {
   const pool = {
     query: async () => {
       throw new Error("database unavailable");
@@ -125,16 +125,7 @@ test("getAdminMetrics returns 500 when an aggregate query fails", async () => {
   };
   const { getAdminMetrics } = loadController(pool);
   const res = createResponse();
-  const originalConsoleError = console.error;
-  console.error = () => {};
 
-  try {
-    await getAdminMetrics({}, res);
-  } finally {
-    console.error = originalConsoleError;
-  }
-
-  assert.deepEqual(res.body, {
-    error: "Error al obtener métricas administrativas",
-  });
+  await assert.rejects(getAdminMetrics({}, res), /database unavailable/);
+  assert.equal(res.body, null);
 });

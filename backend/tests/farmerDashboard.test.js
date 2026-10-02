@@ -170,7 +170,7 @@ describe("GET /api/users/dashboard", () => {
 
     expect(response.statusCode).toBe(500);
     expect(response.body).toEqual({
-      error: "Error al obtener el dashboard del agricultor",
+      error: "Error interno del servidor",
     });
     consoleError.mockRestore();
   });

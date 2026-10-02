@@ -154,124 +154,112 @@ const register = async (req, res) => {
       });
     }
 
-    console.error("Error en register:", error);
-    return res.status(500).json({ error: "Error en servidor" });
+    throw error;
   } finally {
     if (client) client.release();
   }
 };
 
 const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: "Datos incompletos" });
-    }
-
-    const result = await pool.query(
-      "SELECT * FROM usuario WHERE email = $1",
-      [email]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(400).json({ error: "Usuario no existe" });
-    }
-
-    const user = result.rows[0];
-
-    const validPassword = await bcrypt.compare(password, user.contrasena_hash);
-
-    if (!validPassword) {
-      return res.status(401).json({ error: "Contraseña incorrecta" });
-    }
-
-    const token = jwt.sign(
-      {
-        id: user.id_usuario,
-        email: user.email,
-        tipo: user.tipo_usuario,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
-    let idPerfil = null;
-
-    if (user.tipo_usuario === "agricultor") {
-      const r = await pool.query(
-        "SELECT id_agricultor FROM agricultor WHERE id_usuario = $1",
-        [user.id_usuario]
-      );
-      if (r.rows.length === 0) {
-        return res.status(500).json({ error: "Perfil de agricultor no encontrado" });
-      }
-      idPerfil = r.rows[0].id_agricultor;
-    } else if (user.tipo_usuario === "distribuidor") {
-      const r = await pool.query(
-        "SELECT id_distribuidor FROM distribuidor WHERE id_usuario = $1",
-        [user.id_usuario]
-      );
-      if (r.rows.length === 0) {
-        return res.status(500).json({ error: "Perfil de distribuidor no encontrado" });
-      }
-      idPerfil = r.rows[0].id_distribuidor;
-    }
-
-    return res.json({
-      message: "Login exitoso",
-      token,
-      nombre: user.nombre,
-      tipoUsuario: user.tipo_usuario,
-      idPerfil,
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error en servidor" });
+  if (!email || !password) {
+    return res.status(400).json({ error: "Datos incompletos" });
   }
+
+  const result = await pool.query(
+    "SELECT * FROM usuario WHERE email = $1",
+    [email]
+  );
+
+  if (result.rows.length === 0) {
+    return res.status(400).json({ error: "Usuario no existe" });
+  }
+
+  const user = result.rows[0];
+
+  const validPassword = await bcrypt.compare(password, user.contrasena_hash);
+
+  if (!validPassword) {
+    return res.status(401).json({ error: "Contraseña incorrecta" });
+  }
+
+  const token = jwt.sign(
+    {
+      id: user.id_usuario,
+      email: user.email,
+      tipo: user.tipo_usuario,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+
+  let idPerfil = null;
+
+  if (user.tipo_usuario === "agricultor") {
+    const r = await pool.query(
+      "SELECT id_agricultor FROM agricultor WHERE id_usuario = $1",
+      [user.id_usuario]
+    );
+    if (r.rows.length === 0) {
+      return res.status(500).json({ error: "Perfil de agricultor no encontrado" });
+    }
+    idPerfil = r.rows[0].id_agricultor;
+  } else if (user.tipo_usuario === "distribuidor") {
+    const r = await pool.query(
+      "SELECT id_distribuidor FROM distribuidor WHERE id_usuario = $1",
+      [user.id_usuario]
+    );
+    if (r.rows.length === 0) {
+      return res.status(500).json({ error: "Perfil de distribuidor no encontrado" });
+    }
+    idPerfil = r.rows[0].id_distribuidor;
+  }
+
+  return res.json({
+    message: "Login exitoso",
+    token,
+    nombre: user.nombre,
+    tipoUsuario: user.tipo_usuario,
+    idPerfil,
+  });
 };
 
 const getMe = async (req, res) => {
-  try {
-    const { id, tipo } = req.user;
+  const { id, tipo } = req.user;
 
-    const userResult = await pool.query(
-      `SELECT id_usuario, nombre, apellido, telefono, email, tipo_usuario, fecha_registro
-       FROM usuario WHERE id_usuario = $1`,
+  const userResult = await pool.query(
+    `SELECT id_usuario, nombre, apellido, telefono, email, tipo_usuario, fecha_registro
+     FROM usuario WHERE id_usuario = $1`,
+    [Number(id)]
+  );
+
+  if (userResult.rows.length === 0) {
+    return res.status(404).json({ error: "Usuario no encontrado" });
+  }
+
+  const user = userResult.rows[0];
+  let perfil = null;
+
+  if (tipo === "agricultor") {
+    const r = await pool.query(
+      `SELECT id_agricultor, departamento, municipio, tipo_agricultor,
+              tamano_terreno_ha, cultivos_principales, tiene_membresia
+       FROM agricultor WHERE id_usuario = $1`,
       [Number(id)]
     );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-
-    const user = userResult.rows[0];
-    let perfil = null;
-
-    if (tipo === "agricultor") {
-      const r = await pool.query(
-        `SELECT id_agricultor, departamento, municipio, tipo_agricultor,
-                tamano_terreno_ha, cultivos_principales, tiene_membresia
-         FROM agricultor WHERE id_usuario = $1`,
-        [Number(id)]
-      );
-      perfil = withCropList(r.rows[0] ?? null);
-    } else if (tipo === "distribuidor") {
-      const r = await pool.query(
-        `SELECT id_distribuidor, nombre_negocio, nit, departamento, direccion,
-          estado_verificacion, calificacion_promedio
-         FROM distribuidor WHERE id_usuario = $1`,
-        [Number(id)]
-      );
-      perfil = r.rows[0] ?? null;
-    }
-
-    return res.json({ user, perfil });
-  } catch (error) {
-    console.error("Error en getMe:", error);
-    return res.status(500).json({ error: "Error en servidor" });
+    perfil = withCropList(r.rows[0] ?? null);
+  } else if (tipo === "distribuidor") {
+    const r = await pool.query(
+      `SELECT id_distribuidor, nombre_negocio, nit, departamento, direccion,
+        estado_verificacion, calificacion_promedio
+       FROM distribuidor WHERE id_usuario = $1`,
+      [Number(id)]
+    );
+    perfil = r.rows[0] ?? null;
   }
+
+  return res.json({ user, perfil });
 };
 
 const normalizeOptionalText = (value) => {
@@ -384,8 +372,7 @@ const updateMe = async (req, res) => {
     if (error.code === "23505") {
       return res.status(409).json({ error: "El teléfono, correo o NIT ya está registrado" });
     }
-    console.error("Error en updateMe:", error);
-    return res.status(500).json({ error: "Error al actualizar perfil" });
+    throw error;
   } finally {
     if (client) client.release();
   }

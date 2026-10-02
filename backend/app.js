@@ -6,6 +6,7 @@ const categoryRoutes = require("./src/routes/categoryRoutes");
 const authRoutes = require("./src/routes/authRoutes");
 const cartRoutes = require("./src/routes/cartRoutes");
 const verifyToken = require("./src/middleware/authMiddleware");
+const { errorHandler, notFoundHandler } = require("./src/middleware/errorHandler");
 const agricultorRoutes = require("./src/routes/agricultorRoutes");
 const distribuidorRoutes = require("./src/routes/distribuidorRoutes");
 const farmerRoutes = require("./src/routes/farmerRoutes");
@@ -62,5 +63,9 @@ app.get("/", (req, res) => {
         version: "1.0.0",
     });
 });
+
+// Deben ir después de todas las rutas.
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 module.exports = app;

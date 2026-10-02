@@ -2,12 +2,12 @@ const { pool } = require("../config/db");
 const ProductoSeguido = require("../models/ProductoSeguido");
 const ProductoSeguidoResponse = require("../dto/ProductoSeguidoResponse");
 const ProductoSeguidoRepository = require("../repositories/ProductoSeguidoRepository");
+const AppError = require("../errors/AppError");
 
-class ProductoSeguidoServiceError extends Error {
+class ProductoSeguidoServiceError extends AppError {
   constructor(message, statusCode = 400) {
-    super(message);
+    super(statusCode, message);
     this.name = "ProductoSeguidoServiceError";
-    this.statusCode = statusCode;
   }
 }
 

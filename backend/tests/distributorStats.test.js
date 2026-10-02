@@ -180,7 +180,7 @@ describe("GET /api/distribuidores/:id/stats", () => {
 
     expect(response.statusCode).toBe(500);
     expect(response.body).toEqual({
-      error: "Error al obtener estadísticas del distribuidor",
+      error: "Error interno del servidor",
     });
 
     consoleError.mockRestore();

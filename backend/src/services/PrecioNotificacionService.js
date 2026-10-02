@@ -1,12 +1,12 @@
 const { NOTIFICATION_TYPES } = require("../constants/notificationTypes");
 const { NotificacionService } = require("./NotificacionService");
 const ProductoSeguidoRepository = require("../repositories/ProductoSeguidoRepository");
+const AppError = require("../errors/AppError");
 
-class PrecioNotificacionServiceError extends Error {
+class PrecioNotificacionServiceError extends AppError {
   constructor(message, statusCode = 400) {
-    super(message);
+    super(statusCode, message);
     this.name = "PrecioNotificacionServiceError";
-    this.statusCode = statusCode;
   }
 }
 

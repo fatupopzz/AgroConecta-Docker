@@ -30,19 +30,20 @@ const {
   listRecurringOrders,
   updateRecurringOrder,
 } = require("../controllers/recurringOrderController");
+const asyncHandler = require("../middleware/asyncHandler");
 
-router.post("/recurring", verifyToken, createRecurringOrder);
-router.get("/recurring", verifyToken, listRecurringOrders);
-router.patch("/recurring/:id", verifyToken, updateRecurringOrder);
-router.post("/", verifyToken, canCreateOrder, createOrder);
-router.get("/export/pdf", verifyToken, exportOrderHistoryPdf);
-router.get("/farmer/:id", verifyToken, getOrdersByFarmer);
-router.get("/distributor/:id", verifyToken, canViewDistributorOrders, getOrdersByDistributor);
-router.patch("/:id/status", verifyToken, canManageOrderStatus, updateOrderStatus);
-router.patch("/:id/receive", verifyToken, receiveOrder);
-router.get("/:id/advice", verifyToken, canAccessOrderAdvice, getAdviceMessages);
-router.post("/:id/advice", verifyToken, canSendOrderAdvice, sendAdviceMessage);
-router.get("/:id/tracking", verifyToken, getOrderTracking);
-router.get("/:id", verifyToken, getOrderById);
+router.post("/recurring", verifyToken, asyncHandler(createRecurringOrder));
+router.get("/recurring", verifyToken, asyncHandler(listRecurringOrders));
+router.patch("/recurring/:id", verifyToken, asyncHandler(updateRecurringOrder));
+router.post("/", verifyToken, canCreateOrder, asyncHandler(createOrder));
+router.get("/export/pdf", verifyToken, asyncHandler(exportOrderHistoryPdf));
+router.get("/farmer/:id", verifyToken, asyncHandler(getOrdersByFarmer));
+router.get("/distributor/:id", verifyToken, canViewDistributorOrders, asyncHandler(getOrdersByDistributor));
+router.patch("/:id/status", verifyToken, canManageOrderStatus, asyncHandler(updateOrderStatus));
+router.patch("/:id/receive", verifyToken, asyncHandler(receiveOrder));
+router.get("/:id/advice", verifyToken, canAccessOrderAdvice, asyncHandler(getAdviceMessages));
+router.post("/:id/advice", verifyToken, canSendOrderAdvice, asyncHandler(sendAdviceMessage));
+router.get("/:id/tracking", verifyToken, asyncHandler(getOrderTracking));
+router.get("/:id", verifyToken, asyncHandler(getOrderById));
 
 module.exports = router;

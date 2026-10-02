@@ -12,20 +12,15 @@ const exportOrderHistoryPdf = async (req, res) => {
     return res.status(401).json({ error: "Usuario no autenticado" });
   }
 
-  try {
-    const history = await loadFarmerHistory(pool, userId);
-    if (!history) {
-      return res.status(403).json({ error: "Perfil de agricultor no disponible" });
-    }
-
-    const pdf = await renderOrderHistoryPdf(history);
-    res.set("Content-Type", "application/pdf");
-    res.set("Content-Disposition", 'attachment; filename="historial-pedidos-agroconecta.pdf"');
-    return res.send(pdf);
-  } catch (_error) {
-    console.error("Error al exportar historial de pedidos");
-    return res.status(500).json({ error: "No se pudo generar el PDF de pedidos" });
+  const history = await loadFarmerHistory(pool, userId);
+  if (!history) {
+    return res.status(403).json({ error: "Perfil de agricultor no disponible" });
   }
+
+  const pdf = await renderOrderHistoryPdf(history);
+  res.set("Content-Type", "application/pdf");
+  res.set("Content-Disposition", 'attachment; filename="historial-pedidos-agroconecta.pdf"');
+  return res.send(pdf);
 };
 
 module.exports = { exportOrderHistoryPdf };

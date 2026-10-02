@@ -82,42 +82,37 @@ const upsertFarmerProfile = async (req, res) => {
     ? serializeCropNames(normalizedCrops)
     : null;
 
-  try {
-    const result = await pool.query(
-      `INSERT INTO agricultor (id_usuario, departamento, municipio, tipo_agricultor, tamano_terreno_ha, cultivos_principales)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (id_usuario) DO UPDATE
-         SET departamento         = COALESCE(EXCLUDED.departamento, agricultor.departamento),
-             municipio            = COALESCE(EXCLUDED.municipio, agricultor.municipio),
-             tipo_agricultor      = COALESCE(EXCLUDED.tipo_agricultor, agricultor.tipo_agricultor),
-             tamano_terreno_ha    = COALESCE(EXCLUDED.tamano_terreno_ha, agricultor.tamano_terreno_ha),
-             cultivos_principales = CASE
-               WHEN $7 THEN EXCLUDED.cultivos_principales
-               ELSE agricultor.cultivos_principales
-             END
-       RETURNING id_agricultor, id_usuario, departamento, municipio,
-                 tipo_agricultor, tamano_terreno_ha, cultivos_principales, tiene_membresia`,
-      [
-        id,
-        departamento || null,
-        municipio || null,
-        tipo_agricultor || null,
-        tamano_terreno_ha !== undefined ? Number(tamano_terreno_ha) : null,
-        serializedCrops,
-        hasMainCrops,
-      ]
-    );
+  const result = await pool.query(
+    `INSERT INTO agricultor (id_usuario, departamento, municipio, tipo_agricultor, tamano_terreno_ha, cultivos_principales)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (id_usuario) DO UPDATE
+       SET departamento         = COALESCE(EXCLUDED.departamento, agricultor.departamento),
+           municipio            = COALESCE(EXCLUDED.municipio, agricultor.municipio),
+           tipo_agricultor      = COALESCE(EXCLUDED.tipo_agricultor, agricultor.tipo_agricultor),
+           tamano_terreno_ha    = COALESCE(EXCLUDED.tamano_terreno_ha, agricultor.tamano_terreno_ha),
+           cultivos_principales = CASE
+             WHEN $7 THEN EXCLUDED.cultivos_principales
+             ELSE agricultor.cultivos_principales
+           END
+     RETURNING id_agricultor, id_usuario, departamento, municipio,
+               tipo_agricultor, tamano_terreno_ha, cultivos_principales, tiene_membresia`,
+    [
+      id,
+      departamento || null,
+      municipio || null,
+      tipo_agricultor || null,
+      tamano_terreno_ha !== undefined ? Number(tamano_terreno_ha) : null,
+      serializedCrops,
+      hasMainCrops,
+    ]
+  );
 
-    const perfil = withCropList(result.rows[0]);
+  const perfil = withCropList(result.rows[0]);
 
-    return res.status(201).json({
-      message: "Perfil guardado exitosamente.",
-      perfil,
-    });
-  } catch (error) {
-    console.error("Error en upsertFarmerProfile:", error);
-    return res.status(500).json({ error: "Error interno del servidor" });
-  }
+  return res.status(201).json({
+    message: "Perfil guardado exitosamente.",
+    perfil,
+  });
 };
 
 /**
@@ -153,46 +148,41 @@ const getFarmerProfile = async (req, res) => {
 
   const id = Number(req.params.id);
 
-  try {
-    const result = await pool.query(
-      `SELECT
-         a.id_agricultor,
-         a.departamento,
-         a.municipio,
-         a.tipo_agricultor,
-         a.tamano_terreno_ha,
-         a.cultivos_principales,
-         a.tiene_membresia,
-         u.nombre,
-         u.telefono,
-         u.email,
-         u.fecha_registro
-       FROM agricultor a
-       JOIN usuario u ON u.id_usuario = a.id_usuario
-       WHERE a.id_agricultor = $1`,
-      [id]
-    );
+  const result = await pool.query(
+    `SELECT
+       a.id_agricultor,
+       a.departamento,
+       a.municipio,
+       a.tipo_agricultor,
+       a.tamano_terreno_ha,
+       a.cultivos_principales,
+       a.tiene_membresia,
+       u.nombre,
+       u.telefono,
+       u.email,
+       u.fecha_registro
+     FROM agricultor a
+     JOIN usuario u ON u.id_usuario = a.id_usuario
+     WHERE a.id_agricultor = $1`,
+    [id]
+  );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Perfil no encontrado" });
-    }
-
-    const ownerCheck = await pool.query(
-      `SELECT id_usuario FROM agricultor WHERE id_agricultor = $1`,
-      [id]
-    );
-
-    if (ownerCheck.rows[0].id_usuario !== userId) {
-      return res.status(403).json({
-        error: "No autorizado para ver este perfil",
-      });
-    }
-
-    return res.status(200).json({ perfil: withCropList(result.rows[0]) });
-  } catch (error) {
-    console.error("Error en getFarmerProfile:", error);
-    return res.status(500).json({ error: "Error interno del servidor" });
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: "Perfil no encontrado" });
   }
+
+  const ownerCheck = await pool.query(
+    `SELECT id_usuario FROM agricultor WHERE id_agricultor = $1`,
+    [id]
+  );
+
+  if (ownerCheck.rows[0].id_usuario !== userId) {
+    return res.status(403).json({
+      error: "No autorizado para ver este perfil",
+    });
+  }
+
+  return res.status(200).json({ perfil: withCropList(result.rows[0]) });
 };
 
 module.exports = { upsertFarmerProfile, getFarmerProfile };
