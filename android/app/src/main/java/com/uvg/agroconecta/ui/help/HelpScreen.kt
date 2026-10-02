@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -50,8 +51,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -73,6 +75,7 @@ import com.uvg.agroconecta.ui.theme.GrayMid
 import com.uvg.agroconecta.ui.theme.GreenPrimary
 import com.uvg.agroconecta.ui.theme.GreenPrimaryDark
 import com.uvg.agroconecta.ui.theme.GreenSurface
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +114,8 @@ fun HelpScreen(
         val filteredSections = remember(sections, searchQuery) {
             filterFaqSections(sections, searchQuery)
         }
+        val listState = rememberLazyListState()
+        val coroutineScope = rememberCoroutineScope()
 
         Column(
             modifier = Modifier
@@ -119,12 +124,17 @@ fun HelpScreen(
         ) {
             FaqSearchField(
                 query = searchQuery,
-                onQueryChange = { searchQuery = it },
+                onQueryChange = { query ->
+                    searchQuery = query
+                    // Los resultados siempre se muestran desde el inicio de la lista
+                    coroutineScope.launch { listState.scrollToItem(0) }
+                },
                 modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)
             )
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
+                state = listState,
                 contentPadding = PaddingValues(
                     start = 16.dp,
                     top = 12.dp,
