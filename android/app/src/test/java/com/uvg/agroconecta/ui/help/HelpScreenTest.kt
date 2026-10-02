@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.uvg.agroconecta.ui.profile.HelpButton
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -77,5 +78,25 @@ class HelpScreenTest {
             .performClick()
 
         assertEquals(1, clicks)
+    }
+
+    @Test
+    fun `faq search filters questions and shows empty state`() {
+        compose.setContent {
+            MaterialTheme {
+                HelpScreen(onNavigateBack = {})
+            }
+        }
+
+        compose.onNodeWithTag("faq-search-field").performTextInput("plaga")
+        compose.onNodeWithText("¿Cuándo debo usar un pedido urgente?").assertIsDisplayed()
+        compose.onNodeWithText("¿Cómo actualizo mis datos?").assertDoesNotExist()
+
+        compose.onNodeWithContentDescription("Limpiar búsqueda").performClick()
+        compose.onNodeWithText("¿Cómo podemos ayudarte?").assertIsDisplayed()
+
+        compose.onNodeWithTag("faq-search-field").performTextInput("criptomonedas")
+        compose.onNodeWithText("No encontramos resultados para \"criptomonedas\"")
+            .assertIsDisplayed()
     }
 }

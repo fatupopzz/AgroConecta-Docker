@@ -1,5 +1,7 @@
 package com.uvg.agroconecta.ui.help
 
+import java.text.Normalizer
+
 enum class HelpCategory(val displayName: String) {
     ORDERS("Pedidos"),
     PAYMENTS("Pagos"),
@@ -136,3 +138,35 @@ val helpFaqSections = listOf(
         )
     )
 )
+
+/**
+ * Filtra las secciones de preguntas frecuentes según el texto de búsqueda.
+ * La búsqueda ignora mayúsculas y tildes, y cada palabra escrita debe aparecer
+ * en la pregunta, la respuesta o el nombre de la categoría.
+ */
+fun filterFaqSections(
+    sections: List<FaqSection>,
+    query: String
+): List<FaqSection> {
+    val terms = normalizeForSearch(query).split(' ').filter(String::isNotEmpty)
+    if (terms.isEmpty()) return sections
+
+    return sections.mapNotNull { section ->
+        val matchingQuestions = section.questions.filter { faq ->
+            val searchableText = normalizeForSearch(
+                "${section.category.displayName} ${faq.question} ${faq.answer}"
+            )
+            terms.all(searchableText::contains)
+        }
+        if (matchingQuestions.isEmpty()) null else section.copy(questions = matchingQuestions)
+    }
+}
+
+private val diacriticsRegex = "\\p{Mn}+".toRegex()
+private val whitespaceRegex = "\\s+".toRegex()
+
+internal fun normalizeForSearch(text: String): String =
+    Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD)
+        .replace(diacriticsRegex, "")
+        .replace(whitespaceRegex, " ")
+        .trim()
