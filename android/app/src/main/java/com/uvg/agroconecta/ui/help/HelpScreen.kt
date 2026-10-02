@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,16 +16,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,6 +41,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,6 +50,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -49,9 +58,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -95,39 +107,137 @@ fun HelpScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        var searchQuery by rememberSaveable { mutableStateOf("") }
+        val filteredSections = remember(sections, searchQuery) {
+            filterFaqSections(sections, searchQuery)
+        }
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 16.dp,
-                top = 16.dp,
-                end = 16.dp,
-                bottom = 32.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(innerPadding)
         ) {
-            item {
-                HelpHeader()
-            }
+            FaqSearchField(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)
+            )
 
-            sections.forEach { section ->
-                item(key = "${section.category.name}-title") {
-                    CategoryHeader(category = section.category)
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    top = 12.dp,
+                    end = 16.dp,
+                    bottom = 32.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (searchQuery.isBlank()) {
+                    item(key = "help-header") {
+                        HelpHeader()
+                    }
+                } else if (filteredSections.isEmpty()) {
+                    item(key = "faq-empty-results") {
+                        FaqEmptyResults(query = searchQuery)
+                    }
                 }
 
-                items(
-                    items = section.questions,
-                    key = { faq -> "${section.category.name}:${faq.id}" }
-                ) { faq ->
-                    FaqAccordionItem(faq = faq)
-                }
-            }
+                filteredSections.forEach { section ->
+                    item(key = "${section.category.name}-title") {
+                        CategoryHeader(category = section.category)
+                    }
 
-            item(key = "whatsapp-support") {
-                WhatsAppSupportCard(onClick = onContactSupport)
+                    items(
+                        items = section.questions,
+                        key = { faq -> "${section.category.name}:${faq.id}" }
+                    ) { faq ->
+                        FaqAccordionItem(faq = faq)
+                    }
+                }
+
+                item(key = "whatsapp-support") {
+                    WhatsAppSupportCard(onClick = onContactSupport)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun FaqSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("faq-search-field"),
+        placeholder = { Text("Buscar en preguntas frecuentes") },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = GreenPrimary
+            )
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Limpiar búsqueda",
+                        tint = GrayMid
+                    )
+                }
+            }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White,
+            focusedBorderColor = GreenPrimary,
+            cursorColor = GreenPrimary
+        )
+    )
+}
+
+@Composable
+private fun FaqEmptyResults(query: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 24.dp, horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.SearchOff,
+            contentDescription = null,
+            tint = GrayMid,
+            modifier = Modifier.size(40.dp)
+        )
+        Text(
+            text = "No encontramos resultados para \"${query.trim()}\"",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = GreenPrimaryDark,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = "Prueba con otras palabras o contáctanos por WhatsApp.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = GrayMid,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
