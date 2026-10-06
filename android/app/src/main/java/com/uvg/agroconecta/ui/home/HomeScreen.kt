@@ -49,6 +49,7 @@ import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.components.StarRating
 import com.uvg.agroconecta.ui.favorites.FavoriteButton
 import androidx.compose.ui.draw.clip
+import java.util.Locale
 
 private val VerdeAgroConecta = Color(0xFF2D6A1F)
 private val VerdeClaro = Color(0xFF4CAF50)
@@ -1041,7 +1042,7 @@ private fun SeccionDistribuidores(
 }
 
 @Composable
-private fun DistribuidorCard(
+internal fun DistribuidorCard(
     distribuidor: Distributor,
     onClick: () -> Unit
 ) {
@@ -1089,6 +1090,24 @@ private fun DistribuidorCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(it, color = TextoGris, fontSize = 11.sp)
             }
+            formatDistributorDistanceKm(distribuidor.distanciaKm)?.let { distance ->
+                Spacer(modifier = Modifier.height(5.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Distancia al distribuidor",
+                        tint = VerdeAgroConecta,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = distance,
+                        color = VerdeAgroConecta,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             StarRating(rating = displayedRating)
             if (!hasReviews) {
@@ -1102,3 +1121,8 @@ private fun DistribuidorCard(
         }
     }
 }
+
+internal fun formatDistributorDistanceKm(distanceKm: Double?): String? =
+    distanceKm
+        ?.takeIf { it.isFinite() && it >= 0.0 }
+        ?.let { String.format(Locale.US, "%.1f km", it) }
