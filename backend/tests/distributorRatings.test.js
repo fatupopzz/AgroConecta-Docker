@@ -89,7 +89,58 @@ describe("GET /api/distribuidores", () => {
     expect(response.body[0]).toEqual(expect.objectContaining({
       calificacion_promedio: 0,
       cantidad_resenas: 0,
+      distancia_km: null,
     }));
+  });
+
+  test("calcula distancia en km y ordena distribuidores por cercanía", async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [
+        {
+          id_distribuidor: 2,
+          nombre_negocio: "Agro Cercano",
+          promedio_resenas: "4.20",
+          cantidad_resenas: 3,
+          distancia_km: "3.42",
+        },
+        {
+          id_distribuidor: 9,
+          nombre_negocio: "Sin ubicación",
+          promedio_resenas: null,
+          cantidad_resenas: null,
+          distancia_km: null,
+        },
+      ],
+    });
+
+    const response = await request(app)
+      .get("/api/distribuidores?lat=14.6349&lng=-90.5069")
+      .set("Authorization", "Bearer token-valido");
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body[0]).toEqual(expect.objectContaining({
+      id_distribuidor: 2,
+      distancia_km: 3.42,
+    }));
+    expect(response.body[1].distancia_km).toBeNull();
+
+    const [sql, params] = pool.query.mock.calls[0];
+    expect(params).toEqual([14.6349, -90.5069]);
+    expect(sql).toMatch(/6371 \* ACOS/);
+    expect(sql).toMatch(/WHEN d\.latitud IS NULL OR d\.longitud IS NULL THEN NULL/);
+    expect(sql).toMatch(/ORDER BY distancia_km ASC NULLS LAST/);
+  });
+
+  test("rechaza una ubicación de consulta incompleta", async () => {
+    const response = await request(app)
+      .get("/api/distribuidores?lat=14.6349")
+      .set("Authorization", "Bearer token-valido");
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toEqual({
+      error: "latitud y longitud deben enviarse juntas",
+    });
+    expect(pool.query).not.toHaveBeenCalled();
   });
 });
 
