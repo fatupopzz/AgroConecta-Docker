@@ -19,6 +19,7 @@ class DistributorResponseTest {
               "estado_verificacion": "verificado",
               "calificacion_promedio": 4.5,
               "cantidad_resenas": 2,
+              "distancia_km": 3.42,
               "nombre": "Agro",
               "email": "agro@example.com",
               "telefono": "55550000"
@@ -29,6 +30,7 @@ class DistributorResponseTest {
 
         assertEquals(4.5, distributor.calificacion ?: 0.0, 0.0)
         assertEquals(2, distributor.cantidadResenas ?: -1)
+        assertEquals(3.42, distributor.distanciaKm ?: 0.0, 0.0)
     }
 
     @Test
@@ -51,5 +53,6 @@ class DistributorResponseTest {
 
         assertNull(distributor.calificacion)
         assertNull(distributor.cantidadResenas)
+        assertNull(distributor.distanciaKm)
     }
 }

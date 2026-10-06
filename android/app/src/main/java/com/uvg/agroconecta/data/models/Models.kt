@@ -215,7 +215,8 @@ data class Distributor(
     // joined from usuario
     val nombre: String?,
     val email: String?,
-    val telefono: String?
+    val telefono: String?,
+    @SerializedName("distancia_km") val distanciaKm: Double? = null
 )
 
 
