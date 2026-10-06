@@ -21,6 +21,13 @@ data class GeoCoordinates(
     val longitude: Double
 )
 
+sealed interface BusinessLocationState {
+    data object Idle : BusinessLocationState
+    data object Loading : BusinessLocationState
+    data class Located(val coordinates: GeoCoordinates) : BusinessLocationState
+    data class Error(val message: String) : BusinessLocationState
+}
+
 interface CurrentLocationProvider {
     suspend fun getCurrentCoordinates(): GeoCoordinates?
 }

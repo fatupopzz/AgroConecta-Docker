@@ -3,14 +3,22 @@ package com.uvg.agroconecta.ui.auth
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.uvg.agroconecta.MainDispatcherRule
 import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.location.BusinessLocationState
+import com.uvg.agroconecta.data.location.CurrentLocationProvider
+import com.uvg.agroconecta.data.location.GeoCoordinates
+import com.uvg.agroconecta.data.models.RegisterRequest
 import com.uvg.agroconecta.data.models.TipoCuenta
 import io.mockk.Called
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import retrofit2.Response
 
 class AuthViewModelTest {
 
@@ -26,12 +34,14 @@ class AuthViewModelTest {
      * lugar de salir al backend real.
      */
     private lateinit var api: ApiService
+    private lateinit var locationProvider: FakeCurrentLocationProvider
     private lateinit var viewModel: AuthViewModel
 
     @Before
     fun setup() {
         api = mockk()
-        viewModel = AuthViewModel(api)
+        locationProvider = FakeCurrentLocationProvider()
+        viewModel = AuthViewModel(api, locationProvider)
     }
 
     @Test
@@ -110,4 +120,46 @@ class AuthViewModelTest {
         assertEquals("", viewModel.nombreUsuario.value)
         verify { api wasNot Called }
     }
+
+    @Test
+    fun `capturar ubicacion la guarda en el draft del distribuidor`() {
+        locationProvider.coordinates = GeoCoordinates(14.6349, -90.5069)
+
+        viewModel.captureBusinessLocation()
+
+        assertEquals(14.6349, viewModel.registerDraft.value?.latitude!!, 0.0)
+        assertEquals(-90.5069, viewModel.registerDraft.value?.longitude!!, 0.0)
+        assertTrue(viewModel.businessLocationState.value is BusinessLocationState.Located)
+    }
+
+    @Test
+    fun `registro envia coordenadas del negocio al backend`() {
+        val request = slot<RegisterRequest>()
+        coEvery { api.register(capture(request)) } returns Response.success(emptyMap())
+        viewModel.updateDraft {
+            it.copy(
+                tipoCuenta = TipoCuenta.DISTRIBUIDOR,
+                nombre = "Ana",
+                telefono = "55551234",
+                email = "ana@test.com",
+                password = "secreto",
+                nombreNegocio = "Agro Ana",
+                latitude = 14.6349,
+                longitude = -90.5069
+            )
+        }
+
+        viewModel.submitRegister()
+
+        coVerify(exactly = 1) { api.register(any()) }
+        assertEquals(14.6349, request.captured.latitude!!, 0.0)
+        assertEquals(-90.5069, request.captured.longitude!!, 0.0)
+        assertEquals(AuthState.Success, viewModel.registerState.value)
+    }
+}
+
+private class FakeCurrentLocationProvider : CurrentLocationProvider {
+    var coordinates: GeoCoordinates? = null
+
+    override suspend fun getCurrentCoordinates(): GeoCoordinates? = coordinates
 }
