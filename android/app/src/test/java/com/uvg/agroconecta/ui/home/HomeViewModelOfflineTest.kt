@@ -32,7 +32,7 @@ class HomeViewModelOfflineTest {
             currentCacheState = ProductCacheState.EXPIRED
         )
 
-        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository)
+        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository, FakeHomeLocationProvider())
 
         assertEquals(listOf(cached), viewModel.uiState.value.productos)
         assertTrue(viewModel.uiState.value.isOffline)
@@ -47,7 +47,7 @@ class HomeViewModelOfflineTest {
             cachedProducts = listOf(product(1)),
             loadResult = ProductLoadResult.Success(listOf(remote), total = 1)
         )
-        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository)
+        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository, FakeHomeLocationProvider())
 
         viewModel.loadProductos(reset = true)
 
@@ -63,7 +63,7 @@ class HomeViewModelOfflineTest {
             cachedProducts = listOf(cached),
             loadResult = ProductLoadResult.Failure("API no disponible")
         )
-        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository)
+        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository, FakeHomeLocationProvider())
 
         viewModel.loadProductos(reset = true)
 
@@ -78,7 +78,7 @@ class HomeViewModelOfflineTest {
             online = true,
             loadResult = ProductLoadResult.Success(listOf(remote), 1)
         )
-        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository)
+        val viewModel = HomeViewModel(api, NoOpCropCycleRepository, repository, FakeHomeLocationProvider())
 
         repository.onlineState.value = false
         assertTrue(viewModel.uiState.value.isOffline)
