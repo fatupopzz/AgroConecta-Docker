@@ -68,6 +68,7 @@ class HomeViewModel @Inject constructor(
     private var initialized = false
     private var productLoadJob: Job? = null
     private var locationJob: Job? = null
+    private var distributorsJob: Job? = null
     private var lastConnectivity: Boolean? = null
     private var cachedProducts: List<Product> = emptyList()
 
@@ -157,6 +158,12 @@ class HomeViewModel @Inject constructor(
                             locationErrorMessage = null
                         )
                     }
+                }
+                if (coordinates != null) {
+                    loadDistribuidores(
+                        latitude = coordinates.latitude,
+                        longitude = coordinates.longitude
+                    )
                 }
             }.onFailure { error ->
                 if (error is CancellationException) throw error
@@ -286,11 +293,15 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun loadDistribuidores() {
-        viewModelScope.launch {
+    fun loadDistribuidores(
+        latitude: Double? = null,
+        longitude: Double? = null
+    ) {
+        distributorsJob?.cancel()
+        distributorsJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoadingDistribuidores = true) }
             try {
-                val response = api.getVerifiedDistributors()
+                val response = api.getVerifiedDistributors(latitude, longitude)
                 if (response.isSuccessful) {
                     val verificados = (response.body() ?: emptyList())
                         .filter { it.estadoVerificacion == "verificado" }
@@ -303,6 +314,8 @@ class HomeViewModel @Inject constructor(
                 } else {
                     _uiState.update { it.copy(isLoadingDistribuidores = false) }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoadingDistribuidores = false, errorMessage = e.message) }
             }

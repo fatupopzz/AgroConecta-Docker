@@ -4,12 +4,14 @@ import com.uvg.agroconecta.MainDispatcherRule
 import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.location.GeoCoordinates
 import com.uvg.agroconecta.data.repository.CropCycleRepository
+import io.mockk.coEvery
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
+import retrofit2.Response
 
 class HomeViewModelLocationTest {
 
@@ -62,7 +64,9 @@ class HomeViewModelLocationTest {
     }
 
     private fun viewModel(locationProvider: FakeHomeLocationProvider) = HomeViewModel(
-        api = api,
+        api = api.apply {
+            coEvery { getVerifiedDistributors(any(), any()) } returns Response.success(emptyList())
+        },
         cropCycleRepository = NoOpCropCycleRepository,
         productCatalogRepository = FakeHomeProductCatalogRepository(),
         locationProvider = locationProvider
