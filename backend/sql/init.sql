@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS distribuidor (
     nit               VARCHAR(30)  UNIQUE,
     departamento      VARCHAR(100),
     direccion         TEXT,
+    latitud           DECIMAL(10,7) CHECK (latitud BETWEEN -90 AND 90),
+    longitud          DECIMAL(10,7) CHECK (longitud BETWEEN -180 AND 180),
     estado_verificacion VARCHAR(20) DEFAULT 'pendiente' CHECK (estado_verificacion IN ('pendiente', 'verificado', 'suspendido')),
     calificacion_promedio DECIMAL(3,2) DEFAULT 0.0,
     fecha_verificacion TIMESTAMP
@@ -369,6 +371,10 @@ ON CONFLICT DO NOTHING;
 ALTER TABLE usuario ADD COLUMN IF NOT EXISTS apellido VARCHAR(100);
 ALTER TABLE distribuidor
 ADD COLUMN IF NOT EXISTS direccion TEXT;
+ALTER TABLE distribuidor
+ADD COLUMN IF NOT EXISTS latitud DECIMAL(10,7) CHECK (latitud BETWEEN -90 AND 90);
+ALTER TABLE distribuidor
+ADD COLUMN IF NOT EXISTS longitud DECIMAL(10,7) CHECK (longitud BETWEEN -180 AND 180);
 
 -- =====================================================
 -- Migración: Notificaciones para distribuidores
