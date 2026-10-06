@@ -92,3 +92,55 @@ describe("GET /api/distribuidores", () => {
     }));
   });
 });
+
+describe("coordenadas de distribuidores", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jwt.verify.mockReturnValue({ id: 12, tipo: "administrador" });
+  });
+
+  test("guarda coordenadas válidas al crear un distribuidor", async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id_usuario: 20 }] })
+      .mockResolvedValueOnce({
+        rows: [{
+          id_distribuidor: 5,
+          nombre_negocio: "Agro Norte",
+          latitud: "14.7000000",
+          longitud: "-90.5000000",
+        }],
+      });
+
+    const response = await request(app)
+      .post("/api/distribuidores")
+      .set("Authorization", "Bearer token-valido")
+      .send({
+        id_usuario: 20,
+        nombre_negocio: "Agro Norte",
+        latitud: 14.7,
+        longitud: -90.5,
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(pool.query.mock.calls[1][1]).toEqual([
+      20,
+      "Agro Norte",
+      null,
+      null,
+      null,
+      14.7,
+      -90.5,
+    ]);
+  });
+
+  test("rechaza coordenadas fuera del rango geográfico", async () => {
+    const response = await request(app)
+      .put("/api/distribuidores/5")
+      .set("Authorization", "Bearer token-valido")
+      .send({ latitud: 91, longitud: -90.5 });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toEqual({ error: "Coordenadas inválidas" });
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+});

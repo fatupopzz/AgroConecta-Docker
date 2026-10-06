@@ -1,5 +1,6 @@
 const { pool } = require("../config/db");
 const { ORDER_STATES } = require("../constants/orderStates");
+const { parseOptionalCoordinates } = require("../utils/coordinates");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
@@ -90,6 +91,8 @@ const createDistributor = async (req, res) => {
     nit,
     departamento,
     direccion,
+    latitud,
+    longitud,
   } = req.body;
 
   if (!id_usuario || !nombre_negocio) {
@@ -111,6 +114,11 @@ const createDistributor = async (req, res) => {
     });
   }
 
+  const coordinates = parseOptionalCoordinates(latitud, longitud);
+  if (coordinates.error) {
+    return res.status(400).json({ error: coordinates.error });
+  }
+
   const user = await pool.query(
     "SELECT id_usuario FROM usuario WHERE id_usuario = $1",
     [id_usuario]
@@ -128,9 +136,11 @@ const createDistributor = async (req, res) => {
        nombre_negocio,
        nit,
        departamento,
-       direccion
+       direccion,
+       latitud,
+       longitud
      )
-     VALUES ($1, $2, $3, $4, $5)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
     [
       id_usuario,
@@ -138,6 +148,8 @@ const createDistributor = async (req, res) => {
       nit || null,
       departamento || null,
       direccion || null,
+      coordinates.latitude,
+      coordinates.longitude,
     ]
   );
 
@@ -148,10 +160,15 @@ const createDistributor = async (req, res) => {
 };
 const updateDistributor = async (req, res) => {
   const { id } = req.params;
-  const { nombre_negocio, nit, departamento, direccion } = req.body;
+  const { nombre_negocio, nit, departamento, direccion, latitud, longitud } = req.body;
 
   if (!isPositiveInteger(id)) {
     return res.status(400).json({ error: "ID inválido" });
+  }
+
+  const coordinates = parseOptionalCoordinates(latitud, longitud);
+  if (coordinates.error) {
+    return res.status(400).json({ error: coordinates.error });
   }
 
   if (req.user.tipo !== "administrador") {
@@ -176,10 +193,20 @@ const updateDistributor = async (req, res) => {
        nombre_negocio = COALESCE($2, nombre_negocio),
        nit = COALESCE($3, nit),
        departamento = COALESCE($4, departamento),
-       direccion = COALESCE($5, direccion)
+       direccion = COALESCE($5, direccion),
+       latitud = COALESCE($6, latitud),
+       longitud = COALESCE($7, longitud)
      WHERE id_distribuidor = $1
      RETURNING *`,
-    [id, nombre_negocio, nit, departamento, direccion]
+    [
+      id,
+      nombre_negocio,
+      nit,
+      departamento,
+      direccion,
+      coordinates.latitude,
+      coordinates.longitude,
+    ]
   );
 
   if (result.rows.length === 0) {

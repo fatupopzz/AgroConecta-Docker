@@ -120,6 +120,54 @@ describe("Auth Controller - Mock Database", () => {
 
     });
 
+    test("Debe registrar las coordenadas de un distribuidor", async () => {
+
+        bcrypt.hash.mockResolvedValue("hash123");
+
+        mockClient.query
+            .mockResolvedValueOnce({ rows: [] })
+            .mockResolvedValueOnce({})
+            .mockResolvedValueOnce({
+                rows: [{ id_usuario: 2, tipo_usuario: "distribuidor" }]
+            })
+            .mockResolvedValueOnce({
+                rows: [{
+                    id_distribuidor: 7,
+                    nombre_negocio: "Agro Centro",
+                    latitud: "14.6349000",
+                    longitud: "-90.5069000",
+                    estado_verificacion: "pendiente"
+                }]
+            })
+            .mockResolvedValueOnce({});
+
+        const response = await request(app)
+            .post("/api/auth/register")
+            .send({
+                nombre: "Ana",
+                apellido: "López",
+                telefono: "55550002",
+                email: "ana@example.com",
+                password: "123456",
+                tipo_usuario: "distribuidor",
+                nombre_negocio: "Agro Centro",
+                latitud: 14.6349,
+                longitud: -90.5069
+            });
+
+        expect(response.statusCode).toBe(201);
+        expect(mockClient.query.mock.calls[3][1]).toEqual([
+            2,
+            "Agro Centro",
+            null,
+            null,
+            null,
+            14.6349,
+            -90.5069
+        ]);
+
+    });
+
     test("Debe iniciar sesión correctamente", async () => {
 
         bcrypt.compare.mockResolvedValue(true);
