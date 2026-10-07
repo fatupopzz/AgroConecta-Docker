@@ -57,6 +57,7 @@ import com.uvg.agroconecta.ui.theme.GrayLight
 import com.uvg.agroconecta.ui.theme.GrayMid
 import com.uvg.agroconecta.ui.theme.GreenPale
 import com.uvg.agroconecta.ui.theme.GreenPrimary
+import com.uvg.agroconecta.validation.RegisterStep2FormValidator
 import kotlinx.coroutines.launch
 
 @Composable
@@ -255,12 +256,13 @@ fun RegisterStep2Screen(
 
                 Button(
                     onClick = {
-                        error = validateStep2(
-                            esDistribuidor,
-                            nombreNegocio,
-                            departamento,
-                            municipio,
-                            draft.latitude != null && draft.longitude != null
+                        error = RegisterStep2FormValidator.errorFor(
+                            isDistributor = esDistribuidor,
+                            businessName = nombreNegocio,
+                            hasBusinessLocation = draft.latitude != null &&
+                                draft.longitude != null,
+                            department = departamento,
+                            municipality = municipio
                         )
                         if (error != null) return@Button
 
@@ -397,17 +399,3 @@ private fun step2FieldColors() = OutlinedTextFieldDefaults.colors(
     cursorColor = GreenPrimary,
     unfocusedLabelColor = GrayMid
 )
-
-private fun validateStep2(
-    esDistribuidor: Boolean,
-    nombreNegocio: String,
-    departamento: String,
-    municipio: String,
-    hasBusinessLocation: Boolean
-): String? {
-    if (esDistribuidor && nombreNegocio.isBlank()) return "Ingresa el nombre del negocio"
-    if (esDistribuidor && !hasBusinessLocation) return "Guarda la ubicación del negocio"
-    if (departamento.isBlank()) return "Selecciona un departamento"
-    if (municipio.isBlank()) return "Selecciona un municipio"
-    return null
-}
