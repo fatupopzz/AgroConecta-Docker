@@ -155,6 +155,12 @@ const runStartupMigrations = async () => {
     "utf8",
   );
   await pool.query(recurringOrdersMigration);
+
+  const distributorCoordinatesMigration = await fs.readFile(
+    path.join(__dirname, "sql", "kan103_distributor_coordinates_migration.sql"),
+    "utf8",
+  );
+  await pool.query(distributorCoordinatesMigration);
 };
 
 const startServer = async () => {

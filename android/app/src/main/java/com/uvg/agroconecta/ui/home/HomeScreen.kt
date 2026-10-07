@@ -1,5 +1,10 @@
 package com.uvg.agroconecta.ui.home
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -31,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.ContextCompat
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.CropPhase
@@ -42,6 +49,7 @@ import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.components.StarRating
 import com.uvg.agroconecta.ui.favorites.FavoriteButton
 import androidx.compose.ui.draw.clip
+import java.util.Locale
 
 private val VerdeAgroConecta = Color(0xFF2D6A1F)
 private val VerdeClaro = Color(0xFF4CAF50)
@@ -49,6 +57,10 @@ private val NaranjaOferta = Color(0xFFE65100)
 private val NaranjaOfertaClaro = Color(0xFFFFF3E0)
 private val GrisFondo = Color(0xFFF5F5F5)
 private val TextoGris = Color(0xFF757575)
+private val homeLocationPermissions = arrayOf(
+    Manifest.permission.ACCESS_FINE_LOCATION,
+    Manifest.permission.ACCESS_COARSE_LOCATION
+)
 internal const val OFFLINE_INDICATOR_TEXT = "Sin conexión"
 
 internal fun shouldShowCropCycleCard(
@@ -88,6 +100,26 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.values.any { it }) {
+            viewModel.refreshLocation()
+        } else {
+            viewModel.onLocationPermissionDenied()
+        }
+    }
+
+    LaunchedEffect(tipoUsuario) {
+        if (tipoUsuario == "agricultor") {
+            if (context.hasHomeLocationPermission()) {
+                viewModel.refreshLocation()
+            } else {
+                locationPermissionLauncher.launch(homeLocationPermissions)
+            }
+        }
+    }
 
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
@@ -228,6 +260,16 @@ fun HomeScreen(
         }
     }
 }
+
+private fun Context.hasHomeLocationPermission(): Boolean =
+    ContextCompat.checkSelfPermission(
+        this,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
 
 @Composable
 internal fun PestAlertsShortcutCard(
@@ -1000,7 +1042,7 @@ private fun SeccionDistribuidores(
 }
 
 @Composable
-private fun DistribuidorCard(
+internal fun DistribuidorCard(
     distribuidor: Distributor,
     onClick: () -> Unit
 ) {
@@ -1048,6 +1090,24 @@ private fun DistribuidorCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(it, color = TextoGris, fontSize = 11.sp)
             }
+            formatDistributorDistanceKm(distribuidor.distanciaKm)?.let { distance ->
+                Spacer(modifier = Modifier.height(5.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Distancia al distribuidor",
+                        tint = VerdeAgroConecta,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = distance,
+                        color = VerdeAgroConecta,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             StarRating(rating = displayedRating)
             if (!hasReviews) {
@@ -1061,3 +1121,8 @@ private fun DistribuidorCard(
         }
     }
 }
+
+internal fun formatDistributorDistanceKm(distanceKm: Double?): String? =
+    distanceKm
+        ?.takeIf { it.isFinite() && it >= 0.0 }
+        ?.let { String.format(Locale.US, "%.1f km", it) }

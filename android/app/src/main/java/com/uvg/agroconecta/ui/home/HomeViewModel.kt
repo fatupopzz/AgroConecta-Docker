@@ -3,6 +3,8 @@ package com.uvg.agroconecta.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
+import com.uvg.agroconecta.data.location.CurrentLocationProvider
+import com.uvg.agroconecta.data.location.GeoCoordinates
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.Distributor
@@ -14,6 +16,7 @@ import com.uvg.agroconecta.data.repository.ProductLoadResult
 import com.uvg.agroconecta.data.repository.ProductRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,6 +46,9 @@ data class HomeUiState(
     val isLoadingCategorias: Boolean = false,
     val isLoadingDistribuidores: Boolean = false,
     val isLoadingCiclo: Boolean = false,
+    val location: GeoCoordinates? = null,
+    val isLocating: Boolean = false,
+    val locationErrorMessage: String? = null,
     val isOffline: Boolean = false,
     val productCacheState: ProductCacheState = ProductCacheState.EMPTY,
     val errorMessage: String? = null
@@ -52,7 +58,8 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val api: ApiService,
     private val cropCycleRepository: CropCycleRepository,
-    private val productCatalogRepository: ProductCatalogRepository
+    private val productCatalogRepository: ProductCatalogRepository,
+    private val locationProvider: CurrentLocationProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -60,6 +67,8 @@ class HomeViewModel @Inject constructor(
 
     private var initialized = false
     private var productLoadJob: Job? = null
+    private var locationJob: Job? = null
+    private var distributorsJob: Job? = null
     private var lastConnectivity: Boolean? = null
     private var cachedProducts: List<Product> = emptyList()
 
@@ -119,6 +128,69 @@ class HomeViewModel @Inject constructor(
                 // El catálogo general sigue disponible si las recomendaciones fallan.
                 _uiState.update { it.copy(isLoadingRecomendados = false) }
             }
+        }
+    }
+
+    fun refreshLocation() {
+        locationJob?.cancel()
+        _uiState.update {
+            it.copy(
+                isLocating = true,
+                locationErrorMessage = null
+            )
+        }
+        locationJob = viewModelScope.launch {
+            runCatching {
+                locationProvider.getCurrentCoordinates()
+            }.onSuccess { coordinates ->
+                _uiState.update {
+                    if (coordinates == null) {
+                        it.copy(
+                            location = null,
+                            isLocating = false,
+                            locationErrorMessage =
+                                "No se pudo determinar tu ubicación. Verifica que el GPS esté activo"
+                        )
+                    } else {
+                        it.copy(
+                            location = coordinates,
+                            isLocating = false,
+                            locationErrorMessage = null
+                        )
+                    }
+                }
+                if (coordinates != null) {
+                    loadDistribuidores(
+                        latitude = coordinates.latitude,
+                        longitude = coordinates.longitude
+                    )
+                }
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                _uiState.update {
+                    it.copy(
+                        location = null,
+                        isLocating = false,
+                        locationErrorMessage = if (error is SecurityException) {
+                            "Se necesita permiso de ubicación para calcular distancias"
+                        } else {
+                            error.message ?: "No se pudo obtener tu ubicación"
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    fun onLocationPermissionDenied() {
+        locationJob?.cancel()
+        _uiState.update {
+            it.copy(
+                location = null,
+                isLocating = false,
+                locationErrorMessage =
+                    "Activa el permiso de ubicación para ver distancias a distribuidores"
+            )
         }
     }
 
@@ -221,11 +293,15 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun loadDistribuidores() {
-        viewModelScope.launch {
+    fun loadDistribuidores(
+        latitude: Double? = null,
+        longitude: Double? = null
+    ) {
+        distributorsJob?.cancel()
+        distributorsJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoadingDistribuidores = true) }
             try {
-                val response = api.getVerifiedDistributors()
+                val response = api.getVerifiedDistributors(latitude, longitude)
                 if (response.isSuccessful) {
                     val verificados = (response.body() ?: emptyList())
                         .filter { it.estadoVerificacion == "verificado" }
@@ -238,6 +314,8 @@ class HomeViewModel @Inject constructor(
                 } else {
                     _uiState.update { it.copy(isLoadingDistribuidores = false) }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoadingDistribuidores = false, errorMessage = e.message) }
             }

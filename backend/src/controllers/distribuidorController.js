@@ -1,14 +1,43 @@
 const { pool } = require("../config/db");
 const { ORDER_STATES } = require("../constants/orderStates");
+const { parseOptionalCoordinates } = require("../utils/coordinates");
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
+const EARTH_RADIUS_KM = 6371;
 
 
 const getDistributors = async (req, res) => {
+  const coordinates = parseOptionalCoordinates(req.query.lat, req.query.lng);
+  if (coordinates.error) {
+    return res.status(400).json({ error: coordinates.error });
+  }
+
+  const distanceColumn = coordinates.provided
+    ? `CASE
+         WHEN d.latitud IS NULL OR d.longitud IS NULL THEN NULL
+         ELSE ROUND((
+           ${EARTH_RADIUS_KM} * ACOS(
+             LEAST(1, GREATEST(-1,
+               COS(RADIANS($1)) * COS(RADIANS(d.latitud))
+               * COS(RADIANS(d.longitud) - RADIANS($2))
+               + SIN(RADIANS($1)) * SIN(RADIANS(d.latitud))
+             ))
+           )
+         )::numeric, 2)
+       END AS distancia_km`
+    : "NULL::numeric AS distancia_km";
+  const orderBy = coordinates.provided
+    ? "distancia_km ASC NULLS LAST, d.nombre_negocio ASC"
+    : "d.nombre_negocio ASC";
+  const queryParams = coordinates.provided
+    ? [coordinates.latitude, coordinates.longitude]
+    : [];
+
   const result = await pool.query(
     `SELECT d.*, u.nombre, u.telefono, u.email,
             COALESCE(reviews.calificacion_promedio, 0) AS promedio_resenas,
-            COALESCE(reviews.cantidad_resenas, 0)::int AS cantidad_resenas
+            COALESCE(reviews.cantidad_resenas, 0)::int AS cantidad_resenas,
+            ${distanceColumn}
      FROM distribuidor d
      JOIN usuario u ON d.id_usuario = u.id_usuario
      -- Misma fuente que /:id/rating y /:id/reviews: reseñas de los productos
@@ -22,17 +51,20 @@ const getDistributors = async (req, res) => {
        GROUP BY i.id_distribuidor
      ) reviews ON reviews.id_distribuidor = d.id_distribuidor
      WHERE d.estado_verificacion = 'verificado'
-     ORDER BY d.nombre_negocio ASC`
+     ORDER BY ${orderBy}`,
+    queryParams
   );
 
   const distributors = result.rows.map(({
     promedio_resenas,
     cantidad_resenas,
+    distancia_km,
     ...distributor
   }) => ({
     ...distributor,
     calificacion_promedio: Number(promedio_resenas ?? 0),
     cantidad_resenas: Number(cantidad_resenas ?? 0),
+    distancia_km: distancia_km == null ? null : Number(distancia_km),
   }));
 
   res.json(distributors);
@@ -90,6 +122,8 @@ const createDistributor = async (req, res) => {
     nit,
     departamento,
     direccion,
+    latitud,
+    longitud,
   } = req.body;
 
   if (!id_usuario || !nombre_negocio) {
@@ -111,6 +145,11 @@ const createDistributor = async (req, res) => {
     });
   }
 
+  const coordinates = parseOptionalCoordinates(latitud, longitud);
+  if (coordinates.error) {
+    return res.status(400).json({ error: coordinates.error });
+  }
+
   const user = await pool.query(
     "SELECT id_usuario FROM usuario WHERE id_usuario = $1",
     [id_usuario]
@@ -128,9 +167,11 @@ const createDistributor = async (req, res) => {
        nombre_negocio,
        nit,
        departamento,
-       direccion
+       direccion,
+       latitud,
+       longitud
      )
-     VALUES ($1, $2, $3, $4, $5)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
     [
       id_usuario,
@@ -138,6 +179,8 @@ const createDistributor = async (req, res) => {
       nit || null,
       departamento || null,
       direccion || null,
+      coordinates.latitude,
+      coordinates.longitude,
     ]
   );
 
@@ -148,10 +191,15 @@ const createDistributor = async (req, res) => {
 };
 const updateDistributor = async (req, res) => {
   const { id } = req.params;
-  const { nombre_negocio, nit, departamento, direccion } = req.body;
+  const { nombre_negocio, nit, departamento, direccion, latitud, longitud } = req.body;
 
   if (!isPositiveInteger(id)) {
     return res.status(400).json({ error: "ID inválido" });
+  }
+
+  const coordinates = parseOptionalCoordinates(latitud, longitud);
+  if (coordinates.error) {
+    return res.status(400).json({ error: coordinates.error });
   }
 
   if (req.user.tipo !== "administrador") {
@@ -176,10 +224,20 @@ const updateDistributor = async (req, res) => {
        nombre_negocio = COALESCE($2, nombre_negocio),
        nit = COALESCE($3, nit),
        departamento = COALESCE($4, departamento),
-       direccion = COALESCE($5, direccion)
+       direccion = COALESCE($5, direccion),
+       latitud = COALESCE($6, latitud),
+       longitud = COALESCE($7, longitud)
      WHERE id_distribuidor = $1
      RETURNING *`,
-    [id, nombre_negocio, nit, departamento, direccion]
+    [
+      id,
+      nombre_negocio,
+      nit,
+      departamento,
+      direccion,
+      coordinates.latitude,
+      coordinates.longitude,
+    ]
   );
 
   if (result.rows.length === 0) {

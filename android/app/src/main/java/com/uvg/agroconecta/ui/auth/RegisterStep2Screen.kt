@@ -1,5 +1,9 @@
 package com.uvg.agroconecta.ui.auth
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -43,7 +49,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.uvg.agroconecta.data.GuatemalaLocations
+import com.uvg.agroconecta.data.location.BusinessLocationState
 import com.uvg.agroconecta.data.models.TipoCuenta
 import com.uvg.agroconecta.ui.theme.GrayLight
 import com.uvg.agroconecta.ui.theme.GrayMid
@@ -64,6 +72,7 @@ fun RegisterStep2Screen(
 
     val draft by viewModel.registerDraft.observeAsState(viewModel.registerDraft.value!!)
     val registerState by viewModel.registerState.observeAsState(AuthState.Idle)
+    val businessLocationState by viewModel.businessLocationState.observeAsState(BusinessLocationState.Idle)
 
     var departamento by rememberSaveable { mutableStateOf(draft.departamento ?: "") }
     var municipio by rememberSaveable { mutableStateOf(draft.municipio ?: "") }
@@ -72,6 +81,37 @@ fun RegisterStep2Screen(
     var error by remember { mutableStateOf<String?>(null) }
 
     val esDistribuidor = draft.tipoCuenta == TipoCuenta.DISTRIBUIDOR
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.values.any { it }) {
+            viewModel.captureBusinessLocation()
+        } else {
+            viewModel.onBusinessLocationPermissionDenied()
+        }
+    }
+
+    fun requestBusinessLocation() {
+        val hasFinePermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarsePermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFinePermission || hasCoarsePermission) {
+            viewModel.captureBusinessLocation()
+        } else {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
 
     LaunchedEffect(registerState) {
         when (val state = registerState) {
@@ -148,6 +188,42 @@ fun RegisterStep2Screen(
                         colors = step2FieldColors()
                     )
                     Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = { requestBusinessLocation() },
+                        enabled = businessLocationState !is BusinessLocationState.Loading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (businessLocationState is BusinessLocationState.Loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Default.MyLocation, contentDescription = null)
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Text(
+                                if (draft.latitude != null && draft.longitude != null) {
+                                    "Actualizar ubicación del negocio"
+                                } else {
+                                    "Usar ubicación actual del negocio"
+                                }
+                            )
+                        }
+                    }
+                    when (val locationState = businessLocationState) {
+                        is BusinessLocationState.Located -> Text(
+                            text = "Ubicación del negocio guardada",
+                            color = GreenPrimary,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        is BusinessLocationState.Error -> Text(
+                            text = locationState.message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        else -> Unit
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
 
                 Row(
@@ -179,7 +255,13 @@ fun RegisterStep2Screen(
 
                 Button(
                     onClick = {
-                        error = validateStep2(esDistribuidor, nombreNegocio, departamento, municipio)
+                        error = validateStep2(
+                            esDistribuidor,
+                            nombreNegocio,
+                            departamento,
+                            municipio,
+                            draft.latitude != null && draft.longitude != null
+                        )
                         if (error != null) return@Button
 
                         viewModel.updateDraft {
@@ -320,9 +402,11 @@ private fun validateStep2(
     esDistribuidor: Boolean,
     nombreNegocio: String,
     departamento: String,
-    municipio: String
+    municipio: String,
+    hasBusinessLocation: Boolean
 ): String? {
     if (esDistribuidor && nombreNegocio.isBlank()) return "Ingresa el nombre del negocio"
+    if (esDistribuidor && !hasBusinessLocation) return "Guarda la ubicación del negocio"
     if (departamento.isBlank()) return "Selecciona un departamento"
     if (municipio.isBlank()) return "Selecciona un municipio"
     return null

@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.api.SessionManager
+import com.uvg.agroconecta.data.location.BusinessLocationState
+import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.models.LoginRequest
 import com.uvg.agroconecta.data.models.RegisterRequest
 import com.uvg.agroconecta.data.models.TipoCuenta
@@ -32,12 +34,15 @@ data class RegisterDraft(
     val departamento: String? = null,
     val municipio: String? = null,
     val nombreNegocio: String? = null,
-    val nit: String? = null
+    val nit: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val api: ApiService
+    private val api: ApiService,
+    private val locationProvider: CurrentLocationProvider
 ) : ViewModel() {
 
     private val _loginState = MutableLiveData<AuthState>(AuthState.Idle)
@@ -49,6 +54,9 @@ class AuthViewModel @Inject constructor(
     private val _registerDraft = MutableLiveData(RegisterDraft())
 
     val registerDraft: LiveData<RegisterDraft> = _registerDraft
+
+    private val _businessLocationState = MutableLiveData<BusinessLocationState>(BusinessLocationState.Idle)
+    val businessLocationState: LiveData<BusinessLocationState> = _businessLocationState
     private val _nombreUsuario = MutableLiveData<String>("")
     val nombreUsuario: LiveData<String> = _nombreUsuario
 
@@ -59,6 +67,41 @@ class AuthViewModel @Inject constructor(
     fun resetRegister() {
         _registerDraft.value = RegisterDraft()
         _registerState.value = AuthState.Idle
+        _businessLocationState.value = BusinessLocationState.Idle
+    }
+
+    fun captureBusinessLocation() {
+        _businessLocationState.value = BusinessLocationState.Loading
+        viewModelScope.launch {
+            try {
+                val coordinates = locationProvider.getCurrentCoordinates()
+                if (coordinates == null) {
+                    _businessLocationState.value = BusinessLocationState.Error(
+                        "No se pudo obtener la ubicación. Activa el GPS e inténtalo de nuevo."
+                    )
+                } else {
+                    updateDraft {
+                        it.copy(latitude = coordinates.latitude, longitude = coordinates.longitude)
+                    }
+                    _businessLocationState.value = BusinessLocationState.Located(coordinates)
+                }
+            } catch (e: SecurityException) {
+                _businessLocationState.value = BusinessLocationState.Error(
+                    "Se necesita permiso de ubicación para guardar la ubicación del negocio."
+                )
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _businessLocationState.value = BusinessLocationState.Error(
+                    "No se pudo obtener la ubicación. Inténtalo de nuevo."
+                )
+            }
+        }
+    }
+
+    fun onBusinessLocationPermissionDenied() {
+        _businessLocationState.value = BusinessLocationState.Error(
+            "Se necesita permiso de ubicación para guardar la ubicación del negocio."
+        )
     }
 
     fun login(email: String, password: String, context: Context) {
@@ -160,7 +203,9 @@ class AuthViewModel @Inject constructor(
                     departamento = draft.departamento,
                     municipio = draft.municipio,
                     nombreNegocio = draft.nombreNegocio?.trim()?.ifBlank { null },
-                    nit = draft.nit?.trim()?.ifBlank { null }
+                    nit = draft.nit?.trim()?.ifBlank { null },
+                    latitude = draft.latitude.takeIf { draft.tipoCuenta == TipoCuenta.DISTRIBUIDOR },
+                    longitude = draft.longitude.takeIf { draft.tipoCuenta == TipoCuenta.DISTRIBUIDOR }
                 )
 
                 val response = api.register(request)

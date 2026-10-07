@@ -1,6 +1,10 @@
 package com.uvg.agroconecta.ui.profile
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.ContextCompat
+import com.uvg.agroconecta.data.location.BusinessLocationState
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.ErrorRed
@@ -56,6 +62,7 @@ fun ProfileScreen(
     val isLoggingOut by viewModel.isLoggingOut.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val saveError by viewModel.saveError.collectAsState()
+    val businessLocationState by viewModel.businessLocationState.collectAsState()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
@@ -80,10 +87,19 @@ fun ProfileScreen(
             profileData = currentData,
             isSaving = isSaving,
             error = saveError,
-            onSave = { draft -> viewModel.saveProfile(draft) { showEditDialog = false } },
+            businessLocationState = businessLocationState,
+            onRequestBusinessLocation = viewModel::captureBusinessLocation,
+            onLocationPermissionDenied = viewModel::onBusinessLocationPermissionDenied,
+            onSave = { draft ->
+                viewModel.saveProfile(draft) {
+                    viewModel.clearBusinessLocationState()
+                    showEditDialog = false
+                }
+            },
             onDismiss = {
                 if (!isSaving) {
                     viewModel.clearSaveError()
+                    viewModel.clearBusinessLocationState()
                     showEditDialog = false
                 }
             }
@@ -630,9 +646,13 @@ fun EditProfileDialog(
     profileData: ProfileData,
     isSaving: Boolean,
     error: String?,
+    businessLocationState: BusinessLocationState = BusinessLocationState.Idle,
+    onRequestBusinessLocation: () -> Unit = {},
+    onLocationPermissionDenied: () -> Unit = {},
     onSave: (ProfileEditDraft) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val initialDraft = remember(profileData) {
         when (profileData) {
             is ProfileData.Farmer -> profileData.profile.let {
@@ -654,13 +674,55 @@ fun EditProfileDialog(
                     departamento = it.departamento.orEmpty(),
                     nombreNegocio = it.nombreNegocio,
                     nit = it.nit.orEmpty(),
-                    direccion = it.direccion.orEmpty()
+                    direccion = it.direccion.orEmpty(),
+                    latitude = it.latitude,
+                    longitude = it.longitude
                 )
             }
         }
     }
     var draft by remember(profileData) { mutableStateOf(initialDraft) }
     val isDistributor = profileData is ProfileData.Distributor
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.values.any { it }) {
+            onRequestBusinessLocation()
+        } else {
+            onLocationPermissionDenied()
+        }
+    }
+
+    LaunchedEffect(businessLocationState) {
+        if (businessLocationState is BusinessLocationState.Located) {
+            draft = draft.copy(
+                latitude = businessLocationState.coordinates.latitude,
+                longitude = businessLocationState.coordinates.longitude
+            )
+        }
+    }
+
+    fun requestBusinessLocation() {
+        val hasFinePermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarsePermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFinePermission || hasCoarsePermission) {
+            onRequestBusinessLocation()
+        } else {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
 
     AlertDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
@@ -684,6 +746,41 @@ fun EditProfileDialog(
                     }
                     ProfileTextField("NIT", draft.nit) { draft = draft.copy(nit = it) }
                     ProfileTextField("Dirección", draft.direccion) { draft = draft.copy(direccion = it) }
+                    OutlinedButton(
+                        onClick = { requestBusinessLocation() },
+                        enabled = businessLocationState !is BusinessLocationState.Loading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (businessLocationState is BusinessLocationState.Loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Default.MyLocation, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (draft.latitude != null && draft.longitude != null) {
+                                    "Actualizar ubicación del negocio"
+                                } else {
+                                    "Usar ubicación actual del negocio"
+                                }
+                            )
+                        }
+                    }
+                    when (businessLocationState) {
+                        is BusinessLocationState.Located -> Text(
+                            "Ubicación del negocio guardada",
+                            color = GreenPrimary,
+                            fontSize = 12.sp
+                        )
+                        is BusinessLocationState.Error -> Text(
+                            businessLocationState.message,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
+                        else -> Unit
+                    }
                 } else {
                     ProfileTextField("Municipio", draft.municipio) { draft = draft.copy(municipio = it) }
                 }

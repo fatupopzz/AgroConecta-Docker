@@ -2,12 +2,13 @@ const bcrypt = require("bcrypt");
 const { pool } = require("../config/db");
 const jwt = require("jsonwebtoken");
 const { withCropList } = require("../utils/cropNames");
+const { parseOptionalCoordinates } = require("../utils/coordinates");
 
 const TIPOS_VALIDOS = ["agricultor", "distribuidor"];
 const CAMPOS_COMUNES_EDITABLES = ["nombre", "apellido", "telefono", "email", "departamento"];
 const CAMPOS_POR_TIPO = {
   agricultor: ["municipio"],
-  distribuidor: ["nombre_negocio", "nit", "direccion"],
+  distribuidor: ["nombre_negocio", "nit", "direccion", "latitud", "longitud"],
 };
 
 const register = async (req, res) => {
@@ -24,6 +25,8 @@ const register = async (req, res) => {
     nombre_negocio,
     nit,
     direccion,
+    latitud,
+    longitud,
   } = req.body;
 
   if (!nombre || !apellido || !telefono || !email || !password || !tipo_usuario) {
@@ -41,6 +44,7 @@ const register = async (req, res) => {
 
   // Validacion de nombre_negocio con trim para distribuidores
   let nombreNegocioNormalizado = null;
+  let distributorCoordinates = parseOptionalCoordinates();
   if (tipo_usuario === "distribuidor") {
     if (typeof nombre_negocio !== "string" || nombre_negocio.trim().length < 2) {
       return res.status(400).json({
@@ -48,6 +52,10 @@ const register = async (req, res) => {
       });
     }
     nombreNegocioNormalizado = nombre_negocio.trim();
+    distributorCoordinates = parseOptionalCoordinates(latitud, longitud);
+    if (distributorCoordinates.error) {
+      return res.status(400).json({ error: distributorCoordinates.error });
+    }
   }
 
   // Ahora si tomamos conexion del pool
@@ -99,15 +107,19 @@ const register = async (req, res) => {
           nit,
           departamento,
           direccion,
+          latitud,
+          longitud,
           estado_verificacion
         )
-        VALUES ($1, $2, $3, $4, $5, 'pendiente')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pendiente')
         RETURNING
           id_distribuidor,
           nombre_negocio,
           nit,
           departamento,
           direccion,
+          latitud,
+          longitud,
           estado_verificacion`,
         [
           newUser.id_usuario,
@@ -115,6 +127,8 @@ const register = async (req, res) => {
           nit || null,
           departamento || null,
           direccion || null,
+          distributorCoordinates.latitude,
+          distributorCoordinates.longitude,
         ]
       );
 
@@ -251,7 +265,7 @@ const getMe = async (req, res) => {
     perfil = withCropList(r.rows[0] ?? null);
   } else if (tipo === "distribuidor") {
     const r = await pool.query(
-      `SELECT id_distribuidor, nombre_negocio, nit, departamento, direccion,
+      `SELECT id_distribuidor, nombre_negocio, nit, departamento, direccion, latitud, longitud,
         estado_verificacion, calificacion_promedio
        FROM distribuidor WHERE id_usuario = $1`,
       [Number(id)]
@@ -306,6 +320,13 @@ const updateMe = async (req, res) => {
     return res.status(400).json({ error: "El nombre del negocio debe tener entre 2 y 150 caracteres" });
   }
 
+  const coordinates = tipo === "distribuidor"
+    ? parseOptionalCoordinates(req.body.latitud, req.body.longitud)
+    : parseOptionalCoordinates();
+  if (coordinates.error) {
+    return res.status(400).json({ error: coordinates.error });
+  }
+
   let client;
   try {
     client = await pool.connect();
@@ -337,9 +358,11 @@ const updateMe = async (req, res) => {
     } else {
       profileResult = await client.query(
         `UPDATE distribuidor
-         SET nombre_negocio = $2, nit = $3, departamento = $4, direccion = $5
+         SET nombre_negocio = $2, nit = $3, departamento = $4, direccion = $5,
+             latitud = COALESCE($6, latitud), longitud = COALESCE($7, longitud)
          WHERE id_usuario = $1
          RETURNING id_distribuidor, nombre_negocio, nit, departamento, direccion,
+                   latitud, longitud,
                    estado_verificacion, calificacion_promedio`,
         [
           Number(id),
@@ -347,6 +370,8 @@ const updateMe = async (req, res) => {
           normalizeOptionalText(req.body.nit),
           departamento,
           normalizeOptionalText(req.body.direccion),
+          coordinates.latitude,
+          coordinates.longitude,
         ]
       );
     }

@@ -26,7 +26,9 @@ data class RegisterRequest(
     val departamento: String?,
     val municipio: String?,
     @SerializedName("nombre_negocio") val nombreNegocio: String?,
-    val nit: String?
+    val nit: String?,
+    @SerializedName("latitud") val latitude: Double? = null,
+    @SerializedName("longitud") val longitude: Double? = null
 )
 
 data class MeResponse(
@@ -57,6 +59,8 @@ data class PerfilInfo(
     @SerializedName("tamano_terreno_ha") val tamanoTerrenoHa: Double? = null,
     @SerializedName("tiene_membresia") val tieneMembresia: Boolean? = null,
     @SerializedName("cultivos_principales") val cultivosPrincipales: String? = null,
+    @SerializedName("latitud") val latitude: Double? = null,
+    @SerializedName("longitud") val longitude: Double? = null,
     val cultivos: List<String> = emptyList()
 )
 
@@ -69,7 +73,9 @@ data class UpdateMyProfileRequest(
     val municipio: String? = null,
     @SerializedName("nombre_negocio") val nombreNegocio: String? = null,
     val nit: String? = null,
-    val direccion: String? = null
+    val direccion: String? = null,
+    @SerializedName("latitud") val latitude: Double? = null,
+    @SerializedName("longitud") val longitude: Double? = null
 )
 
 data class CropPhase(
@@ -215,7 +221,8 @@ data class Distributor(
     // joined from usuario
     val nombre: String?,
     val email: String?,
-    val telefono: String?
+    val telefono: String?,
+    @SerializedName("distancia_km") val distanciaKm: Double? = null
 )
 
 

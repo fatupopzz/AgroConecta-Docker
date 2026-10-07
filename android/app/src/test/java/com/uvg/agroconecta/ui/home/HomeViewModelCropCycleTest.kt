@@ -27,7 +27,8 @@ class HomeViewModelCropCycleTest {
         val viewModel = HomeViewModel(
             api,
             FakeCropCycleRepository(result = expected),
-            FakeHomeProductCatalogRepository()
+            FakeHomeProductCatalogRepository(),
+            FakeHomeLocationProvider()
         )
 
         viewModel.loadRelevantCropCycle()
@@ -41,7 +42,8 @@ class HomeViewModelCropCycleTest {
         val viewModel = HomeViewModel(
             api,
             FakeCropCycleRepository(error = IllegalStateException("sin conexión")),
-            FakeHomeProductCatalogRepository()
+            FakeHomeProductCatalogRepository(),
+            FakeHomeLocationProvider()
         )
 
         viewModel.loadRelevantCropCycle()

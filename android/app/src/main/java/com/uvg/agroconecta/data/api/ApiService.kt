@@ -126,7 +126,10 @@ interface ApiService {
 
     // ── Distributors ─────────────────────────────────────────────────────
     @GET("distribuidores")
-    suspend fun getVerifiedDistributors(): Response<List<Distributor>>
+    suspend fun getVerifiedDistributors(
+        @Query("lat") latitude: Double? = null,
+        @Query("lng") longitude: Double? = null
+    ): Response<List<Distributor>>
 
     // ── Cart ─────────────────────────────────────────────────────────────
     @GET("cart/{id_agricultor}")

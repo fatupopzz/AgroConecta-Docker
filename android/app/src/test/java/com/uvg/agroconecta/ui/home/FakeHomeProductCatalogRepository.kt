@@ -1,5 +1,7 @@
 package com.uvg.agroconecta.ui.home
 
+import com.uvg.agroconecta.data.location.CurrentLocationProvider
+import com.uvg.agroconecta.data.location.GeoCoordinates
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.data.repository.ProductCacheState
 import com.uvg.agroconecta.data.repository.ProductCatalogRepository
@@ -28,4 +30,17 @@ internal class FakeHomeProductCatalogRepository(
     }
 
     override suspend fun cacheState(): ProductCacheState = currentCacheState
+}
+
+internal class FakeHomeLocationProvider(
+    var coordinates: GeoCoordinates? = null,
+    var error: Throwable? = null
+) : CurrentLocationProvider {
+    var requests: Int = 0
+
+    override suspend fun getCurrentCoordinates(): GeoCoordinates? {
+        requests += 1
+        error?.let { throw it }
+        return coordinates
+    }
 }

@@ -6,9 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.annotations.SerializedName
 import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.api.SessionManager
+import com.uvg.agroconecta.data.location.BusinessLocationState
+import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.models.MeResponse
 import com.uvg.agroconecta.data.models.UpdateMyProfileRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -40,7 +43,9 @@ data class DistributorProfile(
     val direccion: String?,
     val nit: String?,
     @SerializedName("estado_verificacion") val estadoVerificacion: String?,
-    @SerializedName("calificacion_promedio") val calificacionPromedio: Double?
+    @SerializedName("calificacion_promedio") val calificacionPromedio: Double?,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 sealed class ProfileData {
@@ -63,12 +68,15 @@ data class ProfileEditDraft(
     val municipio: String = "",
     val nombreNegocio: String = "",
     val nit: String = "",
-    val direccion: String = ""
+    val direccion: String = "",
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val api: ApiService
+    private val api: ApiService,
+    private val locationProvider: CurrentLocationProvider
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<ProfileUiState>(ProfileUiState.Loading)
     val uiState: StateFlow<ProfileUiState> = _uiState
@@ -81,6 +89,9 @@ class ProfileViewModel @Inject constructor(
 
     private val _saveError = MutableStateFlow<String?>(null)
     val saveError: StateFlow<String?> = _saveError
+
+    private val _businessLocationState = MutableStateFlow<BusinessLocationState>(BusinessLocationState.Idle)
+    val businessLocationState: StateFlow<BusinessLocationState> = _businessLocationState
 
     fun loadProfile() {
         viewModelScope.launch {
@@ -118,7 +129,9 @@ class ProfileViewModel @Inject constructor(
                         municipio = draft.municipio.trim().ifBlank { null },
                         nombreNegocio = draft.nombreNegocio.trim().ifBlank { null },
                         nit = draft.nit.trim().ifBlank { null },
-                        direccion = draft.direccion.trim().ifBlank { null }
+                        direccion = draft.direccion.trim().ifBlank { null },
+                        latitude = draft.latitude,
+                        longitude = draft.longitude
                     )
                 )
                 if (response.isSuccessful && response.body() != null) {
@@ -141,6 +154,39 @@ class ProfileViewModel @Inject constructor(
 
     fun clearSaveError() {
         _saveError.value = null
+    }
+
+    fun captureBusinessLocation() {
+        _businessLocationState.value = BusinessLocationState.Loading
+        viewModelScope.launch {
+            try {
+                val coordinates = locationProvider.getCurrentCoordinates()
+                _businessLocationState.value = if (coordinates == null) {
+                    BusinessLocationState.Error(
+                        "No se pudo obtener la ubicación. Activa el GPS e inténtalo de nuevo."
+                    )
+                } else {
+                    BusinessLocationState.Located(coordinates)
+                }
+            } catch (e: SecurityException) {
+                onBusinessLocationPermissionDenied()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _businessLocationState.value = BusinessLocationState.Error(
+                    "No se pudo obtener la ubicación. Inténtalo de nuevo."
+                )
+            }
+        }
+    }
+
+    fun onBusinessLocationPermissionDenied() {
+        _businessLocationState.value = BusinessLocationState.Error(
+            "Se necesita permiso de ubicación para guardar la ubicación del negocio."
+        )
+    }
+
+    fun clearBusinessLocationState() {
+        _businessLocationState.value = BusinessLocationState.Idle
     }
 
     fun logout(context: Context, onLoggedOut: () -> Unit) {
@@ -181,7 +227,9 @@ class ProfileViewModel @Inject constructor(
                     direccion = profile.direccion,
                     nit = profile.nit,
                     estadoVerificacion = profile.estadoVerificacion,
-                    calificacionPromedio = profile.calificacionPromedio
+                    calificacionPromedio = profile.calificacionPromedio,
+                    latitude = profile.latitude,
+                    longitude = profile.longitude
                 )
             )
             else -> error("Tipo de usuario desconocido")
