@@ -1,0 +1,133 @@
+name: Pruebas automatizadas
+
+on:
+  push:
+    branches:
+      - develop
+      - "feature/**"
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Pruebas unitarias y de regresión
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_NAME: agroconecta_test
+      DB_USER: agroconecta_test
+      DB_PASSWORD: agroconecta_test
+      JWT_SECRET: ci-unit-tests-secret
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar pruebas unitarias y de regresión
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npm test 2>&1 | tee artifacts/unit-tests.log
+
+      - name: Conservar registro de pruebas unitarias
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-evidence-${{ github.run_number }}
+          path: backend/artifacts/unit-tests.log
+          if-no-files-found: warn
+          retention-days: 30
+
+  integration-tests:
+    name: Integración API y PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: agroconecta_test
+          POSTGRES_USER: agroconecta_test
+          POSTGRES_PASSWORD: agroconecta_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agroconecta_test -d agroconecta_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_NAME: agroconecta_test
+      DB_USER: agroconecta_test
+      DB_PASSWORD: agroconecta_test
+      PGPASSWORD: agroconecta_test
+      JWT_SECRET: ci-integration-tests-secret
+      NODE_ENV: test
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Preparar esquema y datos de PostgreSQL
+        run: >-
+          psql
+          --host="$DB_HOST"
+          --port="$DB_PORT"
+          --username="$DB_USER"
+          --dbname="$DB_NAME"
+          --set=ON_ERROR_STOP=1
+          --file=sql/init.sql
+
+      - name: Ejecutar pruebas de integración y regresión
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npm run test:integration:ci 2>&1 | tee artifacts/integration-tests.log
+
+      - name: Conservar evidencia de integración
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-evidence-${{ github.run_number }}
+          path: |
+            backend/artifacts/integration-tests.log
+            backend/artifacts/integration-results.json
+          if-no-files-found: warn
+          retention-days: 30
