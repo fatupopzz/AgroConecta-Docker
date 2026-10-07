@@ -25,7 +25,8 @@ const pdfText = (buffer) => {
       for (const match of content.matchAll(/\[(.*?)\] TJ/gs)) {
         text.push([...match[1].matchAll(/<([0-9a-f]+)>/gi)]
           .map((part) => new TextDecoder("windows-1252")
-            .decode(Buffer.from(part[1], "hex"))).join(""));
+            .decode(Buffer.from(part[1], "hex"))
+            .replace(/\u0097/g, "—")).join(""));
       }
     } catch (_) { /* Image and font streams are not text. */ }
     start = end + 10;
