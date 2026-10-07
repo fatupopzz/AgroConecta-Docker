@@ -1,6 +1,4 @@
 const assert = require("node:assert/strict");
-const test = require("node:test");
-
 const dbPath = require.resolve("../src/config/db");
 const cartControllerPath = require.resolve("../src/controllers/cartController");
 const orderControllerPath = require.resolve("../src/controllers/orderController");
@@ -43,7 +41,7 @@ const validOrderBody = {
   metodo_pago: "efectivo",
 };
 
-test("createOrder conserva codigos y mensajes de validacion del checkout", async (t) => {
+test("createOrder conserva codigos y mensajes de validacion del checkout", async () => {
   const cases = [
     {
       name: "agricultor invalido",
@@ -101,18 +99,16 @@ test("createOrder conserva codigos y mensajes de validacion del checkout", async
   ];
 
   for (const testCase of cases) {
-    await t.test(testCase.name, async () => {
-      const pool = {
-        connect: async () => assert.fail("no debe abrir una transaccion"),
-      };
-      const { createOrder } = loadController(orderControllerPath, pool);
-      const res = response();
+    const pool = {
+      connect: async () => assert.fail("no debe abrir una transaccion"),
+    };
+    const { createOrder } = loadController(orderControllerPath, pool);
+    const res = response();
 
-      await createOrder(testCase.request, res);
+    await createOrder(testCase.request, res);
 
-      assert.equal(res.statusCode, 400);
-      assert.deepEqual(res.body, testCase.expected);
-    });
+    assert.equal(res.statusCode, 400, testCase.name);
+    assert.deepEqual(res.body, testCase.expected, testCase.name);
   }
 });
 

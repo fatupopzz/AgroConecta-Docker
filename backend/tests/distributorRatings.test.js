@@ -1,21 +1,17 @@
-jest.mock("../src/config/db", () => ({
-  pool: {
-    query: jest.fn(),
-  },
-}));
+const { installCommonJsMock } = require("./helpers/commonJsMocks");
 
-jest.mock("jsonwebtoken", () => ({
-  verify: jest.fn(),
-}));
+const pool = { query: vi.fn() };
+const jwt = { verify: vi.fn() };
+
+installCommonJsMock(require.resolve("../src/config/db"), { pool });
+installCommonJsMock(require.resolve("jsonwebtoken"), jwt);
 
 const request = require("supertest");
-const jwt = require("jsonwebtoken");
 const app = require("../app");
-const { pool } = require("../src/config/db");
 
 describe("GET /api/distribuidores", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     jwt.verify.mockReturnValue({ id: 12, tipo: "agricultor" });
   });
 

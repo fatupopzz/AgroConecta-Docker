@@ -1,6 +1,4 @@
 const assert = require("node:assert/strict");
-const test = require("node:test");
-
 const dbPath = require.resolve("../src/config/db");
 require.cache[dbPath] = {
   id: dbPath,

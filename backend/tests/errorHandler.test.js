@@ -3,6 +3,7 @@ const request = require("supertest");
 const AppError = require("../src/errors/AppError");
 const asyncHandler = require("../src/middleware/asyncHandler");
 const { errorHandler, notFoundHandler } = require("../src/middleware/errorHandler");
+const { installCommonJsMock } = require("./helpers/commonJsMocks");
 
 const buildApp = (handler) => {
   const app = express();
@@ -20,7 +21,7 @@ describe("middleware central de errores", () => {
   let consoleError;
 
   beforeEach(() => {
-    consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -119,8 +120,11 @@ describe("middleware central de errores", () => {
 
 describe("app principal", () => {
   test("usa el middleware central para rutas inexistentes", async () => {
-    jest.resetModules();
-    jest.doMock("../src/config/db", () => ({ pool: { query: jest.fn() } }));
+    const appPath = require.resolve("../app");
+    delete require.cache[appPath];
+    installCommonJsMock(require.resolve("../src/config/db"), {
+      pool: { query: vi.fn() },
+    });
     const app = require("../app");
 
     const response = await request(app).get("/no-existe");

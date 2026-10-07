@@ -1,25 +1,15 @@
-jest.mock("../src/config/db", () => ({
-    pool: {
-        connect: jest.fn(),
-        query: jest.fn()
-    }
-}));
+const { installCommonJsMock } = require("./helpers/commonJsMocks");
 
-jest.mock("bcrypt", () => ({
-    hash: jest.fn(),
-    compare: jest.fn()
-}));
+const pool = { connect: vi.fn(), query: vi.fn() };
+const bcrypt = { hash: vi.fn(), compare: vi.fn() };
+const jwt = { sign: vi.fn(), verify: vi.fn() };
 
-jest.mock("jsonwebtoken", () => ({
-    sign: jest.fn(),
-    verify: jest.fn()
-}));
+installCommonJsMock(require.resolve("../src/config/db"), { pool });
+installCommonJsMock(require.resolve("bcrypt"), bcrypt);
+installCommonJsMock(require.resolve("jsonwebtoken"), jwt);
 
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 const request = require("supertest");
 const app = require("../app");
-const { pool } = require("../src/config/db");
 
 describe("Auth Controller - Mock Database", () => {
 
@@ -27,11 +17,11 @@ describe("Auth Controller - Mock Database", () => {
 
     beforeEach(() => {
 
-        jest.clearAllMocks();
+        vi.clearAllMocks();
 
         mockClient = {
-            query: jest.fn(),
-            release: jest.fn()
+            query: vi.fn(),
+            release: vi.fn()
         };
 
         pool.connect.mockResolvedValue(mockClient);
