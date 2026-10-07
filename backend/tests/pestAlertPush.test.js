@@ -1,6 +1,4 @@
 const assert = require("node:assert/strict");
-const test = require("node:test");
-
 process.env.DB_HOST ||= "localhost";
 process.env.DB_NAME ||= "agroconecta";
 process.env.DB_USER ||= "agroconecta_user";
@@ -12,6 +10,12 @@ const {
   getPestAlertById,
   registerPestAlertToken,
 } = require("../src/controllers/pestAlertController");
+const originalPoolQuery = pool.query;
+
+afterEach(() => {
+  pool.query = originalPoolQuery;
+});
+
 const alert = {
   id_alerta: 29,
   tipo_plaga: "pulgon",
@@ -63,14 +67,12 @@ test("push targets nearby FCM registration tokens", async () => {
   assert.equal(messages[0].message.data.alert_id, "29");
 });
 
-test("registration endpoint associates the FCM token and GPS with the authenticated user", async (t) => {
-  const originalQuery = pool.query;
+test("registration endpoint associates the FCM token and GPS with the authenticated user", async () => {
   let query;
   pool.query = async (sql, params) => {
     query = { sql, params };
     return { rows: [] };
   };
-  t.after(() => { pool.query = originalQuery; });
   const response = {
     statusCode: null,
     status(code) { this.statusCode = code; return this; },
@@ -87,14 +89,12 @@ test("registration endpoint associates the FCM token and GPS with the authentica
   assert.deepEqual(query.params, [7, "fcm-token-29", 14.6349, -90.5069]);
 });
 
-test("detail endpoint returns the alert referenced by a notification", async (t) => {
-  const originalQuery = pool.query;
+test("detail endpoint returns the alert referenced by a notification", async () => {
   let query;
   pool.query = async (sql, params) => {
     query = { sql, params };
     return { rows: [alert] };
   };
-  t.after(() => { pool.query = originalQuery; });
   const response = {
     statusCode: null,
     status(code) { this.statusCode = code; return this; },

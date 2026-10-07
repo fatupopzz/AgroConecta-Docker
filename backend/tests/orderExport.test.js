@@ -1,9 +1,11 @@
 const request = require("supertest");
 const jwt = require("jsonwebtoken");
 const zlib = require("node:zlib");
+const { installCommonJsMock } = require("./helpers/commonJsMocks");
 
-jest.mock("../src/config/db", () => ({ pool: { query: jest.fn() } }));
-const { pool } = require("../src/config/db");
+const pool = { query: vi.fn() };
+installCommonJsMock(require.resolve("../src/config/db"), { pool });
+
 const { loadFarmerHistory } = require("../src/services/orderExportRepository");
 const app = require("../app");
 
@@ -76,7 +78,7 @@ test("exporta solo el historial del agricultor autenticado con cabeceras y firma
 });
 
 test("no expone detalles internos si la consulta falla", async () => {
-  const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  const spy = vi.spyOn(console, "error").mockImplementation(() => {});
   pool.query.mockRejectedValueOnce(new Error("ruta-interna/clave-privada"));
   const result = await request(app).get("/api/orders/export/pdf")
     .set("Authorization", auth(42, "agricultor"));
@@ -98,7 +100,7 @@ test("historial vacío produce PDF válido", async () => {
 });
 
 test("agrupa productos y conserva total y fecha autoritativos", async () => {
-  const db = { query: jest.fn()
+  const db = { query: vi.fn()
     .mockResolvedValueOnce({ rows: [{ id_agricultor: 7, nombre: "Ana" }] })
     .mockResolvedValueOnce({ rows: [
       { id_pedido: 15, fecha_pedido: "01/09/2026", estado: "confirmado", total_pedido: "105.50", id_detalle: 1, cantidad: 2, producto_nombre: "Abono" },

@@ -1,22 +1,15 @@
-jest.mock("../src/config/db", () => ({
-  pool: {
-    query: jest.fn(),
-  },
-}));
+const { installCommonJsMock } = require("./helpers/commonJsMocks");
 
-jest.mock("jsonwebtoken", () => ({
-  verify: jest.fn(),
-}));
+const pool = { query: vi.fn() };
+const jwt = { verify: vi.fn() };
+const bcrypt = { hash: vi.fn(), compare: vi.fn() };
 
-jest.mock("bcrypt", () => ({
-  hash: jest.fn(),
-  compare: jest.fn(),
-}));
+installCommonJsMock(require.resolve("../src/config/db"), { pool });
+installCommonJsMock(require.resolve("jsonwebtoken"), jwt);
+installCommonJsMock(require.resolve("bcrypt"), bcrypt);
 
 const request = require("supertest");
-const jwt = require("jsonwebtoken");
 const app = require("../app");
-const { pool } = require("../src/config/db");
 
 const distributorToken = {
   id: 10,
@@ -26,7 +19,7 @@ const distributorToken = {
 
 describe("GET /api/distribuidores/:id/stats", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     jwt.verify.mockReturnValue(distributorToken);
   });
 
@@ -172,7 +165,7 @@ describe("GET /api/distribuidores/:id/stats", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
-    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await request(app)
       .get("/api/distribuidores/7/stats")

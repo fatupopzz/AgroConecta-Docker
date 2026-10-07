@@ -1,5 +1,4 @@
 const assert = require("node:assert/strict");
-const test = require("node:test");
 const jwt = require("jsonwebtoken");
 const verifyToken = require("../src/middleware/authMiddleware");
 

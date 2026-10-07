@@ -1,8 +1,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const test = require("node:test");
-
 const repositoryRoot = path.join(__dirname, "..", "..");
 
 test("docker compose obtains JWT_SECRET from the environment", () => {

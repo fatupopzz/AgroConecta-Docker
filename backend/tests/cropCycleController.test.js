@@ -1,5 +1,4 @@
 const assert = require("node:assert/strict");
-const test = require("node:test");
 const request = require("supertest");
 
 const dbPath = require.resolve("../src/config/db");

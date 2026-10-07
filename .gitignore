@@ -1,5 +1,6 @@
 node_modules/
 backend/node_modules/
+backend/coverage/
 frontend/node_modules/
 # Secretos y configuración local. Las plantillas .env.example sí se versionan.
 .env
