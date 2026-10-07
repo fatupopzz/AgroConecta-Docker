@@ -51,7 +51,7 @@ La demostración utiliza la segunda prueba. El cambio deliberado altera la lectu
 
 - Ejecución correcta inicial: [GitHub Actions #37560624741](https://github.com/fatupopzz/AgroConecta-Docker/actions/runs/37560624741).
 - Regresión detectada: [GitHub Actions #37560847762](https://github.com/fatupopzz/AgroConecta-Docker/actions/runs/37560847762).
-- Ejecución posterior a la corrección: se agrega aquí al finalizar la última ejecución.
+- Ejecución posterior a la corrección: [GitHub Actions #37560976010](https://github.com/fatupopzz/AgroConecta-Docker/actions/runs/37560976010).
 
 ## Guion sugerido para el video (5 a 8 minutos)
 
