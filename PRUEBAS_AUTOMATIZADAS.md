@@ -49,6 +49,10 @@ El archivo `.github/workflows/automated-tests.yml` ejecuta dos trabajos separado
 
 La demostración utiliza la segunda prueba. El cambio deliberado altera la lectura del token `Bearer` en el middleware. GitHub Actions debe detectar que el inicio de sesión todavía entrega un token, pero la consulta autenticada ya no puede usarlo. Después se restaura la lectura correcta, se vuelve a ejecutar el flujo y la prueba aprueba nuevamente.
 
+- Ejecución correcta inicial: [GitHub Actions #37560624741](https://github.com/fatupopzz/AgroConecta-Docker/actions/runs/37560624741).
+- Regresión detectada: [GitHub Actions #37560847762](https://github.com/fatupopzz/AgroConecta-Docker/actions/runs/37560847762).
+- Ejecución posterior a la corrección: se agrega aquí al finalizar la última ejecución.
+
 ## Guion sugerido para el video (5 a 8 minutos)
 
 1. **0:00–0:45:** mostrar la rama y explicar que las pruebas cubren API, lógica de autenticación y PostgreSQL real.
