@@ -53,6 +53,7 @@ import com.uvg.agroconecta.ui.theme.GrayLight
 import com.uvg.agroconecta.ui.theme.GrayMid
 import com.uvg.agroconecta.ui.theme.GreenPale
 import com.uvg.agroconecta.ui.theme.GreenPrimary
+import com.uvg.agroconecta.validation.LoginFormValidator
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -194,9 +195,10 @@ fun LoginScreen(
 
                 Button(
                     onClick = {
-                        if (email.isBlank() || password.isBlank()) {
+                        val validationError = LoginFormValidator.errorFor(email, password)
+                        if (validationError != null) {
                             scope.launch {
-                                snackbarHostState.showSnackbar("Completa todos los campos")
+                                snackbarHostState.showSnackbar(validationError)
                             }
                             return@Button
                         }
