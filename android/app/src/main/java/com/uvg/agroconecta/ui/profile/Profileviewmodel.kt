@@ -10,6 +10,7 @@ import com.uvg.agroconecta.data.location.BusinessLocationState
 import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.models.MeResponse
 import com.uvg.agroconecta.data.models.UpdateMyProfileRequest
+import com.uvg.agroconecta.validation.ProfileFormValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -110,8 +111,9 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun saveProfile(draft: ProfileEditDraft, onSaved: () -> Unit) {
-        if (draft.nombre.isBlank() || draft.telefono.isBlank()) {
-            _saveError.value = "Nombre y teléfono son obligatorios."
+        val validationError = ProfileFormValidator.errorFor(draft.nombre, draft.telefono)
+        if (validationError != null) {
+            _saveError.value = validationError
             return
         }
 
