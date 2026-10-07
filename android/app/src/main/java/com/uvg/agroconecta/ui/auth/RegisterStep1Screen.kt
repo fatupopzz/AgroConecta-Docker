@@ -53,6 +53,7 @@ import com.uvg.agroconecta.ui.theme.GrayLight
 import com.uvg.agroconecta.ui.theme.GrayMid
 import com.uvg.agroconecta.ui.theme.GreenPale
 import com.uvg.agroconecta.ui.theme.GreenPrimary
+import com.uvg.agroconecta.validation.RegisterStep1FormValidator
 
 @Composable
 fun RegisterStep1Screen(
@@ -241,7 +242,13 @@ fun RegisterStep1Screen(
 
             Button(
                 onClick = {
-                    error = validateStep1(nombre, telefono, email, password, confirmPassword)
+                    error = RegisterStep1FormValidator.errorFor(
+                        name = nombre,
+                        phone = telefono,
+                        email = email,
+                        password = password,
+                        passwordConfirmation = confirmPassword
+                    )
                     if (error != null) return@Button
 
                     viewModel.updateDraft {
@@ -317,20 +324,3 @@ private fun step1FieldColors() = OutlinedTextFieldDefaults.colors(
     cursorColor = GreenPrimary,
     unfocusedLabelColor = GrayMid
 )
-
-private fun validateStep1(
-    nombre: String,
-    telefono: String,
-    email: String,
-    password: String,
-    confirmPassword: String
-): String? {
-    if (nombre.isBlank()) return "Ingresa tu nombre"
-    if (telefono.isBlank()) return "Ingresa tu número de teléfono"
-    if (telefono.length < 8) return "El teléfono debe tener al menos 8 dígitos"
-    if (email.isBlank()) return "Ingresa tu correo electrónico"
-    if (!email.contains("@")) return "Correo electrónico inválido"
-    if (password.length < 6) return "La contraseña debe tener al menos 6 caracteres"
-    if (password != confirmPassword) return "Las contraseñas no coinciden"
-    return null
-}
