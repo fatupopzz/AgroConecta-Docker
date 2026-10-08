@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.ui.cart.CartItemUI
+import com.uvg.agroconecta.ui.orders.checkout.CheckoutValidation
 
 internal val CheckoutGreenPrimary = Color(0xFF2E7D32)
 internal val CheckoutGreenSurface = Color(0xFFF1F8E9)
@@ -236,9 +237,9 @@ internal fun DeliveryAddressCard(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
-                isError = deliveryAddress.isNotBlank() && deliveryAddress.length < 5,
+                isError = CheckoutValidation.isDeliveryAddressTooShort(deliveryAddress),
                 supportingText = {
-                    if (deliveryAddress.isNotBlank() && deliveryAddress.length < 5) {
+                    if (CheckoutValidation.isDeliveryAddressTooShort(deliveryAddress)) {
                         Text(
                             "Ingresá una dirección más específica",
                             color = MaterialTheme.colorScheme.error,

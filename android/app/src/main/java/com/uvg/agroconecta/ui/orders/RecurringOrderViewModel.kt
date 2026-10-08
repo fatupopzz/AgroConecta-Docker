@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.models.*
 import com.uvg.agroconecta.data.repository.RecurringOrderRepository
 import com.uvg.agroconecta.notifications.RecurringReminderScheduler
+import com.uvg.agroconecta.validation.RecurringOrderFormValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -149,15 +150,17 @@ class RecurringOrderViewModel @Inject constructor(
         if (!_submitting.compareAndSet(false, true)) return
         val form = _form.value
         val next = try { RecurringDates.parseLocal(form.nextDate) } catch (_: Exception) { null }
-        val validation = when {
-            form.loading -> "Espera a que terminen de cargar los datos."
-            form.products.isEmpty() -> "Agrega al menos un producto."
-            form.distributorId <= 0 -> "El distribuidor no es válido."
-            form.products.any { it.inventoryId <= 0 || it.quantity <= 0 } -> "Revisa los productos y cantidades."
-            form.editingId == null && form.address.trim().length < 5 -> "Ingresa una dirección de al menos cinco caracteres."
-            next == null || !next.isAfter(Instant.now()) -> "Ingresa una fecha futura con formato aaaa-MM-dd HH:mm."
-            else -> null
-        }
+        val validation = RecurringOrderFormValidator.errorFor(
+            isLoading = form.loading,
+            hasProducts = form.products.isNotEmpty(),
+            distributorId = form.distributorId,
+            hasInvalidProducts = form.products.any {
+                it.inventoryId <= 0 || it.quantity <= 0
+            },
+            isEditing = form.editingId != null,
+            address = form.address,
+            nextDate = next
+        )
         if (validation != null) {
             _form.value = form.copy(error = validation)
             _submitting.value = false

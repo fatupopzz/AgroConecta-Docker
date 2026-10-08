@@ -5,6 +5,7 @@ import com.uvg.agroconecta.data.dosecalculator.DoseCalculationResult
 import com.uvg.agroconecta.data.dosecalculator.DoseCalculator
 import com.uvg.agroconecta.data.dosecalculator.DoseReferenceData
 import com.uvg.agroconecta.data.dosecalculator.LandUnit
+import com.uvg.agroconecta.validation.DoseCalculatorFormValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -76,23 +77,18 @@ class DoseCalculatorViewModel @Inject constructor() : ViewModel() {
 
     fun calculateDose() {
         val currentState = _uiState.value
-
-        if (currentState.selectedProduct.isBlank()) {
-            showError("Selecciona un producto.")
+        val validationError = DoseCalculatorFormValidator.errorFor(
+            product = currentState.selectedProduct,
+            crop = currentState.selectedCrop,
+            landArea = currentState.landAreaInput
+        )
+        if (validationError != null) {
+            showError(validationError)
             return
         }
-
-        if (currentState.selectedCrop.isBlank()) {
-            showError("Selecciona un cultivo.")
-            return
-        }
-
-        val landArea = currentState.landAreaInput.toDoubleOrNull()
-
-        if (landArea == null || landArea <= 0) {
-            showError("Ingresa un tamaño de terreno válido.")
-            return
-        }
+        val landArea = checkNotNull(
+            DoseCalculatorFormValidator.landAreaValue(currentState.landAreaInput)
+        )
 
         val reference = DoseReferenceData.findReference(
             productName = currentState.selectedProduct,

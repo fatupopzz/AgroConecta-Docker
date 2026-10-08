@@ -31,6 +31,9 @@ class CheckoutValidationTest {
                 pickupAddress = "Bodega central"
             )
         )
+        assertFalse(CheckoutValidation.isDeliveryAddressTooShort(""))
+        assertTrue(CheckoutValidation.isDeliveryAddressTooShort("1234"))
+        assertFalse(CheckoutValidation.isDeliveryAddressTooShort("12345"))
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.PestType
 import com.uvg.agroconecta.data.repository.PestAlertRepository
+import com.uvg.agroconecta.validation.PestAlertReportFormValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -354,12 +355,11 @@ class PestAlertViewModel @Inject constructor(
         val state = _uiState.value
         val location = state.location
         val form = state.reportForm
-        val validationError = when {
-            form.selectedPestType == null -> "Selecciona el tipo de plaga"
-            form.selectedCrop.isBlank() -> "Selecciona el cultivo afectado"
-            location == null -> "No se pudo obtener la ubicación del reporte"
-            else -> null
-        }
+        val validationError = PestAlertReportFormValidator.errorFor(
+            hasPestType = form.selectedPestType != null,
+            crop = form.selectedCrop,
+            hasLocation = location != null
+        )
         if (validationError != null) {
             _uiState.update { it.copy(reportErrorMessage = validationError) }
             return

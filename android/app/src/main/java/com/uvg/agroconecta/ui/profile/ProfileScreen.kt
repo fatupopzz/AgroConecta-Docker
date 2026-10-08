@@ -41,6 +41,7 @@ import com.uvg.agroconecta.ui.theme.GreenSurface
 import com.uvg.agroconecta.ui.theme.OrangeAccent
 import com.uvg.agroconecta.ui.theme.OrangeLight
 import com.uvg.agroconecta.ui.theme.VerifiedBlue
+import com.uvg.agroconecta.validation.ProfileFormValidator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -792,7 +793,10 @@ fun EditProfileDialog(
         confirmButton = {
             Button(
                 onClick = { onSave(draft) },
-                enabled = !isSaving && draft.nombre.isNotBlank() && draft.telefono.isNotBlank(),
+                enabled = !isSaving && ProfileFormValidator.isValid(
+                    name = draft.nombre,
+                    phone = draft.telefono
+                ),
                 colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
             ) {
                 if (isSaving) {
