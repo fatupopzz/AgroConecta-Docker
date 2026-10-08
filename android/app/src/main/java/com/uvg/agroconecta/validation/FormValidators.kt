@@ -21,6 +21,12 @@ object FormValidators {
     fun matches(value: String, confirmation: String, message: String): String? =
         message.takeUnless { value == confirmation }
 
+    fun positiveNumber(value: String, message: String): String? =
+        message.takeUnless { value.toDoubleOrNull()?.let { it > 0 } == true }
+
+    fun nonNegativeInteger(value: String, message: String): String? =
+        message.takeUnless { value.toIntOrNull()?.let { it >= 0 } == true }
+
     fun firstError(vararg validations: () -> String?): String? {
         validations.forEach { validation ->
             validation()?.let { return it }

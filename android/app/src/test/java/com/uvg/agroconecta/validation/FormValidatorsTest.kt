@@ -38,6 +38,27 @@ class FormValidatorsTest {
     }
 
     @Test
+    fun `positiveNumber requiere un decimal mayor que cero`() {
+        assertEquals("Número inválido", FormValidators.positiveNumber("0", "Número inválido"))
+        assertEquals("Número inválido", FormValidators.positiveNumber("texto", "Número inválido"))
+        assertNull(FormValidators.positiveNumber("1.5", "Número inválido"))
+    }
+
+    @Test
+    fun `nonNegativeInteger acepta cero y enteros positivos`() {
+        assertEquals(
+            "Entero inválido",
+            FormValidators.nonNegativeInteger("-1", "Entero inválido")
+        )
+        assertEquals(
+            "Entero inválido",
+            FormValidators.nonNegativeInteger("1.5", "Entero inválido")
+        )
+        assertNull(FormValidators.nonNegativeInteger("0", "Entero inválido"))
+        assertNull(FormValidators.nonNegativeInteger("8", "Entero inválido"))
+    }
+
+    @Test
     fun `firstError devuelve el primer error y detiene las validaciones restantes`() {
         var finalValidationWasCalled = false
 

@@ -52,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.dosecalculator.LandUnit
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
+import com.uvg.agroconecta.validation.DoseCalculatorFormValidator
 import java.text.DecimalFormat
 
 private val VerdeAgroConecta = Color(0xFF2D6A1F)
@@ -179,7 +180,7 @@ fun DoseCalculatorScreen(
             ExposedDropdownMenuBox(
                 expanded = cropMenuExpanded,
                 onExpandedChange = {
-                    if (uiState.selectedProduct.isNotBlank()) {
+                    if (DoseCalculatorFormValidator.isProductSelected(uiState.selectedProduct)) {
                         cropMenuExpanded = !cropMenuExpanded
                     }
                 }
@@ -188,11 +189,16 @@ fun DoseCalculatorScreen(
                     value = uiState.selectedCrop,
                     onValueChange = {},
                     readOnly = true,
-                    enabled = uiState.selectedProduct.isNotBlank(),
+                    enabled = DoseCalculatorFormValidator.isProductSelected(
+                        uiState.selectedProduct
+                    ),
                     label = { Text("Cultivo") },
                     placeholder = {
                         Text(
-                            if (uiState.selectedProduct.isBlank()) {
+                            if (!DoseCalculatorFormValidator.isProductSelected(
+                                    uiState.selectedProduct
+                                )
+                            ) {
                                 "Primero selecciona un producto"
                             } else {
                                 "Selecciona un cultivo"

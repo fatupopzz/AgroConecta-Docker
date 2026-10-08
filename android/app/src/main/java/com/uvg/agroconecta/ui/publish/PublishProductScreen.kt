@@ -18,6 +18,7 @@ import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.theme.GrayLight
 import com.uvg.agroconecta.ui.theme.GrayMid
 import com.uvg.agroconecta.ui.theme.GreenPrimary
+import com.uvg.agroconecta.validation.PublishProductFormValidator
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -211,12 +212,22 @@ fun PublishProductScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        if (nombre.isBlank()) { snackbarHostState.showSnackbar("El nombre es obligatorio"); return@launch }
-                        if (categoriaSeleccionada == null) { snackbarHostState.showSnackbar("Seleccioná una categoría"); return@launch }
-                        val precioNum = precio.toDoubleOrNull()
-                        if (precioNum == null || precioNum <= 0) { snackbarHostState.showSnackbar("Ingresá un precio válido"); return@launch }
-                        val stockNum = stock.toIntOrNull()
-                        if (stockNum == null || stockNum < 0) { snackbarHostState.showSnackbar("Ingresá un stock válido"); return@launch }
+                        val validationError = PublishProductFormValidator.errorFor(
+                            name = nombre,
+                            hasCategory = categoriaSeleccionada != null,
+                            price = precio,
+                            stock = stock
+                        )
+                        if (validationError != null) {
+                            snackbarHostState.showSnackbar(validationError)
+                            return@launch
+                        }
+                        val precioNum = checkNotNull(
+                            PublishProductFormValidator.priceValue(precio)
+                        )
+                        val stockNum = checkNotNull(
+                            PublishProductFormValidator.stockValue(stock)
+                        )
                         viewModel.publishProduct(
                             nombre = nombre,
                             marca = marca,
