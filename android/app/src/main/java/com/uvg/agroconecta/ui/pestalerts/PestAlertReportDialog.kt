@@ -39,6 +39,7 @@ import com.uvg.agroconecta.ui.theme.ErrorRed
 import com.uvg.agroconecta.ui.theme.GrayMid
 import com.uvg.agroconecta.ui.theme.GreenPrimary
 import com.uvg.agroconecta.ui.theme.GreenSurface
+import com.uvg.agroconecta.validation.PestAlertReportFormValidator
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,10 +57,11 @@ fun PestAlertReportDialog(
 ) {
     var pestMenuExpanded by remember { mutableStateOf(false) }
     var cropMenuExpanded by remember { mutableStateOf(false) }
-    val canSubmit = formState.selectedPestType != null &&
-        formState.selectedCrop.isNotBlank() &&
-        location != null &&
-        !isSubmitting
+    val canSubmit = !isSubmitting && PestAlertReportFormValidator.canSubmit(
+        hasPestType = formState.selectedPestType != null,
+        crop = formState.selectedCrop,
+        hasLocation = location != null
+    )
 
     AlertDialog(
         onDismissRequest = { if (!isSubmitting) onDismiss() },

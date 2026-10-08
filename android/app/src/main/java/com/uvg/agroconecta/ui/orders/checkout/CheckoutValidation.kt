@@ -1,6 +1,9 @@
 package com.uvg.agroconecta.ui.orders.checkout
 
 object CheckoutValidation {
+    fun isDeliveryAddressTooShort(address: String): Boolean =
+        address.isNotBlank() && address.length < 5
+
     fun errorFor(input: CheckoutOrderInput): String? {
         if (input.items.isEmpty()) {
             return "El carrito está vacío"
