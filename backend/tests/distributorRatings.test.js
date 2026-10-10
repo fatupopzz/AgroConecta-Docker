@@ -142,7 +142,7 @@ describe("GET /api/distribuidores", () => {
 
 describe("coordenadas de distribuidores", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     jwt.verify.mockReturnValue({ id: 12, tipo: "administrador" });
   });
 

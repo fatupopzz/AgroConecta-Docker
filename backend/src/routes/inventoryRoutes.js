@@ -7,9 +7,20 @@ const {
   updateInventory,
 } = require("../controllers/inventoryController");
 const asyncHandler = require("../middleware/asyncHandler");
+const { invalidateCache } = require("../middleware/cacheMiddleware");
 
 router.get("/", verifyToken, asyncHandler(getDistributorInventory));
-router.post("/", verifyToken, asyncHandler(createInventory));
-router.put("/:id", verifyToken, asyncHandler(updateInventory));
+router.post(
+  "/",
+  verifyToken,
+  invalidateCache("products", "distributors"),
+  asyncHandler(createInventory),
+);
+router.put(
+  "/:id",
+  verifyToken,
+  invalidateCache("products", "distributors"),
+  asyncHandler(updateInventory),
+);
 
 module.exports = router;
