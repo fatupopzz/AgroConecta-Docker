@@ -4,6 +4,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const app = require("./app");
 const { shutdownPool, pool } = require("./src/config/db");
+const { connectRedis, shutdownRedis } = require("./src/config/redis");
 const {
   startRecurringOrderScheduler,
   stopRecurringOrderScheduler,
@@ -166,6 +167,7 @@ const runStartupMigrations = async () => {
 const startServer = async () => {
     try {
         await runStartupMigrations();
+        await connectRedis();
 
         app.listen(PORT, () => {
             console.log(`Backend AgroConecta escuchando en puerto ${PORT}`);
@@ -182,6 +184,7 @@ startServer();
 
 process.on("SIGTERM", async () => {
     stopRecurringOrderScheduler();
+    await shutdownRedis();
     await shutdownPool();
     process.exit(0);
 });

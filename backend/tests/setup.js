@@ -5,3 +5,4 @@ process.env.DB_NAME ||= "agroconecta_test";
 process.env.DB_USER ||= "agroconecta_test";
 process.env.DB_PASSWORD ||= "agroconecta_test";
 process.env.JWT_SECRET ||= "vitest-secret";
+process.env.REDIS_URL = "";
