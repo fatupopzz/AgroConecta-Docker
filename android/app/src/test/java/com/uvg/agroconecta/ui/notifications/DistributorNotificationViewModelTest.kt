@@ -1,8 +1,8 @@
 package com.uvg.agroconecta.ui.notifications
 
 import com.google.gson.Gson
-import com.uvg.agroconecta.data.models.DistributorNotification
-import com.uvg.agroconecta.data.models.DistributorNotificationContent
+import com.uvg.agroconecta.data.models.AppNotification
+import com.uvg.agroconecta.data.models.NotificationContent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -26,7 +26,7 @@ class DistributorNotificationViewModelTest {
             }
         """.trimIndent()
 
-        val notification = Gson().fromJson(json, DistributorNotification::class.java)
+        val notification = Gson().fromJson(json, AppNotification::class.java)
 
         assertEquals(14, notification.id)
         assertEquals(31, notification.idPedido)
@@ -60,10 +60,10 @@ class DistributorNotificationViewModelTest {
         id: Int,
         type: String,
         read: Boolean
-    ) = DistributorNotification(
+    ) = AppNotification(
         id = id,
         tipo = type,
-        contenido = DistributorNotificationContent(),
+        contenido = NotificationContent(),
         leida = read
     )
 }

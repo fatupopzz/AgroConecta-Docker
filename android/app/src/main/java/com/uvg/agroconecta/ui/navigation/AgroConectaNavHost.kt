@@ -29,6 +29,9 @@ import com.uvg.agroconecta.ui.help.HelpScreen
 import com.uvg.agroconecta.ui.help.openWhatsAppSupport
 import com.uvg.agroconecta.BuildConfig
 import com.uvg.agroconecta.ui.notifications.DistributorNotificationViewModel
+import com.uvg.agroconecta.ui.notifications.PriceNotificationViewModel
+import com.uvg.agroconecta.ui.notifications.PriceNotificationState
+import com.uvg.agroconecta.ui.notifications.priceNotificationProductId
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.ui.cart.CartScreen
@@ -187,6 +190,11 @@ fun AgroConectaNavHost(
         composable(Screen.Home.route) {
             val homeViewModel: HomeViewModel = hiltViewModel()
             val notificationViewModel: DistributorNotificationViewModel = hiltViewModel()
+            val priceViewModel: PriceNotificationViewModel = hiltViewModel()
+            val priceState by priceViewModel.state.collectAsState()
+            LaunchedEffect(userIdFlow, tipoUsuarioFlow) {
+                priceViewModel.load(userIdFlow, tipoUsuarioFlow)
+            }
             val urgentNotification by notificationViewModel.urgentNotification.collectAsState()
             val nombre by authViewModel.nombreUsuario.observeAsState("")
 
@@ -209,6 +217,14 @@ fun AgroConectaNavHost(
                 viewModel = homeViewModel,
                 tipoUsuario = tipoUsuario,
                 cartItemCount = cartItems.size,
+                priceNotifications = if (priceState.ownerId == userIdFlow && tipoUsuarioFlow == "agricultor") priceState else PriceNotificationState(),
+                onPriceNotificationClick = { notification ->
+                    priceNotificationProductId(notification)?.let { productId ->
+                        navController.navigate(Screen.ProductDetail.createRoute(productId))
+                    }
+                },
+                onPriceNotificationRead = priceViewModel::markAsRead,
+                onRetryPriceNotifications = { priceViewModel.load(userIdFlow, tipoUsuarioFlow) },
                 urgentNotification = urgentNotification,
                 onUrgentNotificationClick = { notification ->
                     notificationViewModel.markAsRead(notification)

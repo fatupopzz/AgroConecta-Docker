@@ -62,14 +62,15 @@ class NotificacionService {
     idProducto,
     precioAnterior,
     precioNuevo,
-    porcentajeDescuento
+    porcentajeDescuento,
+    activeProduct = null
   ) {
     const agricultorId = parsePositiveInteger(idAgricultor, "id_agricultor");
     const productoId = parsePositiveInteger(idProducto, "id_producto");
     const previousPrice = parsePositivePrice(precioAnterior, "precio_anterior");
     const newPrice = parsePositivePrice(precioNuevo, "precio_nuevo");
     const discountPercentage = parseDiscountPercentage(porcentajeDescuento);
-    const product = await this.getProduct(productoId);
+    const product = activeProduct || await this.getProduct(productoId);
 
     const contenido = {
       id_producto: productoId,
