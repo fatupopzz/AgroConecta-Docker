@@ -46,6 +46,10 @@ services:
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
     ports:
       - "8080:8080"
+    # Volumen nombrado para que las fotos de productos sobrevivan a los
+    # rebuilds: sin él se perderían cada vez que se recrea el contenedor.
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -59,8 +63,8 @@ services:
     container_name: agroconecta_redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
+    # Sin ports: el backend llega por agroconecta_net y Redis no tiene
+    # contraseña, así que publicarlo en la VM lo dejaba abierto a internet.
     volumes:
       - redis_data:/data
     healthcheck:
@@ -101,6 +105,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  uploads_data:
     driver: local
 
 networks:
