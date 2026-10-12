@@ -55,6 +55,7 @@ fun ProfileScreen(
     onDashboardClick: () -> Unit,
     onHelpClick: () -> Unit,
     onStatsClick: () -> Unit,
+    onMyProductsClick: () -> Unit,
     tipoUsuario: String,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
@@ -162,6 +163,7 @@ fun ProfileScreen(
                         is ProfileData.Distributor -> DistributorProfileContent(
                             data.profile,
                             onStatsClick = onStatsClick,
+                            onMyProductsClick = onMyProductsClick,
                             onHelpClick = onHelpClick,
                             onEditClick = { showEditDialog = true },
                             onLogoutClick = { showLogoutDialog = true }
@@ -332,6 +334,7 @@ fun FarmerProfileContent(
 fun DistributorProfileContent(
     profile: DistributorProfile,
     onStatsClick: () -> Unit,
+    onMyProductsClick: () -> Unit,
     onHelpClick: () -> Unit,
     onEditClick: () -> Unit,
     onLogoutClick: () -> Unit
@@ -431,6 +434,29 @@ fun DistributorProfileContent(
             profile.calificacionPromedio?.let {
                 ProfileInfoRow(Icons.Default.Star, "Calificación promedio", "%.1f / 5.0".format(it))
             }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Es la única forma de cambiar la foto de algo ya publicado; publicar
+        // solo permite elegirla para productos nuevos.
+        Button(
+            onClick = onMyProductsClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+        ) {
+            Icon(Icons.Default.Inventory2, contentDescription = null)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = "Mis productos",
+                modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.SemiBold
+            )
+            Icon(Icons.Default.ChevronRight, contentDescription = null)
         }
 
         Spacer(Modifier.height(12.dp))

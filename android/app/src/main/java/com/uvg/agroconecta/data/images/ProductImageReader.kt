@@ -22,6 +22,17 @@ object ProductImageRules {
     const val INVALID_FORMAT_MESSAGE = "Formato no permitido. Usa una foto JPEG, PNG o WEBP"
     const val TOO_LARGE_MESSAGE = "La imagen supera el máximo de 5 MB"
     const val UNREADABLE_MESSAGE = "No se pudo leer la imagen seleccionada"
+
+    /**
+     * Motivo legible de un rechazo de POST /products/:id/image. Lo usan publicar
+     * y "Mis productos" para que el mismo error se explique igual en las dos.
+     */
+    fun uploadFailureReason(httpCode: Int): String = when (httpCode) {
+        413 -> "supera el máximo de 5 MB"
+        400 -> "el formato no es válido"
+        403 -> "no tienes permiso sobre este producto"
+        else -> "el servidor respondió $httpCode"
+    }
 }
 
 /**

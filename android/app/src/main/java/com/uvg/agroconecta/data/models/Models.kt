@@ -432,6 +432,23 @@ data class ProductoCreado(
     val nombre: String
 )
 
+// GET /api/inventory: lo que el distribuidor autenticado tiene publicado.
+data class DistributorInventoryResponse(
+    val inventario: List<InventoryProduct>
+)
+
+data class InventoryProduct(
+    @SerializedName("id_inventario") val idInventario: Int,
+    @SerializedName("id_producto") val idProducto: Int,
+    val producto: String,
+    val marca: String?,
+    val categoria: String?,
+    val precio: Double,
+    @SerializedName("stock_disponible") val stock: Int,
+    @SerializedName("unidad_medida") val unidadMedida: String?,
+    @SerializedName("imagen_url") val imagenUrl: String? = null
+)
+
 data class UploadProductImageResponse(
     val message: String,
     val producto: ProductImageInfo

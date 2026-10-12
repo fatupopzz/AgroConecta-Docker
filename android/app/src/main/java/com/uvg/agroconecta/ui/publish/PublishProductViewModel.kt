@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.images.ProductImageReadResult
 import com.uvg.agroconecta.data.images.ProductImageReader
+import com.uvg.agroconecta.data.images.ProductImageRules
 import com.uvg.agroconecta.data.images.SelectedProductImage
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CreateInventoryRequest
@@ -208,12 +209,7 @@ class PublishProductViewModel @Inject constructor(
 
         if (response.isSuccessful) return null
 
-        val reason = when (response.code()) {
-            413 -> "supera el máximo de 5 MB"
-            400 -> "el formato no es válido"
-            403 -> "no tienes permiso sobre este producto"
-            else -> "el servidor respondió ${response.code()}"
-        }
+        val reason = ProductImageRules.uploadFailureReason(response.code())
         return "Producto publicado, pero no se pudo subir la foto: $reason"
     }
 

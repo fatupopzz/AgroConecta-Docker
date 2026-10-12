@@ -238,6 +238,9 @@ interface ApiService {
     ): Response<Review>
 
     // ── Inventory ─────────────────────────────────────────────────────────────
+    @GET("inventory")
+    suspend fun getMyInventory(): Response<DistributorInventoryResponse>
+
     @POST("inventory")
     suspend fun createInventory(
         @Body request: CreateInventoryRequest
