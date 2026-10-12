@@ -2,7 +2,6 @@ package com.uvg.agroconecta.ui.product
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -16,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddShoppingCart
-import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Share
@@ -45,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.DistributorOffer
 import com.uvg.agroconecta.data.models.ProductDetail
+import com.uvg.agroconecta.ui.components.ProductImage
 import com.uvg.agroconecta.ui.favorites.FavoriteButton
 import com.uvg.agroconecta.ui.theme.GrayDark
 import com.uvg.agroconecta.ui.theme.GrayMid
@@ -170,7 +169,7 @@ internal fun ProductOverviewSection(
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        ProductImageGallery()
+        ProductImageGallery(product)
         Spacer(Modifier.height(12.dp))
         product.categoria?.let { category ->
             Surface(color = GreenPale, shape = RoundedCornerShape(20.dp)) {
@@ -249,21 +248,17 @@ internal fun ProductOverviewSection(
 }
 
 @Composable
-internal fun ProductImageGallery() {
-    Box(
+internal fun ProductImageGallery(product: ProductDetail) {
+    ProductImage(
+        imagenUrl = product.imagenUrl,
+        contentDescription = "Foto de ${product.nombre}",
+        iconSize = 56.dp,
         modifier = Modifier
-            .size(80.dp)
+            .fillMaxWidth()
+            .height(220.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(GreenPale),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.Eco,
-            contentDescription = null,
-            tint = GreenPrimary,
-            modifier = Modifier.size(44.dp)
-        )
-    }
+            .background(GreenPale)
+    )
 }
 
 @Composable

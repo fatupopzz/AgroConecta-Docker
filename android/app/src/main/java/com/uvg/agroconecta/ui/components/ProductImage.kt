@@ -1,0 +1,73 @@
+package com.uvg.agroconecta.ui.components
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import com.uvg.agroconecta.data.api.ProductImageUrl
+import com.uvg.agroconecta.ui.theme.GreenPrimary
+
+/**
+ * Foto de un producto con sus dos respaldos: un ícono tenue mientras Coil la
+ * descarga y la hoja de siempre si el producto no tiene foto o la descarga falla.
+ *
+ * Los respaldos se dibujan encima del AsyncImage en vez de usar sus parámetros
+ * placeholder/error porque esos heredan el ContentScale.Crop de la foto y el
+ * ícono terminaría estirado a todo el recuadro.
+ *
+ * El fondo y la forma los pone quien la usa con [modifier], así cada pantalla
+ * conserva sus colores por categoría o sus esquinas.
+ */
+@Composable
+fun ProductImage(
+    imagenUrl: String?,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 40.dp
+) {
+    val url = remember(imagenUrl) { ProductImageUrl.resolve(imagenUrl) }
+    var painterState by remember(url) {
+        mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty)
+    }
+
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        if (url != null) {
+            AsyncImage(
+                model = url,
+                contentDescription = contentDescription,
+                contentScale = ContentScale.Crop,
+                onState = { painterState = it },
+                modifier = Modifier.matchParentSize()
+            )
+        }
+
+        when {
+            url == null || painterState is AsyncImagePainter.State.Error -> Icon(
+                imageVector = Icons.Default.Eco,
+                contentDescription = null,
+                tint = GreenPrimary,
+                modifier = Modifier.size(iconSize)
+            )
+            painterState !is AsyncImagePainter.State.Success -> Icon(
+                imageVector = Icons.Outlined.Image,
+                contentDescription = null,
+                tint = GreenPrimary.copy(alpha = 0.35f),
+                modifier = Modifier.size(iconSize)
+            )
+        }
+    }
+}

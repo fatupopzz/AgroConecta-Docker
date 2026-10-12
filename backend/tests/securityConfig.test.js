@@ -62,3 +62,50 @@ test("backend startup applies the distributor coordinates migration", () => {
   assert.match(migration, /ADD COLUMN IF NOT EXISTS longitud DECIMAL\(10,7\)/);
   assert.match(migration, /CHECK \(longitud BETWEEN -180 AND 180\)/);
 });
+
+test("backend startup applies the product images migration", () => {
+  const backendEntryPoint = fs.readFileSync(
+    path.join(repositoryRoot, "backend", "index.js"),
+    "utf8",
+  );
+  const migration = fs.readFileSync(
+    path.join(repositoryRoot, "backend", "sql", "product_images_migration.sql"),
+    "utf8",
+  );
+
+  assert.match(backendEntryPoint, /product_images_migration\.sql/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS imagen_url VARCHAR\(255\)/);
+});
+
+test("docker compose persists uploads and keeps redis off the host", () => {
+  const compose = fs.readFileSync(
+    path.join(repositoryRoot, "docker-compose.yml"),
+    "utf8",
+  );
+  const redisService = compose.match(/^  redis:\n([\s\S]*?)(?=^  \S)/m)?.[1] ?? "";
+
+  assert.match(compose, /- uploads_data:\/app\/uploads/);
+  assert.match(compose, /^  uploads_data:/m);
+  assert.ok(redisService.length > 0, "no se encontró el servicio redis");
+  assert.doesNotMatch(redisService, /^\s+ports:/m);
+  assert.doesNotMatch(compose, /6379:6379/);
+});
+
+test("caddy only runs with the https profile and proxies to the backend", () => {
+  const compose = fs.readFileSync(
+    path.join(repositoryRoot, "docker-compose.yml"),
+    "utf8",
+  );
+  const caddyfile = fs.readFileSync(
+    path.join(repositoryRoot, "caddy", "Caddyfile"),
+    "utf8",
+  );
+  const caddyService = compose.match(/^  caddy:\n([\s\S]*?)(?=^  \S)/m)?.[1] ?? "";
+
+  // Sin el perfil, cualquiera que levante el proyecto en local perdería los
+  // puertos 80 y 443 por un proxy que no tiene dominio que certificar.
+  assert.match(caddyService, /profiles: \["https"\]/);
+  assert.match(caddyService, /- caddy_data:\/data/);
+  assert.match(caddyfile, /\{\$AGROCONECTA_DOMAIN:localhost\}/);
+  assert.match(caddyfile, /reverse_proxy backend:8080/);
+});

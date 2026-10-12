@@ -6,7 +6,10 @@ import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.api.dataStore
 import com.uvg.agroconecta.data.connectivity.AndroidConnectivityMonitor
 import com.uvg.agroconecta.data.connectivity.ConnectivityMonitor
+import com.uvg.agroconecta.data.images.ContentResolverProductImageReader
+import com.uvg.agroconecta.data.images.ProductImageReader
 import com.uvg.agroconecta.data.local.AgroConectaDatabase
+import com.uvg.agroconecta.data.local.MIGRATION_1_2
 import com.uvg.agroconecta.data.local.DataStoreFavoriteLocalDataSource
 import com.uvg.agroconecta.data.local.FavoriteLocalDataSource
 import com.uvg.agroconecta.data.local.ProductCacheDao
@@ -40,7 +43,9 @@ object StorageModule {
             context,
             AgroConectaDatabase::class.java,
             "agroconecta.db"
-        ).build()
+        )
+            .addMigrations(MIGRATION_1_2)
+            .build()
 
     @Provides
     fun provideProductCacheDao(database: AgroConectaDatabase): ProductCacheDao =
@@ -98,4 +103,10 @@ object StorageModule {
     fun provideCurrentLocationProvider(
         provider: AndroidCurrentLocationProvider
     ): CurrentLocationProvider = provider
+
+    @Provides
+    @Singleton
+    fun provideProductImageReader(
+        reader: ContentResolverProductImageReader
+    ): ProductImageReader = reader
 }

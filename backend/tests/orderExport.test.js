@@ -15,6 +15,19 @@ const collectBinary = (res, callback) => {
   res.on("end", () => callback(null, Buffer.concat(chunks)));
 };
 
+// Helvetica en pdfkit escribe el texto en WinAnsi (cp1252). No se usa
+// TextDecoder("windows-1252") porque Node 22 lo resuelve como latin1 y convierte
+// 0x80-0x9F en caracteres de control: el "—" (0x97) desaparecía y el test
+// fallaba según la versión de Node, no según el PDF.
+const WIN_ANSI_HIGH = {
+  0x80: "€", 0x82: "‚", 0x83: "ƒ", 0x84: "„", 0x85: "…", 0x86: "†", 0x87: "‡",
+  0x88: "ˆ", 0x89: "‰", 0x8a: "Š", 0x8b: "‹", 0x8c: "Œ", 0x8e: "Ž", 0x91: "‘",
+  0x92: "’", 0x93: "“", 0x94: "”", 0x95: "•", 0x96: "–", 0x97: "—", 0x98: "˜",
+  0x99: "™", 0x9a: "š", 0x9b: "›", 0x9c: "œ", 0x9e: "ž", 0x9f: "Ÿ",
+};
+const decodeWinAnsi = (bytes) =>
+  [...bytes].map((byte) => WIN_ANSI_HIGH[byte] ?? String.fromCharCode(byte)).join("");
+
 const pdfText = (buffer) => {
   const text = [];
   let start = 0;
@@ -26,8 +39,7 @@ const pdfText = (buffer) => {
       const content = zlib.inflateSync(buffer.subarray(start, end)).toString("latin1");
       for (const match of content.matchAll(/\[(.*?)\] TJ/gs)) {
         text.push([...match[1].matchAll(/<([0-9a-f]+)>/gi)]
-          .map((part) => new TextDecoder("windows-1252")
-            .decode(Buffer.from(part[1], "hex"))).join(""));
+          .map((part) => decodeWinAnsi(Buffer.from(part[1], "hex"))).join(""));
       }
     } catch (_) { /* Image and font streams are not text. */ }
     start = end + 10;

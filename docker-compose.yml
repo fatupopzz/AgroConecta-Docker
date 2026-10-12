@@ -46,6 +46,10 @@ services:
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
     ports:
       - "8080:8080"
+    # Volumen nombrado para que las fotos de productos sobrevivan a los
+    # rebuilds: sin él se perderían cada vez que se recrea el contenedor.
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -59,8 +63,8 @@ services:
     container_name: agroconecta_redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
+    # Sin ports: el backend llega por agroconecta_net y Redis no tiene
+    # contraseña, así que publicarlo en la VM lo dejaba abierto a internet.
     volumes:
       - redis_data:/data
     healthcheck:
@@ -68,6 +72,32 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - agroconecta_net
+
+  # Solo arranca con el perfil "https" (COMPOSE_PROFILES=https en el .env de
+  # la VM). En una máquina de desarrollo no hay dominio que certificar y
+  # tomaría los puertos 80 y 443 sin necesidad.
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: agroconecta_caddy
+    restart: unless-stopped
+    profiles: ["https"]
+    environment:
+      AGROCONECTA_DOMAIN: ${AGROCONECTA_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Aquí quedan los certificados emitidos. Sin volumen, cada recreación
+      # del contenedor pediría uno nuevo y se toparía con el límite semanal
+      # de Let's Encrypt.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
     networks:
       - agroconecta_net
 
@@ -101,6 +131,12 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
     driver: local
 
 networks:

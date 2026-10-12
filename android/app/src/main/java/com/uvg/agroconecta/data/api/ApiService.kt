@@ -2,6 +2,7 @@ package com.uvg.agroconecta.data.api
 
 import com.uvg.agroconecta.data.models.*
 import retrofit2.Response
+import okhttp3.MultipartBody
 import okhttp3.ResponseBody
 import retrofit2.http.*
 import com.uvg.agroconecta.ui.profile.FarmerProfile
@@ -237,6 +238,9 @@ interface ApiService {
     ): Response<Review>
 
     // ── Inventory ─────────────────────────────────────────────────────────────
+    @GET("inventory")
+    suspend fun getMyInventory(): Response<DistributorInventoryResponse>
+
     @POST("inventory")
     suspend fun createInventory(
         @Body request: CreateInventoryRequest
@@ -247,6 +251,15 @@ interface ApiService {
     suspend fun createProduct(
         @Body request: CreateProductRequest
     ): Response<CreateProductResponse>
+
+    // El backend solo acepta la foto de quien ya tiene el producto en su
+    // inventario, así que se llama después de createInventory, no antes.
+    @Multipart
+    @POST("products/{id}/image")
+    suspend fun uploadProductImage(
+        @Path("id") idProducto: Int,
+        @Part imagen: MultipartBody.Part
+    ): Response<UploadProductImageResponse>
 
 
     @GET("farmers/profile/{id}")

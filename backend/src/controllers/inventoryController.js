@@ -25,7 +25,7 @@ const getDistributorInventory = async (req, res) => {
   }
 
   const distResult = await pool.query(
-    `SELECT id_distribuidor FROM distribuidor WHERE id_usuario = $1`,
+    `SELECT id_distribuidor, estado_verificacion FROM distribuidor WHERE id_usuario = $1`,
     [Number(idUsuario)]
   );
 
@@ -33,13 +33,14 @@ const getDistributorInventory = async (req, res) => {
     return res.status(404).json({ error: "Perfil de distribuidor no encontrado" });
   }
 
-  const { id_distribuidor } = distResult.rows[0];
+  const { id_distribuidor, estado_verificacion } = distResult.rows[0];
 
   const result = await pool.query(
     `SELECT i.id_inventario,
             i.id_producto,
             p.nombre AS producto,
             p.marca,
+            p.imagen_url,
             c.nombre AS categoria,
             i.precio,
             i.stock_disponible,
@@ -58,6 +59,9 @@ const getDistributorInventory = async (req, res) => {
     distribuidor: {
       id_distribuidor: Number(id_distribuidor),
       id_usuario: Number(idUsuario),
+      // La app lo usa para avisar de entrada que no se pueden cambiar fotos
+      // hasta la verificación, en vez de dejar intentarlo y responder 403.
+      estado_verificacion,
     },
     inventario: result.rows,
   });

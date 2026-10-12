@@ -20,6 +20,16 @@ private const val AUTHORIZATION_HEADER = "Authorization"
 private val PUBLIC_PATHS = setOf("auth/login", "auth/register")
 
 /**
+ * Primer segmento de rutas que el backend sirve fuera de /api y sin token.
+ *
+ * Las fotos de productos viven en /uploads y son públicas. Hoy Coil las pide
+ * con su propio cliente y no pasa por aquí, pero si algún día se le da este
+ * OkHttpClient no tiene sentido mandarle el JWT a cada imagen: no lo necesita
+ * y quedaría en logs de acceso y cachés intermedias.
+ */
+private val PUBLIC_ROOT_SEGMENTS = setOf("uploads")
+
+/**
  * Adjunta el token de la sesion a cada request que sale de la app.
  *
  * Antes cada ViewModel armaba la cabecera y la pasaba como `@Header`, asi que
@@ -82,10 +92,11 @@ class AuthInterceptor(
     // Se comparan los dos ultimos segmentos y no el path completo porque la URL
     // base trae su propio prefijo (/api/) segun el entorno. Con `contains` un
     // endpoint futuro tipo "admin/auth/login-history" se quedaria sin token sin
-    // que nadie se entere.
-    private fun okhttp3.Request.isPublic(): Boolean =
-        url.pathSegments
-            .filter { it.isNotEmpty() }
-            .takeLast(2)
-            .joinToString("/") in PUBLIC_PATHS
+    // que nadie se entere. Para /uploads se mira el primer segmento: asi
+    // /api/uploads/... (si llegara a existir) sigue siendo un endpoint con auth.
+    private fun okhttp3.Request.isPublic(): Boolean {
+        val segments = url.pathSegments.filter { it.isNotEmpty() }
+        return segments.firstOrNull() in PUBLIC_ROOT_SEGMENTS ||
+            segments.takeLast(2).joinToString("/") in PUBLIC_PATHS
+    }
 }

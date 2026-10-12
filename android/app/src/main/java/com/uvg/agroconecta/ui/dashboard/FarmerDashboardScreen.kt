@@ -44,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.models.FarmerDashboardResponse
 import com.uvg.agroconecta.data.models.FarmerLastOrder
+import com.uvg.agroconecta.ui.components.ProductImage
 import com.uvg.agroconecta.ui.theme.ErrorRed
 import com.uvg.agroconecta.ui.theme.GrayBorder
 import com.uvg.agroconecta.ui.theme.GrayLight
@@ -203,6 +205,16 @@ private fun DashboardContent(dashboard: FarmerDashboardResponse) {
                         ) {
                             Text("${index + 1}", color = GreenPrimary, fontWeight = FontWeight.Bold)
                         }
+                        Spacer(Modifier.width(10.dp))
+                        ProductImage(
+                            imagenUrl = product.imagenUrl,
+                            contentDescription = null,
+                            iconSize = 22.dp,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(GreenSurface)
+                        )
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(product.nombre, fontWeight = FontWeight.SemiBold)

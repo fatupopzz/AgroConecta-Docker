@@ -162,6 +162,12 @@ const runStartupMigrations = async () => {
     "utf8",
   );
   await pool.query(distributorCoordinatesMigration);
+
+  const productImagesMigration = await fs.readFile(
+    path.join(__dirname, "sql", "product_images_migration.sql"),
+    "utf8",
+  );
+  await pool.query(productImagesMigration);
 };
 
 const startServer = async () => {

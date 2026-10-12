@@ -182,6 +182,31 @@ class AuthInterceptorTest {
         assertNull(server.takeRequest().getHeader("Authorization"))
     }
 
+    @Test
+    fun `no manda el token a las imagenes publicas de uploads`() {
+        val client = clientWithToken("token-de-sesion")
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        client.newCall(request("/uploads/productos/abc.png")).execute().close()
+
+        assertNull(server.takeRequest().getHeader("Authorization"))
+    }
+
+    @Test
+    fun `uploads solo es publico como primer segmento del path`() {
+        // Se compara por segmento: un endpoint de la API que se llame uploads
+        // sigue necesitando sesion.
+        val client = clientWithToken("token-de-sesion")
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        client.newCall(request("/api/products/7/uploads")).execute().close()
+
+        assertEquals(
+            "Bearer token-de-sesion",
+            server.takeRequest().getHeader("Authorization")
+        )
+    }
+
     private fun clientWithToken(token: String?): OkHttpClient =
         OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor { token })

@@ -1,0 +1,20 @@
+# Proxy HTTPS delante del backend. Caddy pide y renueva solo el certificado
+# de Let's Encrypt para el dominio; por eso el puerto 80 debe quedar abierto
+# en el firewall de Azure aunque la app solo use 443.
+{
+	# Sin ACME_EMAIL en el .env Caddy no arranca: es a propósito, sin correo
+	# no hay respaldo con ZeroSSL ni avisos de vencimiento.
+	email {$ACME_EMAIL}
+}
+
+{$AGROCONECTA_DOMAIN:localhost} {
+	encode zstd gzip
+
+	# Express ya limita los JSON a 100 kB y multer las fotos a 5 MB; este tope
+	# corta antes cualquier cuerpo absurdo sin llegar a Node.
+	request_body {
+		max_size 10MB
+	}
+
+	reverse_proxy backend:8080
+}

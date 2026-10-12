@@ -18,6 +18,7 @@ class ProductCacheMapperTest {
         assertEquals(115.75, entity.precio ?: 0.0, 0.0)
         assertEquals("Mejora el suelo", entity.descripcion)
         assertEquals(9_000L, entity.timestamp)
+        assertEquals("/uploads/productos/abono.jpg", entity.imagenUrl)
     }
 
     @Test
@@ -28,7 +29,8 @@ class ProductCacheMapperTest {
             categoria = "Semillas",
             precio = 63.25,
             descripcion = "Maíz blanco",
-            timestamp = 10L
+            timestamp = 10L,
+            imagenUrl = "/uploads/productos/maiz.png"
         ).toProduct()
 
         assertEquals(8, product.id)
@@ -38,6 +40,15 @@ class ProductCacheMapperTest {
         assertEquals("Maíz blanco", product.descripcion)
         assertEquals(0.0, product.calificacion, 0.0)
         assertNull(product.marca)
+        assertEquals("/uploads/productos/maiz.png", product.imagenUrl)
+    }
+
+    @Test
+    fun `un producto sin foto se cachea sin imagen`() {
+        val entity = apiProduct().copy(imagenUrl = null).toCacheEntity(timestamp = 1L)
+
+        assertNull(entity.imagenUrl)
+        assertNull(entity.toProduct().imagenUrl)
     }
 
     private fun apiProduct() = Product(
@@ -52,6 +63,7 @@ class ProductCacheMapperTest {
         categoria = "Fertilizantes",
         precioDesde = 115.75,
         numDistribuidores = 2,
-        activo = true
+        activo = true,
+        imagenUrl = "/uploads/productos/abono.jpg"
     )
 }

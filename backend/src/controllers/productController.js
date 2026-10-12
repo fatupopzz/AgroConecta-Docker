@@ -100,7 +100,7 @@ const getRecommendedProducts = async (req, res) => {
      )
      SELECT p.id_producto, p.nombre, p.marca, p.descripcion,
             p.composicion, p.dosis_recomendada, p.instrucciones_uso,
-            p.calificacion_promedio, c.nombre AS categoria,
+            p.calificacion_promedio, p.imagen_url, c.nombre AS categoria,
             inv.precio_desde,
             COALESCE(inv.num_distribuidores, 0)::int AS num_distribuidores
      FROM producto p
@@ -168,7 +168,7 @@ const getProducts = async (req, res) => {
   const queryParams = [...params, limitNumber, offset];
   const result = await pool.query(
     `SELECT p.id_producto, p.nombre, p.marca, p.descripcion,
-            p.calificacion_promedio, c.nombre AS categoria,
+            p.calificacion_promedio, p.imagen_url, c.nombre AS categoria,
             MIN(i.precio) AS precio_desde,
             COUNT(DISTINCT i.id_distribuidor) AS num_distribuidores
      FROM producto p
@@ -176,7 +176,7 @@ const getProducts = async (req, res) => {
      LEFT JOIN inventario_distribuidor i ON p.id_producto = i.id_producto
      ${whereClause}
      GROUP BY p.id_producto, p.nombre, p.marca, p.descripcion,
-              p.calificacion_promedio, c.nombre
+              p.calificacion_promedio, p.imagen_url, c.nombre
      ORDER BY RANDOM()
      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
     queryParams,
@@ -238,7 +238,7 @@ const getProductComparison = async (req, res) => {
 
   const producto = await pool.query(
     `SELECT p.id_producto, p.nombre, p.marca, p.descripcion,
-            p.calificacion_promedio, c.id_categoria, c.nombre AS categoria
+            p.calificacion_promedio, p.imagen_url, c.id_categoria, c.nombre AS categoria
      FROM producto p
      JOIN categoria c ON p.id_categoria = c.id_categoria
      WHERE p.id_producto = $1 AND p.activo = true`,

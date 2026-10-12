@@ -1,4 +1,5 @@
 const express = require("express");
+const { UPLOADS_DIR } = require("./src/config/uploads");
 
 const productRoutes = require("./src/routes/productRoutes");
 const productRecommendationRoutes = require("./src/routes/productRecommendationRoutes");
@@ -26,6 +27,23 @@ const favoriteRoutes = require("./src/routes/favoriteRoutes");
 const app = express();
 
 app.use(express.json());
+
+// Sin token: las fotos son tan públicas como el catálogo y así la app puede
+// cargarlas aunque no haya sesión. Cada subida genera un nombre nuevo, por lo
+// que el contenido de una URL nunca cambia y se puede cachear como inmutable.
+// nosniff evita que un navegador interprete como HTML algo servido aquí.
+app.use(
+  "/uploads",
+  express.static(UPLOADS_DIR, {
+    index: false,
+    dotfiles: "ignore",
+    maxAge: "7d",
+    immutable: true,
+    setHeaders: (res) => {
+      res.set("X-Content-Type-Options", "nosniff");
+    },
+  }),
+);
 
 app.use("/api/auth", authRoutes);
 
