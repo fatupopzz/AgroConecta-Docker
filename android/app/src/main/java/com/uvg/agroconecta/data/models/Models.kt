@@ -114,7 +114,10 @@ data class Product(
     val categoria: String?,
     @SerializedName("precio_desde") val precioDesde: Double?,
     @SerializedName("num_distribuidores") val numDistribuidores: Int?,
-    val activo: Boolean = true
+    val activo: Boolean = true,
+    // Ruta relativa (/uploads/productos/...); la URL completa la arma
+    // ProductImageUrl con el host de Retrofit. Null si el producto no tiene foto.
+    @SerializedName("imagen_url") val imagenUrl: String? = null
 )
 
 data class ProductsResponse(
@@ -152,7 +155,8 @@ data class ProductDetail(
     @SerializedName("instrucciones_uso") val instrucciones: String?,
     @SerializedName("calificacion_promedio") val calificacion: Double,
     val categoria: String?,
-    val ofertas: List<DistributorOffer>
+    val ofertas: List<DistributorOffer>,
+    @SerializedName("imagen_url") val imagenUrl: String? = null
 )
 
 data class DistributorOffer(
@@ -278,7 +282,8 @@ data class CartItem(
     val marca: String?,
     val distribuidor: String,
     @SerializedName("stock_disponible") val stock: Int,
-    @SerializedName("unidad_medida") val unidadMedida: String?
+    @SerializedName("unidad_medida") val unidadMedida: String?,
+    @SerializedName("imagen_url") val imagenUrl: String? = null
 )
 
 data class AddItemRequest(
@@ -427,6 +432,16 @@ data class ProductoCreado(
     val nombre: String
 )
 
+data class UploadProductImageResponse(
+    val message: String,
+    val producto: ProductImageInfo
+)
+
+data class ProductImageInfo(
+    @SerializedName("id_producto") val idProducto: Int,
+    @SerializedName("imagen_url") val imagenUrl: String?
+)
+
 data class CreateInventoryRequest(
     @SerializedName("id_producto") val idProducto: Int,
     val precio: Double,
@@ -475,7 +490,9 @@ data class FarmerTopProduct(
     val idProducto: Int,
     val nombre: String,
     val cantidad: Int,
-    val totalGastado: Double
+    val totalGastado: Double,
+    // El dashboard responde en camelCase, por eso aquí no lleva imagen_url.
+    val imagenUrl: String? = null
 )
 
 data class FarmerLastOrder(

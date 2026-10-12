@@ -48,6 +48,7 @@ import com.uvg.agroconecta.data.models.AppNotification
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
+import com.uvg.agroconecta.ui.components.ProductImage
 import com.uvg.agroconecta.ui.components.StarRating
 import com.uvg.agroconecta.ui.favorites.FavoriteButton
 import androidx.compose.ui.draw.clip
@@ -886,6 +887,13 @@ fun ProductCard(
                         }
                     )
             ) {
+                // Sin descripción propia: el nombre ya se lee justo debajo y
+                // TalkBack lo anunciaría dos veces.
+                ProductImage(
+                    imagenUrl = producto.imagenUrl,
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize()
+                )
                 if (!tieneStock) {
                     Box(
                         modifier = Modifier
