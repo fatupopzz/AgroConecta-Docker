@@ -434,7 +434,12 @@ data class ProductoCreado(
 
 // GET /api/inventory: lo que el distribuidor autenticado tiene publicado.
 data class DistributorInventoryResponse(
-    val inventario: List<InventoryProduct>
+    val inventario: List<InventoryProduct>,
+    val distribuidor: InventoryOwner? = null
+)
+
+data class InventoryOwner(
+    @SerializedName("estado_verificacion") val estadoVerificacion: String? = null
 )
 
 data class InventoryProduct(

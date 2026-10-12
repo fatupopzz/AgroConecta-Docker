@@ -16,9 +16,10 @@ const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
  * se le responde sin haber escrito nada en disco.
  *
  * El producto no tiene columna de dueño; un distribuidor "es dueño" cuando lo
- * tiene publicado en su inventario. Se exige que siga verificado por la misma
- * razón que updateInventory: una cuenta suspendida no debe cambiar lo que ven
- * los agricultores.
+ * tiene publicado en su inventario. Se exige además que siga verificado, por la
+ * misma razón que updateInventory: una cuenta suspendida no debe cambiar lo que
+ * ven los agricultores. Los dos casos se separan para que el mensaje diga qué
+ * hacer: no es lo mismo un producto ajeno que una cuenta en revisión.
  */
 const authorizeProductImage = async (req, res, next) => {
   if (!isPositiveInteger(req.params.id)) {
@@ -38,8 +39,13 @@ const authorizeProductImage = async (req, res, next) => {
               JOIN distribuidor d ON d.id_distribuidor = i.id_distribuidor
               WHERE i.id_producto = p.id_producto
                 AND d.id_usuario = $2
+            ) AS es_duenio,
+            EXISTS (
+              SELECT 1
+              FROM distribuidor d
+              WHERE d.id_usuario = $2
                 AND d.estado_verificacion = 'verificado'
-            ) AS es_duenio
+            ) AS verificado
      FROM producto p
      WHERE p.id_producto = $1
        AND p.activo = TRUE`,
@@ -50,8 +56,14 @@ const authorizeProductImage = async (req, res, next) => {
     throw new AppError(404, "Producto no encontrado");
   }
 
-  if (tipo === "distribuidor" && !result.rows[0].es_duenio) {
-    throw new AppError(403, "No puedes cambiar la imagen de un producto que no publicaste");
+  if (tipo === "distribuidor") {
+    const { es_duenio, verificado } = result.rows[0];
+    if (!es_duenio) {
+      throw new AppError(403, "No puedes cambiar la imagen de un producto que no publicaste");
+    }
+    if (!verificado) {
+      throw new AppError(403, "Tu cuenta aún no está verificada");
+    }
   }
 
   next();

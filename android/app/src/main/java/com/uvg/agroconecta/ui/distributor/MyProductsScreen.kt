@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -59,6 +60,8 @@ import com.uvg.agroconecta.ui.theme.GrayLight
 import com.uvg.agroconecta.ui.theme.GrayMid
 import com.uvg.agroconecta.ui.theme.GreenPrimary
 import com.uvg.agroconecta.ui.theme.GreenSurface
+import com.uvg.agroconecta.ui.theme.OrangeAccent
+import com.uvg.agroconecta.ui.theme.OrangeLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -129,18 +132,22 @@ fun MyProductsScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    if (!uiState.isVerified) {
+                        item { UnverifiedBanner() }
+                    }
                     items(uiState.products, key = { it.idInventario }) { product ->
                         MyProductCard(
                             product = product,
                             isUploading = uiState.uploadingProductId == product.idProducto,
                             // Mientras sube una foto se bloquean los demás botones:
                             // el ViewModel atiende una subida a la vez.
-                            enabled = uiState.uploadingProductId == null,
+                            enabled = uiState.uploadingProductId == null && uiState.isVerified,
                             onChangePhoto = {
-                                viewModel.onChangePhotoClick(product.idProducto)
-                                pickImage.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
+                                if (viewModel.onChangePhotoClick(product.idProducto)) {
+                                    pickImage.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
                             }
                         )
                     }
@@ -222,6 +229,26 @@ private fun MyProductCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun UnverifiedBanner() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(OrangeLight)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.HourglassTop,
+            contentDescription = null,
+            tint = OrangeAccent
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(text = UNVERIFIED_ACCOUNT_MESSAGE, fontSize = 13.sp)
     }
 }
 

@@ -35,10 +35,17 @@ const storedImages = () =>
  * Simula la base según la consulta en lugar de encadenar respuestas por orden,
  * así el test no se rompe si el controlador cambia cuántas consultas hace.
  */
-const mockDatabase = ({ esDuenio = true, existe = true, imagenAnterior = null } = {}) => {
+const mockDatabase = ({
+  esDuenio = true,
+  verificado = true,
+  existe = true,
+  imagenAnterior = null,
+} = {}) => {
   pool.query.mockImplementation(async (sql, params) => {
     if (sql.includes("AS es_duenio")) {
-      return { rows: existe ? [{ id_producto: params[0], es_duenio: esDuenio }] : [] };
+      return {
+        rows: existe ? [{ id_producto: params[0], es_duenio: esDuenio, verificado }] : [],
+      };
     }
     if (sql.includes("SET imagen_url")) {
       return {
@@ -178,6 +185,26 @@ describe("POST /api/products/:id/image", () => {
       error: "No puedes cambiar la imagen de un producto que no publicaste",
     });
     expect(storedImages()).toEqual([]);
+  });
+
+  test("a un dueño con la cuenta sin verificar le explica el motivo real", async () => {
+    mockDatabase({ verificado: false });
+
+    const response = await uploadAs(distributor)
+      .attach("imagen", PNG_BYTES, { filename: "foto.png", contentType: "image/png" });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toEqual({ error: "Tu cuenta aún no está verificada" });
+    expect(storedImages()).toEqual([]);
+  });
+
+  test("un admin no depende de la verificación de distribuidor", async () => {
+    mockDatabase({ esDuenio: false, verificado: false });
+
+    const response = await uploadAs(admin)
+      .attach("imagen", PNG_BYTES, { filename: "foto.png", contentType: "image/png" });
+
+    expect(response.statusCode).toBe(200);
   });
 
   test("responde 403 a un agricultor sin consultar la base", async () => {

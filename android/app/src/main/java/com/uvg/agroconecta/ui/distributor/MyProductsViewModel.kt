@@ -17,10 +17,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+const val UNVERIFIED_ACCOUNT_MESSAGE =
+    "Tu cuenta aún no está verificada. Podrás cambiar las fotos cuando un administrador la apruebe."
+
 data class MyProductsUiState(
     val products: List<InventoryProduct> = emptyList(),
     val isLoading: Boolean = false,
     val loadError: String? = null,
+    // Arranca en true y solo pasa a false si el backend dice otra cosa: con un
+    // backend viejo que no manda el estado no se bloquea a nadie, y si la
+    // cuenta de verdad no está verificada el backend igual responde 403.
+    val isVerified: Boolean = true,
     // Producto para el que se abrió el PhotoPicker. Vive aquí y no en la
     // pantalla para no perderlo si el sistema recrea la Activity mientras el
     // picker está abierto (por ejemplo, al girar el teléfono).
@@ -50,7 +57,14 @@ class MyProductsViewModel @Inject constructor(
                 val body = response.body()
                 when {
                     response.isSuccessful && body != null -> {
-                        _uiState.update { it.copy(products = body.inventario, isLoading = false) }
+                        val estado = body.distribuidor?.estadoVerificacion
+                        _uiState.update {
+                            it.copy(
+                                products = body.inventario,
+                                isLoading = false,
+                                isVerified = estado == null || estado == "verificado"
+                            )
+                        }
                         null
                     }
                     response.code() == 403 -> "Solo los distribuidores tienen productos publicados"
@@ -67,8 +81,17 @@ class MyProductsViewModel @Inject constructor(
         }
     }
 
-    fun onChangePhotoClick(productId: Int) {
+    /**
+     * Devuelve si se puede abrir el PhotoPicker. Con la cuenta sin verificar no
+     * tiene sentido dejar elegir una foto que el backend va a rechazar.
+     */
+    fun onChangePhotoClick(productId: Int): Boolean {
+        if (!_uiState.value.isVerified) {
+            _uiState.update { it.copy(message = UNVERIFIED_ACCOUNT_MESSAGE) }
+            return false
+        }
         _uiState.update { it.copy(pendingPhotoProductId = productId) }
+        return true
     }
 
     /**

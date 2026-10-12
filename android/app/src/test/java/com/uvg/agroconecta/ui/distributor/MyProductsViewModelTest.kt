@@ -8,6 +8,7 @@ import com.uvg.agroconecta.data.images.ProductImageReader
 import com.uvg.agroconecta.data.images.ProductImageRules
 import com.uvg.agroconecta.data.images.SelectedProductImage
 import com.uvg.agroconecta.data.models.DistributorInventoryResponse
+import com.uvg.agroconecta.data.models.InventoryOwner
 import com.uvg.agroconecta.data.models.InventoryProduct
 import com.uvg.agroconecta.data.models.ProductImageInfo
 import com.uvg.agroconecta.data.models.UploadProductImageResponse
@@ -21,7 +22,9 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -60,6 +63,36 @@ class MyProductsViewModelTest {
         assertEquals(false, state.isLoading)
         assertNull(state.loadError)
     }
+
+    @Test
+    fun `con la cuenta sin verificar avisa y no abre el picker`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubInventory(abono, estado = "pendiente")
+        val viewModel = MyProductsViewModel(api, imageReader)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isVerified)
+
+        val canPick = viewModel.onChangePhotoClick(3)
+
+        assertFalse(canPick)
+        assertNull(viewModel.uiState.value.pendingPhotoProductId)
+        assertEquals(UNVERIFIED_ACCOUNT_MESSAGE, viewModel.uiState.value.message)
+        // La lista se sigue mostrando: el distribuidor ve sus productos aunque
+        // todavía no pueda cambiar las fotos.
+        assertEquals(listOf(abono), viewModel.uiState.value.products)
+    }
+
+    @Test
+    fun `si el backend no manda el estado no se bloquea al distribuidor`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono, estado = null)
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isVerified)
+            assertTrue(viewModel.onChangePhotoClick(3))
+            assertEquals(3, viewModel.uiState.value.pendingPhotoProductId)
+        }
 
     @Test
     fun `un usuario que no es distribuidor ve un mensaje claro`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -206,9 +239,12 @@ class MyProductsViewModelTest {
         assertNull(viewModel.uiState.value.uploadingProductId)
     }
 
-    private fun stubInventory(vararg products: InventoryProduct) {
+    private fun stubInventory(vararg products: InventoryProduct, estado: String? = "verificado") {
         coEvery { api.getMyInventory() } returns Response.success(
-            DistributorInventoryResponse(inventario = products.toList())
+            DistributorInventoryResponse(
+                inventario = products.toList(),
+                distribuidor = estado?.let { InventoryOwner(estadoVerificacion = it) }
+            )
         )
     }
 
