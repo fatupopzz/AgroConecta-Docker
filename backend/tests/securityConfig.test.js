@@ -90,3 +90,22 @@ test("docker compose persists uploads and keeps redis off the host", () => {
   assert.doesNotMatch(redisService, /^\s+ports:/m);
   assert.doesNotMatch(compose, /6379:6379/);
 });
+
+test("caddy only runs with the https profile and proxies to the backend", () => {
+  const compose = fs.readFileSync(
+    path.join(repositoryRoot, "docker-compose.yml"),
+    "utf8",
+  );
+  const caddyfile = fs.readFileSync(
+    path.join(repositoryRoot, "caddy", "Caddyfile"),
+    "utf8",
+  );
+  const caddyService = compose.match(/^  caddy:\n([\s\S]*?)(?=^  \S)/m)?.[1] ?? "";
+
+  // Sin el perfil, cualquiera que levante el proyecto en local perdería los
+  // puertos 80 y 443 por un proxy que no tiene dominio que certificar.
+  assert.match(caddyService, /profiles: \["https"\]/);
+  assert.match(caddyService, /- caddy_data:\/data/);
+  assert.match(caddyfile, /\{\$AGROCONECTA_DOMAIN:localhost\}/);
+  assert.match(caddyfile, /reverse_proxy backend:8080/);
+});

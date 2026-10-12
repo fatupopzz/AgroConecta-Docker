@@ -75,6 +75,32 @@ services:
     networks:
       - agroconecta_net
 
+  # Solo arranca con el perfil "https" (COMPOSE_PROFILES=https en el .env de
+  # la VM). En una máquina de desarrollo no hay dominio que certificar y
+  # tomaría los puertos 80 y 443 sin necesidad.
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: agroconecta_caddy
+    restart: unless-stopped
+    profiles: ["https"]
+    environment:
+      AGROCONECTA_DOMAIN: ${AGROCONECTA_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Aquí quedan los certificados emitidos. Sin volumen, cada recreación
+      # del contenedor pediría uno nuevo y se toparía con el límite semanal
+      # de Let's Encrypt.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    networks:
+      - agroconecta_net
+
   frontend:
     build:
       context: ./frontend
@@ -107,6 +133,10 @@ volumes:
   redis_data:
     driver: local
   uploads_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
     driver: local
 
 networks:
