@@ -7,8 +7,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Las mismas reglas que valida el backend en POST /api/products/:id/image.
- * Se repiten aquí para avisar al elegir la foto, antes de crear el producto,
- * y no cuando ya quedó publicado sin imagen.
+ * Se aplican al elegir la foto, antes de crear el producto, para no enterarse
+ * del problema cuando ya quedó publicado sin imagen.
  */
 object ProductImageRules {
     const val MAX_BYTES: Int = 5 * 1024 * 1024
@@ -19,9 +19,8 @@ object ProductImageRules {
         "image/webp" to "webp"
     )
 
-    const val INVALID_FORMAT_MESSAGE = "Formato no permitido. Usa una foto JPEG, PNG o WEBP"
     const val TOO_LARGE_MESSAGE = "La imagen supera el máximo de 5 MB"
-    const val UNREADABLE_MESSAGE = "No se pudo leer la imagen seleccionada"
+    const val UNREADABLE_MESSAGE = "No se pudo usar esa imagen. Prueba con otra foto"
 
     /**
      * Motivo legible de un rechazo de POST /products/:id/image. Lo usan publicar

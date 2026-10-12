@@ -246,7 +246,7 @@ class PublishProductViewModelTest {
         runTest(mainDispatcherRule.testDispatcher) {
             val uri = mockk<Uri>()
             coEvery { imageReader.read(uri) } returns
-                ProductImageReadResult.Invalid(ProductImageRules.INVALID_FORMAT_MESSAGE)
+                ProductImageReadResult.Invalid(ProductImageRules.UNREADABLE_MESSAGE)
             viewModel.onImageSelected(uri)
             advanceUntilIdle()
 

@@ -341,7 +341,7 @@ private fun ProductImagePicker(
                         color = GrayMid
                     )
                     Text(
-                        "JPEG, PNG o WEBP, hasta 5 MB",
+                        "Se ajusta el tamaño automáticamente",
                         style = MaterialTheme.typography.bodySmall,
                         color = GrayMid
                     )
