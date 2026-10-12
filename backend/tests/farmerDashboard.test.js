@@ -94,8 +94,14 @@ describe("GET /api/users/dashboard", () => {
       })
       .mockResolvedValueOnce({
         rows: [
-          { id_producto: 2, nombre: "Fertilizante", cantidad: 10, total_gastado: "900.00" },
-          { id_producto: 5, nombre: "Semilla", cantidad: 6, total_gastado: "675.50" },
+          {
+            id_producto: 2,
+            nombre: "Fertilizante",
+            imagen_url: "/uploads/productos/fertilizante.jpg",
+            cantidad: 10,
+            total_gastado: "900.00",
+          },
+          { id_producto: 5, nombre: "Semilla", imagen_url: null, cantidad: 6, total_gastado: "675.50" },
         ],
       })
       .mockResolvedValueOnce({
@@ -122,8 +128,14 @@ describe("GET /api/users/dashboard", () => {
         { mes: "2026-09", total: 325.25 },
       ],
       productosMasComprados: [
-        { idProducto: 2, nombre: "Fertilizante", cantidad: 10, totalGastado: 900 },
-        { idProducto: 5, nombre: "Semilla", cantidad: 6, totalGastado: 675.5 },
+        {
+          idProducto: 2,
+          nombre: "Fertilizante",
+          imagenUrl: "/uploads/productos/fertilizante.jpg",
+          cantidad: 10,
+          totalGastado: 900,
+        },
+        { idProducto: 5, nombre: "Semilla", imagenUrl: null, cantidad: 6, totalGastado: 675.5 },
       ],
       ultimoPedido: {
         id: 44,

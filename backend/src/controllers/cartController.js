@@ -21,6 +21,7 @@ const getCart = async (req, res) => {
                 'subtotal', ic.cantidad * i.precio,
                 'producto', p.nombre,
                 'marca', p.marca,
+                'imagen_url', p.imagen_url,
                 'distribuidor', d.nombre_negocio,
                 'stock_disponible', i.stock_disponible,
                 'unidad_medida', i.unidad_medida

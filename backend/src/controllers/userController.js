@@ -196,6 +196,7 @@ const getFarmerDashboard = async (req, res) => {
         `SELECT
            pr.id_producto,
            pr.nombre,
+           pr.imagen_url,
            SUM(dp.cantidad)::int AS cantidad,
            COALESCE(SUM(dp.subtotal), 0) AS total_gastado
          FROM pedido pe
@@ -204,7 +205,7 @@ const getFarmerDashboard = async (req, res) => {
          JOIN producto pr ON pr.id_producto = i.id_producto
          WHERE pe.id_agricultor = $1
            AND pe.estado <> $2
-         GROUP BY pr.id_producto, pr.nombre
+         GROUP BY pr.id_producto, pr.nombre, pr.imagen_url
          ORDER BY cantidad DESC, total_gastado DESC, pr.nombre ASC
          LIMIT 5`,
         [farmerId, canceledState]
@@ -239,6 +240,7 @@ const getFarmerDashboard = async (req, res) => {
     productosMasComprados: topProductsResult.rows.map((row) => ({
       idProducto: Number(row.id_producto),
       nombre: row.nombre,
+      imagenUrl: row.imagen_url ?? null,
       cantidad: Number(row.cantidad),
       totalGastado: Number(row.total_gastado),
     })),

@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS producto (
     dosis_recomendada   TEXT,
     instrucciones_uso   TEXT,
     calificacion_promedio DECIMAL(3,2) DEFAULT 0.0,
-    activo              BOOLEAN DEFAULT TRUE
+    activo              BOOLEAN DEFAULT TRUE,
+    imagen_url          VARCHAR(255)
 );
 
 

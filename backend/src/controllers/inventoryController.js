@@ -40,6 +40,7 @@ const getDistributorInventory = async (req, res) => {
             i.id_producto,
             p.nombre AS producto,
             p.marca,
+            p.imagen_url,
             c.nombre AS categoria,
             i.precio,
             i.stock_disponible,
