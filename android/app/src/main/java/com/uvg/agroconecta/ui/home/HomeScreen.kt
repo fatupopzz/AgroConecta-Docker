@@ -42,7 +42,9 @@ import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.CropPhase
 import com.uvg.agroconecta.data.models.Distributor
-import com.uvg.agroconecta.data.models.DistributorNotification
+import com.uvg.agroconecta.ui.notifications.PriceNotificationState
+import com.uvg.agroconecta.ui.notifications.priceNotificationText
+import com.uvg.agroconecta.data.models.AppNotification
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
@@ -87,8 +89,12 @@ fun HomeScreen(
     onDistribuidorClick: (Int) -> Unit,
     tipoUsuario: String = "agricultor",
     cartItemCount: Int = 0,
-    urgentNotification: DistributorNotification? = null,
-    onUrgentNotificationClick: (DistributorNotification) -> Unit = {},
+    priceNotifications: PriceNotificationState = PriceNotificationState(),
+    onPriceNotificationClick: (AppNotification) -> Unit = {},
+    onPriceNotificationRead: (AppNotification) -> Unit = {},
+    onRetryPriceNotifications: () -> Unit = {},
+    urgentNotification: AppNotification? = null,
+    onUrgentNotificationClick: (AppNotification) -> Unit = {},
     onRecommendedProductClick: (String) -> Unit = {},
     onPestAlertsClick: () -> Unit = {},
     favoriteIds: Set<Int> = emptySet(),
@@ -181,6 +187,27 @@ fun HomeScreen(
             if (uiState.isOffline) {
                 item(key = "offline-indicator") {
                     OfflineModeIndicator()
+                }
+            }
+            if (tipoUsuario == "agricultor") {
+                if (priceNotifications.isLoading) item(key = "price-loading") {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                }
+                priceNotifications.error?.let { error ->
+                    item(key = "price-error") {
+                        Column(Modifier.padding(horizontal = 16.dp)) {
+                            Text(error, color = MaterialTheme.colorScheme.error)
+                            TextButton(onClick = onRetryPriceNotifications) { Text("Reintentar alertas") }
+                        }
+                    }
+                }
+                priceNotifications.notifications.forEach { notification ->
+                    item(key = "price-${notification.id}") {
+                        PriceDropNotificationAlert(notification,
+                            reading = notification.id in priceNotifications.readingIds,
+                            onClick = { onPriceNotificationClick(notification) },
+                            onRead = { onPriceNotificationRead(notification) })
+                    }
                 }
             }
             if (tipoUsuario == "distribuidor") {
@@ -508,7 +535,7 @@ private fun CropCycleInfoCardPreview() {
 
 @Composable
 private fun UrgentOrderNotificationAlert(
-    notification: DistributorNotification,
+    notification: AppNotification,
     onClick: () -> Unit
 ) {
     val content = notification.contenido
@@ -1126,3 +1153,26 @@ internal fun formatDistributorDistanceKm(distanceKm: Double?): String? =
     distanceKm
         ?.takeIf { it.isFinite() && it >= 0.0 }
         ?.let { String.format(Locale.US, "%.1f km", it) }
+
+@Composable
+internal fun PriceDropNotificationAlert(
+    notification: AppNotification,
+    reading: Boolean,
+    onClick: () -> Unit,
+    onRead: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("¡Bajó de precio!", fontWeight = FontWeight.Bold)
+            Text(notification.contenido.producto.orEmpty(), style = MaterialTheme.typography.titleMedium)
+            Text(priceNotificationText(notification))
+            Text("Toca para ver el producto", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = onRead, enabled = !reading) {
+                Text(if (reading) "Marcando…" else "Marcar como leída")
+            }
+        }
+    }
+}

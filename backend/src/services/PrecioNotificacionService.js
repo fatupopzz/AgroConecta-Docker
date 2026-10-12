@@ -1,6 +1,7 @@
 const { NOTIFICATION_TYPES } = require("../constants/notificationTypes");
 const { NotificacionService } = require("./NotificacionService");
 const ProductoSeguidoRepository = require("../repositories/ProductoSeguidoRepository");
+const CompraFrecuenteRepository = require("../repositories/CompraFrecuenteRepository");
 const AppError = require("../errors/AppError");
 
 class PrecioNotificacionServiceError extends AppError {
@@ -57,7 +58,8 @@ const createNotificationsWithLimit = async (
   productoId,
   previousPrice,
   newPrice,
-  porcentajeDescuento
+  porcentajeDescuento,
+  product
 ) => {
   const results = [];
 
@@ -70,7 +72,8 @@ const createNotificationsWithLimit = async (
           productoId,
           previousPrice,
           newPrice,
-          porcentajeDescuento
+          porcentajeDescuento,
+          product
         )
       )
     );
@@ -86,10 +89,12 @@ const createNotificationsWithLimit = async (
 class PrecioNotificacionService {
   constructor(
     productoSeguidoRepository = new ProductoSeguidoRepository(),
-    notificacionService = new NotificacionService()
+    notificacionService = new NotificacionService(),
+    compraFrecuenteRepository = new CompraFrecuenteRepository()
   ) {
     this.productoSeguidoRepository = productoSeguidoRepository;
     this.notificacionService = notificacionService;
+    this.compraFrecuenteRepository = compraFrecuenteRepository;
   }
 
   async verificarYNotificarBajaDePrecio(idProducto, precioAnterior, precioNuevo) {
@@ -110,7 +115,15 @@ class PrecioNotificacionService {
       };
     }
 
-    const seguidores = await this.productoSeguidoRepository.findByIdProducto(productoId);
+    // Una consulta de producto por cambio, no por destinatario.
+    const product = await this.notificacionService.getProduct(productoId);
+    const [manuales, frecuentes] = await Promise.all([
+      this.productoSeguidoRepository.findByIdProducto(productoId),
+      this.compraFrecuenteRepository.findByIdProducto(productoId),
+    ]);
+    const seguidores = [...new Map([...manuales, ...frecuentes].map(
+      destinatario => [Number(destinatario.idAgricultor), destinatario]
+    )).values()];
     const porcentajeDescuento = calculateDiscountPercentage(previousPrice, newPrice);
     const notificationResults = await createNotificationsWithLimit(
       seguidores,
@@ -118,7 +131,8 @@ class PrecioNotificacionService {
       productoId,
       previousPrice,
       newPrice,
-      porcentajeDescuento
+      porcentajeDescuento,
+      product
     );
 
     const notificacionesCreadas = [];
@@ -132,12 +146,12 @@ class PrecioNotificacionService {
 
       notificacionesFallidas.push({
         id_agricultor: seguimiento.idAgricultor,
-        error: result.reason?.message || "Error al crear notificación",
+        error: "Error al crear notificación",
       });
       console.error("Error al crear notificación de baja de precio:", {
         id_agricultor: seguimiento.idAgricultor,
         id_producto: productoId,
-        error: result.reason,
+        error: "Error al persistir notificación",
       });
     });
 

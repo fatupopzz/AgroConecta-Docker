@@ -216,12 +216,12 @@ interface ApiService {
         @Body request: SendAdviceMessageRequest
     ): Response<AdviceMessage>
 
-    // ── Distributor notifications ─────────────────────────────────────────
+    // ── Notifications ─────────────────────────────────────────
     @GET("notifications")
-    suspend fun getDistributorNotifications(): Response<List<DistributorNotification>>
+    suspend fun getNotifications(): Response<List<AppNotification>>
 
     @PATCH("notifications/{id}/read")
-    suspend fun markDistributorNotificationAsRead(
+    suspend fun markNotificationAsRead(
         @Path("id") notificationId: Int
     ): Response<Map<String, String>>
 

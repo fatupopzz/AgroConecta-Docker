@@ -380,24 +380,29 @@ data class SendAdviceMessageRequest(
     val mensaje: String
 )
 
-// ─── Distributor notifications ───────────────────────────────────────────────
+// ─── Notifications ───────────────────────────────────────────────
 
-data class DistributorNotification(
+data class AppNotification(
     @SerializedName("id_notificacion") val id: Int,
     val tipo: String,
-    val contenido: DistributorNotificationContent,
+    val contenido: NotificationContent,
     @SerializedName("id_pedido") val idPedido: Int? = null,
     val leida: Boolean = false,
     val fecha: String? = null
 )
 
-data class DistributorNotificationContent(
+data class NotificationContent(
     val mensaje: String? = null,
     val agricultor: String? = null,
     val monto: Double? = null,
     val pedido: Int? = null,
     val esUrgente: Boolean = false,
-    val tipoPlaga: String? = null
+    val tipoPlaga: String? = null,
+    @SerializedName("id_producto") val idProducto: Int? = null,
+    val producto: String? = null,
+    @SerializedName("precio_anterior") val precioAnterior: Double? = null,
+    @SerializedName("precio_nuevo") val precioNuevo: Double? = null,
+    @SerializedName("porcentaje_descuento") val porcentajeDescuento: Double? = null
 )
 
 // ─── Publish Product (KAN-53) ─────────────────────────────────────────────

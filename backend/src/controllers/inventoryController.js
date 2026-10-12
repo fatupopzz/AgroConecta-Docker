@@ -12,7 +12,7 @@ const notifyPriceDropSafely = async (idProducto, precioAnterior, precioNuevo) =>
       precioNuevo
     );
   } catch (error) {
-    console.error("Error al generar notificaciones de baja de precio:", error);
+    console.error("Error al generar notificaciones de baja de precio", { id_producto: idProducto });
   }
 };
 
@@ -121,20 +121,45 @@ const createInventory = async (req, res) => {
     return res.status(404).json({ error: "Producto no encontrado" });
   }
 
-  // Upsert — si ya tiene ese producto en inventario, actualiza
-  const result = await pool.query(
-    `INSERT INTO inventario_distribuidor
- (id_distribuidor, id_producto, precio, stock_disponible, unidad_medida,tiempo_entrega_dias)
- VALUES ($1, $2, $3, $4, $5, $6)
- ON CONFLICT (id_distribuidor, id_producto)
- DO UPDATE SET
- precio = EXCLUDED.precio,
- stock_disponible = EXCLUDED.stock_disponible,
- unidad_medida = COALESCE(EXCLUDED.unidad_medida, inventario_distribuidor.unidad_medida),
- ultima_actualizacion = NOW()
- RETURNING *`,
-[id_distribuidor, Number(id_producto), precioNum, stockNum, unidad_medida?.trim() || null, tiempo_entrega_dias !== undefined ? Number(tiempo_entrega_dias) : null]
-  );
+  const client = await pool.connect();
+  let result;
+  let previousPrice;
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT id_distribuidor FROM distribuidor WHERE id_distribuidor = $1 FOR UPDATE", [id_distribuidor]);
+    const previous = await client.query(
+      "SELECT precio FROM inventario_distribuidor WHERE id_distribuidor = $1 AND id_producto = $2 FOR UPDATE",
+      [id_distribuidor, Number(id_producto)]
+    );
+    previousPrice = Number(previous.rows[0]?.precio);
+    // Upsert: conservar el precio anterior del mismo inventario bajo bloqueo.
+    result = await client.query(
+      `INSERT INTO inventario_distribuidor
+         (id_distribuidor, id_producto, precio, stock_disponible, unidad_medida, tiempo_entrega_dias)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (id_distribuidor, id_producto)
+       DO UPDATE SET
+         precio = EXCLUDED.precio,
+         stock_disponible = EXCLUDED.stock_disponible,
+         unidad_medida = COALESCE(EXCLUDED.unidad_medida, inventario_distribuidor.unidad_medida),
+         ultima_actualizacion = NOW()
+       RETURNING *`,
+      [id_distribuidor, Number(id_producto), precioNum, stockNum,
+        unidad_medida?.trim() || null,
+        tiempo_entrega_dias !== undefined ? Number(tiempo_entrega_dias) : null]
+    );
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+  const newPrice = Number(result.rows[0].precio);
+  if (newPrice < previousPrice && Number(result.rows[0].stock_disponible) > 0) {
+    await notifyPriceDropSafely(Number(id_producto), previousPrice, newPrice);
+  }
 
   return res.status(201).json({
     message: "Inventario publicado correctamente",
@@ -266,11 +291,14 @@ const updateInventory = async (req, res) => {
 
     await client.query("COMMIT");
     transactionStarted = false;
+    // Las consultas de notificaciones usan el pool después de liberar el bloqueo.
+    client.release();
+    client = null;
 
     const previousPrice = Number(previousInventory.rows[0].precio);
     const newPrice = Number(result.rows[0].precio);
 
-    if (newPrice < previousPrice) {
+    if (newPrice < previousPrice && Number(result.rows[0].stock_disponible) > 0) {
       await notifyPriceDropSafely(
         Number(result.rows[0].id_producto),
         previousPrice,
