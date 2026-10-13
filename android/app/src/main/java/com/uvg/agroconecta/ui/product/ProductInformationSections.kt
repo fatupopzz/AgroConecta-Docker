@@ -252,6 +252,7 @@ internal fun ProductImageGallery(product: ProductDetail) {
     ProductImage(
         imagenUrl = product.imagenUrl,
         contentDescription = "Foto de ${product.nombre}",
+        categoria = product.categoria,
         iconSize = 56.dp,
         modifier = Modifier
             .fillMaxWidth()

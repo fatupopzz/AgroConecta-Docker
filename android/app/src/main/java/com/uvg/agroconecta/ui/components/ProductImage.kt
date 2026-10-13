@@ -22,8 +22,9 @@ import com.uvg.agroconecta.data.api.ProductImageUrl
 import com.uvg.agroconecta.ui.theme.GreenPrimary
 
 /**
- * Foto de un producto con sus dos respaldos: un ícono tenue mientras Coil la
- * descarga y la hoja de siempre si el producto no tiene foto o la descarga falla.
+ * Foto de un producto con sus respaldos: si no tiene foto propia se usa la de
+ * su categoría ([CategoryImages]); mientras Coil carga se ve un ícono tenue, y si
+ * no hay ninguna de las dos (o falla) queda la hoja de siempre.
  *
  * Los respaldos se dibujan encima del AsyncImage en vez de usar sus parámetros
  * placeholder/error porque esos heredan el ContentScale.Crop de la foto y el
@@ -37,9 +38,12 @@ fun ProductImage(
     imagenUrl: String?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
+    categoria: String? = null,
     iconSize: Dp = 40.dp
 ) {
-    val url = remember(imagenUrl) { ProductImageUrl.resolve(imagenUrl) }
+    val url = remember(imagenUrl, categoria) {
+        ProductImageUrl.resolve(imagenUrl) ?: CategoryImages.assetUriFor(categoria)
+    }
     var painterState by remember(url) {
         mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty)
     }

@@ -892,6 +892,7 @@ fun ProductCard(
                 ProductImage(
                     imagenUrl = producto.imagenUrl,
                     contentDescription = null,
+                    categoria = producto.categoria,
                     modifier = Modifier.matchParentSize()
                 )
                 if (!tieneStock) {
