@@ -16,6 +16,7 @@ internal object CategoryImages {
         "fertilizantes",
         "pesticidas",
         "herbicidas",
+        "fungicidas",
         "semillas",
         "herramientas"
     )

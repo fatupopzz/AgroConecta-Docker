@@ -16,6 +16,10 @@ class CategoryImagesTest {
             "file:///android_asset/categorias/herramientas.jpg",
             CategoryImages.assetUriFor("Herramientas")
         )
+        assertEquals(
+            "file:///android_asset/categorias/fungicidas.jpg",
+            CategoryImages.assetUriFor("Fungicidas")
+        )
     }
 
     @Test
