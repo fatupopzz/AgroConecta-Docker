@@ -178,6 +178,7 @@ private fun MyProductCard(
                 ProductImage(
                     imagenUrl = product.imagenUrl,
                     contentDescription = null,
+                    categoria = product.categoria,
                     iconSize = 32.dp,
                     modifier = Modifier
                         .size(76.dp)
