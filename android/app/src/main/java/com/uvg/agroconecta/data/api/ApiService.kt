@@ -246,6 +246,12 @@ interface ApiService {
         @Body request: CreateInventoryRequest
     ): Response<Map<String, Any>>
 
+    @PUT("inventory/{id}")
+    suspend fun updateInventory(
+        @Path("id") inventoryId: Int,
+        @Body request: UpdateInventoryRequest
+    ): Response<UpdateInventoryResponse>
+
     // ── Products (distribuidor) ───────────────────────────────────────────────
     @POST("products")
     suspend fun createProduct(

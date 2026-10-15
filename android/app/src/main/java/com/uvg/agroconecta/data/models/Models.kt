@@ -472,6 +472,23 @@ data class CreateInventoryRequest(
     @SerializedName("tiempo_entrega_dias") val tiempoEntrega: Int?
 )
 
+data class UpdatedInventory(
+    @SerializedName("id_inventario") val idInventario: Int,
+    @SerializedName("id_producto") val idProducto: Int,
+    val precio: Double,
+    @SerializedName("stock_disponible") val stock: Int
+)
+
+data class UpdateInventoryRequest(
+    val precio: Double,
+    @SerializedName("stock_disponible") val stock: Int
+)
+
+data class UpdateInventoryResponse(
+    val message: String,
+    val inventario: UpdatedInventory
+)
+
 // ─── Distributor Stats (HU-032) ─────────────────────────────────────────────
 
 data class DistributorStatsResponse(
