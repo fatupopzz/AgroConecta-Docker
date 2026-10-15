@@ -41,6 +41,10 @@ class FormValidatorsTest {
     fun `positiveNumber requiere un decimal mayor que cero`() {
         assertEquals("Número inválido", FormValidators.positiveNumber("0", "Número inválido"))
         assertEquals("Número inválido", FormValidators.positiveNumber("texto", "Número inválido"))
+        assertEquals(
+            "Número inválido",
+            FormValidators.positiveNumber("Infinity", "Número inválido")
+        )
         assertNull(FormValidators.positiveNumber("1.5", "Número inválido"))
     }
 
