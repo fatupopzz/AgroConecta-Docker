@@ -18,13 +18,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
-import com.uvg.agroconecta.data.api.ProductImageUrl
 import com.uvg.agroconecta.ui.theme.GreenPrimary
 
 /**
  * Foto de un producto con sus respaldos: si no tiene foto propia se usa la de
  * su categoría ([CategoryImages]); mientras Coil carga se ve un ícono tenue, y si
- * no hay ninguna de las dos (o falla) queda la hoja de siempre.
+ * no hay ninguna de las dos (o falla) queda la hoja de siempre. Las tarjetas
+ * pasan además [imagenThumbUrl]; ver [ProductImageSource].
  *
  * Los respaldos se dibujan encima del AsyncImage en vez de usar sus parámetros
  * placeholder/error porque esos heredan el ContentScale.Crop de la foto y el
@@ -39,10 +39,11 @@ fun ProductImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     categoria: String? = null,
-    iconSize: Dp = 40.dp
+    iconSize: Dp = 40.dp,
+    imagenThumbUrl: String? = null
 ) {
-    val url = remember(imagenUrl, categoria) {
-        ProductImageUrl.resolve(imagenUrl) ?: CategoryImages.assetUriFor(categoria)
+    val url = remember(imagenThumbUrl, imagenUrl, categoria) {
+        ProductImageSource.pick(imagenThumbUrl, imagenUrl, categoria)
     }
     var painterState by remember(url) {
         mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty)

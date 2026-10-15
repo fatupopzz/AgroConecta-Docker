@@ -22,6 +22,7 @@ const getCart = async (req, res) => {
                 'producto', p.nombre,
                 'marca', p.marca,
                 'imagen_url', p.imagen_url,
+                'imagen_thumb_url', p.imagen_thumb_url,
                 'distribuidor', d.nombre_negocio,
                 'stock_disponible', i.stock_disponible,
                 'unidad_medida', i.unidad_medida

@@ -13,5 +13,6 @@ data class ProductCacheEntity(
     val timestamp: Long,
     // Se cachea para que el catálogo offline siga mostrando las fotos que Coil
     // ya tiene en disco; sin la ruta no habría forma de pedírselas.
-    val imagenUrl: String? = null
+    val imagenUrl: String? = null,
+    val imagenThumbUrl: String? = null
 )

@@ -32,7 +32,8 @@ data class CartItemUI(
     val cantidad: Int,
     val precio: Double,
     val subtotal: Double,
-    val imagenUrl: String? = null
+    val imagenUrl: String? = null,
+    val imagenThumbUrl: String? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -192,6 +193,7 @@ fun CartScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     ProductImage(
                                         imagenUrl = item.imagenUrl,
+                                        imagenThumbUrl = item.imagenThumbUrl,
                                         contentDescription = null,
                                         iconSize = 28.dp,
                                         modifier = Modifier

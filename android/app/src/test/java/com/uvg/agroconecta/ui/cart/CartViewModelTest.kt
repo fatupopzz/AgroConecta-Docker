@@ -89,6 +89,34 @@ class CartViewModelTest {
         }
 
     @Test
+    fun `loadCart conserva la miniatura y la foto grande de cada item`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            coEvery { api.getCart(7) } returns Response.success(
+                CartResponse(
+                    idCarrito = 4,
+                    items = listOf(
+                        cartItem(idItem = 1, idInventario = 8, precioUnitario = 5.0, cantidad = 1, subtotal = 5.0)
+                            .copy(
+                                imagenUrl = "/uploads/productos/a.jpg",
+                                imagenThumbUrl = "/uploads/productos/thumbs/a.webp"
+                            ),
+                        cartItem(idItem = 2, idInventario = 9, precioUnitario = 5.0, cantidad = 1, subtotal = 5.0)
+                    ),
+                    total = 10.0
+                )
+            )
+
+            viewModel.loadCart(7)
+            advanceUntilIdle()
+
+            val (conFoto, sinFoto) = viewModel.cartItems.value
+            assertEquals("/uploads/productos/thumbs/a.webp", conFoto.imagenThumbUrl)
+            assertEquals("/uploads/productos/a.jpg", conFoto.imagenUrl)
+            assertNull(sinFoto.imagenThumbUrl)
+            assertNull(sinFoto.imagenUrl)
+        }
+
+    @Test
     fun `increaseQuantity con item inexistente no cambia estado`() {
         val itemsAntes = viewModel.cartItems.value.size
         viewModel.increaseQuantity(999)

@@ -891,6 +891,7 @@ fun ProductCard(
                 // TalkBack lo anunciaría dos veces.
                 ProductImage(
                     imagenUrl = producto.imagenUrl,
+                    imagenThumbUrl = producto.imagenThumbUrl,
                     contentDescription = null,
                     categoria = producto.categoria,
                     modifier = Modifier.matchParentSize()

@@ -73,6 +73,7 @@ const createFavoriteController = (database = pool) => {
               p.instrucciones_uso,
               p.calificacion_promedio,
               p.imagen_url,
+              p.imagen_thumb_url,
               p.activo,
               c.nombre AS categoria,
               MIN(i.precio) FILTER (WHERE i.stock_disponible > 0) AS precio_desde,
@@ -95,6 +96,7 @@ const createFavoriteController = (database = pool) => {
                 p.instrucciones_uso,
                 p.calificacion_promedio,
                 p.imagen_url,
+                p.imagen_thumb_url,
                 p.activo,
                 c.nombre
        ORDER BY f.fecha_agregado DESC, f.id DESC`,

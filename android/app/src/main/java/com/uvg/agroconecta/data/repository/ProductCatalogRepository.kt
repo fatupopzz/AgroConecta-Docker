@@ -136,7 +136,8 @@ internal fun Product.toCacheEntity(timestamp: Long): ProductCacheEntity = Produc
     precio = precioDesde,
     descripcion = descripcion,
     timestamp = timestamp,
-    imagenUrl = imagenUrl
+    imagenUrl = imagenUrl,
+    imagenThumbUrl = imagenThumbUrl
 )
 
 internal fun ProductCacheEntity.toProduct(): Product = Product(
@@ -152,7 +153,8 @@ internal fun ProductCacheEntity.toProduct(): Product = Product(
     precioDesde = precio,
     numDistribuidores = null,
     activo = true,
-    imagenUrl = imagenUrl
+    imagenUrl = imagenUrl,
+    imagenThumbUrl = imagenThumbUrl
 )
 
 // El límite exacto (edad >= 24 h) ya está vencido. La fila no se elimina:

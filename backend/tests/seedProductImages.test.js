@@ -2,11 +2,13 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { installCommonJsMock } = require("./helpers/commonJsMocks");
+const { createTestImage } = require("./helpers/testImages");
 
 // Antes de cargar el script: config/uploads lee UPLOADS_DIR al importarse.
 const uploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), "agroconecta-seed-uploads-"));
 process.env.UPLOADS_DIR = uploadsDir;
 const productImagesDir = path.join(uploadsDir, "productos");
+const thumbsDir = path.join(productImagesDir, "thumbs");
 
 const pool = { query: vi.fn() };
 const cacheService = { invalidate: vi.fn(), get: vi.fn(), set: vi.fn() };
@@ -16,17 +18,18 @@ installCommonJsMock(require.resolve("../src/services/cacheService"), cacheServic
 
 const { seedProductImages } = require("../scripts/seed_product_images");
 
-const PNG = Buffer.concat([
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-  Buffer.alloc(32, 1),
-]);
-const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(32, 2)]);
+let PNG;
+let JPEG;
 
 let sourceDir;
 
 const writeSource = (name, content) => fs.writeFileSync(path.join(sourceDir, name), content);
-const storedImages = () =>
-  fs.existsSync(productImagesDir) ? fs.readdirSync(productImagesDir) : [];
+const filesIn = (dir) =>
+  fs.existsSync(dir)
+    ? fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name)
+    : [];
+const storedImages = () => filesIn(productImagesDir);
+const storedThumbs = () => filesIn(thumbsDir);
 const byFile = (results) => Object.fromEntries(results.map((result) => [result.fileName, result]));
 
 /**
@@ -40,11 +43,16 @@ const mockDatabase = () => {
       return { rows: activos.has(params[0]) ? [{ "?column?": 1 }] : [] };
     }
     if (sql.includes("SET imagen_url")) {
-      const [imagenUrl, id] = params;
+      const [imagenUrl, imagenThumbUrl, id] = params;
       if (!activos.has(id)) return { rowCount: 0, rows: [] };
       return {
         rowCount: 1,
-        rows: [{ id_producto: id, imagen_url: imagenUrl, imagen_anterior: anteriores[id] ?? null }],
+        rows: [{
+          id_producto: id,
+          imagen_url: imagenUrl,
+          imagen_thumb_url: imagenThumbUrl,
+          imagen_anterior: anteriores[id] ?? null,
+        }],
       };
     }
     throw new Error(`Consulta no esperada en el test: ${sql}`);
@@ -52,6 +60,11 @@ const mockDatabase = () => {
 };
 
 describe("seed_product_images", () => {
+  beforeAll(async () => {
+    PNG = await createTestImage({ format: "png" });
+    JPEG = await createTestImage({ format: "jpeg" });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     cacheService.invalidate.mockResolvedValue(true);
@@ -81,6 +94,10 @@ describe("seed_product_images", () => {
 
     const stored = storedImages().sort();
     expect(stored).toHaveLength(2);
+    // Cada foto cargada por el script también recibe su miniatura.
+    expect(storedThumbs().sort()).toEqual(
+      stored.map((name) => `${path.parse(name).name}.webp`).sort(),
+    );
     expect(fs.readFileSync(path.join(productImagesDir, path.basename(report["1.png"].imagenUrl))))
       .toEqual(PNG);
     expect(cacheService.invalidate).toHaveBeenCalledWith(["products"]);
@@ -96,6 +113,7 @@ describe("seed_product_images", () => {
 
     expect(storedImages()).not.toContain("vieja.jpg");
     expect(storedImages()).toHaveLength(1);
+    expect(storedThumbs()).toHaveLength(1);
   });
 
   test("guarda con la extensión del contenido real y no la del nombre", async () => {
@@ -162,6 +180,7 @@ describe("seed_product_images", () => {
 
     expect(results[0]).toMatchObject({ status: "error", reason: "conexión perdida" });
     expect(storedImages()).toEqual([]);
+    expect(storedThumbs()).toEqual([]);
     expect(cacheService.invalidate).not.toHaveBeenCalled();
   });
 });

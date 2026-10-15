@@ -117,7 +117,10 @@ data class Product(
     val activo: Boolean = true,
     // Ruta relativa (/uploads/productos/...); la URL completa la arma
     // ProductImageUrl con el host de Retrofit. Null si el producto no tiene foto.
-    @SerializedName("imagen_url") val imagenUrl: String? = null
+    @SerializedName("imagen_url") val imagenUrl: String? = null,
+    // Miniatura de 400 px para las tarjetas. Null en fotos anteriores a que el
+    // backend las generara; ahí las tarjetas caen a imagenUrl.
+    @SerializedName("imagen_thumb_url") val imagenThumbUrl: String? = null
 )
 
 data class ProductsResponse(
@@ -283,7 +286,8 @@ data class CartItem(
     val distribuidor: String,
     @SerializedName("stock_disponible") val stock: Int,
     @SerializedName("unidad_medida") val unidadMedida: String?,
-    @SerializedName("imagen_url") val imagenUrl: String? = null
+    @SerializedName("imagen_url") val imagenUrl: String? = null,
+    @SerializedName("imagen_thumb_url") val imagenThumbUrl: String? = null
 )
 
 data class AddItemRequest(

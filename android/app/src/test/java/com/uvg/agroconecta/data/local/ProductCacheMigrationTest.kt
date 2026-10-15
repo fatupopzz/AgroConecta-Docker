@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -43,10 +44,7 @@ class ProductCacheMigrationTest {
             db.version = 1
         }
 
-        val database = Room.databaseBuilder(context, AgroConectaDatabase::class.java, databaseName)
-            .addMigrations(MIGRATION_1_2)
-            .allowMainThreadQueries()
-            .build()
+        val database = openWithMigrations()
 
         try {
             assertEquals(
@@ -58,7 +56,8 @@ class ProductCacheMigrationTest {
                         precio = 42.5,
                         descripcion = "Desc",
                         timestamp = 1000L,
-                        imagenUrl = null
+                        imagenUrl = null,
+                        imagenThumbUrl = null
                     )
                 ),
                 database.productCacheDao().getAll()
@@ -67,4 +66,41 @@ class ProductCacheMigrationTest {
             database.close()
         }
     }
+
+    @Test
+    fun `migra la cache v2 conservando la foto y sin miniatura`() = runTest {
+        // Tabla de la versión 2: ya tenía imagenUrl pero no la miniatura.
+        val file = context.getDatabasePath(databaseName)
+        file.parentFile?.mkdirs()
+        SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `producto_cache` (`id` INTEGER NOT NULL, " +
+                    "`nombre` TEXT NOT NULL, `categoria` TEXT, `precio` REAL, " +
+                    "`descripcion` TEXT, `timestamp` INTEGER NOT NULL, `imagenUrl` TEXT, " +
+                    "PRIMARY KEY(`id`))"
+            )
+            db.execSQL(
+                "INSERT INTO producto_cache " +
+                    "(id, nombre, categoria, precio, descripcion, timestamp, imagenUrl) " +
+                    "VALUES (2, 'Semilla', 'Semillas', 10.0, NULL, 2000, '/uploads/productos/s.jpg')"
+            )
+            db.version = 2
+        }
+
+        val database = openWithMigrations()
+
+        try {
+            val cached = database.productCacheDao().getAll().single()
+            assertEquals("/uploads/productos/s.jpg", cached.imagenUrl)
+            assertNull(cached.imagenThumbUrl)
+        } finally {
+            database.close()
+        }
+    }
+
+    private fun openWithMigrations(): AgroConectaDatabase =
+        Room.databaseBuilder(context, AgroConectaDatabase::class.java, databaseName)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .allowMainThreadQueries()
+            .build()
 }
