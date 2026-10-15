@@ -2,12 +2,14 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { installCommonJsMock } = require("./helpers/commonJsMocks");
+const { createTestImage } = require("./helpers/testImages");
 
 // Debe quedar definido antes de cargar app.js: config/uploads lee la variable
 // al importarse y así las fotos de prueba no caen dentro del repositorio.
 const uploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), "agroconecta-uploads-"));
 process.env.UPLOADS_DIR = uploadsDir;
 const productImagesDir = path.join(uploadsDir, "productos");
+const thumbsDir = path.join(productImagesDir, "thumbs");
 
 const pool = { query: vi.fn() };
 const jwt = { verify: vi.fn() };
@@ -16,20 +18,35 @@ installCommonJsMock(require.resolve("../src/config/db"), { pool });
 installCommonJsMock(require.resolve("jsonwebtoken"), jwt);
 
 const request = require("supertest");
+const sharp = require("sharp");
 const app = require("../app");
 
-const PNG_BYTES = Buffer.concat([
+let PNG_BYTES;
+let JPEG_BYTES;
+// Firma de PNG válida pero sin una imagen detrás: pasa el chequeo de los
+// primeros bytes y solo se detecta al intentar decodificarla.
+const CORRUPT_PNG = Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
   Buffer.alloc(64, 1),
 ]);
-const JPEG_BYTES = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64, 2)]);
 const UUID_FILE = /^\/uploads\/productos\/[0-9a-f-]{36}\.(png|jpg|webp)$/;
+const UUID_THUMB = /^\/uploads\/productos\/thumbs\/[0-9a-f-]{36}\.webp$/;
+
+beforeAll(async () => {
+  PNG_BYTES = await createTestImage({ format: "png" });
+  JPEG_BYTES = await createTestImage({ format: "jpeg" });
+});
 
 const distributor = { id: 7, tipo: "distribuidor" };
 const admin = { id: 1, tipo: "administrador" };
 
-const storedImages = () =>
-  fs.existsSync(productImagesDir) ? fs.readdirSync(productImagesDir) : [];
+const filesIn = (dir) =>
+  fs.existsSync(dir)
+    ? fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name)
+    : [];
+const storedImages = () => filesIn(productImagesDir);
+const storedThumbs = () => filesIn(thumbsDir);
+const thumbNameOf = (imageUrl) => `${path.parse(imageUrl).name}.webp`;
 
 /**
  * Simula la base según la consulta en lugar de encadenar respuestas por orden,
@@ -40,6 +57,8 @@ const mockDatabase = ({
   verificado = true,
   existe = true,
   imagenAnterior = null,
+  sigueActivo = true,
+  falloAlGuardar = null,
 } = {}) => {
   pool.query.mockImplementation(async (sql, params) => {
     if (sql.includes("AS es_duenio")) {
@@ -48,9 +67,16 @@ const mockDatabase = ({
       };
     }
     if (sql.includes("SET imagen_url")) {
+      if (falloAlGuardar) throw falloAlGuardar;
+      if (!sigueActivo) return { rowCount: 0, rows: [] };
       return {
         rowCount: 1,
-        rows: [{ id_producto: params[1], imagen_url: params[0], imagen_anterior: imagenAnterior }],
+        rows: [{
+          id_producto: params[2],
+          imagen_url: params[0],
+          imagen_thumb_url: params[1],
+          imagen_anterior: imagenAnterior,
+        }],
       };
     }
     throw new Error(`Consulta no esperada en el test: ${sql}`);
@@ -98,13 +124,48 @@ describe("POST /api/products/:id/image", () => {
     expect(storedImages()).toEqual([fileName]);
     expect(fs.readFileSync(path.join(productImagesDir, fileName))).toEqual(PNG_BYTES);
 
+    const { imagen_url: imagenUrl, imagen_thumb_url: thumbUrl } = response.body.producto;
+    expect(thumbUrl).toMatch(UUID_THUMB);
+    // La miniatura comparte el uuid de la foto para poder encontrarla al borrar.
+    expect(path.basename(thumbUrl)).toBe(thumbNameOf(imagenUrl));
+    expect(storedThumbs()).toEqual([thumbNameOf(imagenUrl)]);
+
     const [, updateParams] = pool.query.mock.calls.find(([sql]) => sql.includes("SET imagen_url"));
-    expect(updateParams).toEqual([response.body.producto.imagen_url, 5]);
+    expect(updateParams).toEqual([imagenUrl, thumbUrl, 5]);
   });
 
-  test("borra la imagen anterior al reemplazarla", async () => {
-    fs.mkdirSync(productImagesDir, { recursive: true });
+  test("genera una miniatura WEBP de 400 px de ancho que conserva la proporción", async () => {
+    mockDatabase();
+    const photo = await createTestImage({ width: 1200, height: 900, format: "jpeg" });
+
+    const response = await uploadAs(distributor)
+      .attach("imagen", photo, { filename: "foto.jpg", contentType: "image/jpeg" });
+
+    expect(response.statusCode).toBe(200);
+    const thumbPath = path.join(thumbsDir, path.basename(response.body.producto.imagen_thumb_url));
+    const thumb = await sharp(thumbPath).metadata();
+    expect(thumb).toMatchObject({ format: "webp", width: 400, height: 300 });
+    // La foto grande se guarda intacta para el detalle del producto.
+    const original = path.join(productImagesDir, path.basename(response.body.producto.imagen_url));
+    expect(await sharp(original).metadata()).toMatchObject({ width: 1200, height: 900 });
+  });
+
+  test("no agranda las fotos que ya miden menos de 400 px", async () => {
+    mockDatabase();
+    const photo = await createTestImage({ width: 240, height: 180, format: "png" });
+
+    const response = await uploadAs(distributor)
+      .attach("imagen", photo, { filename: "chica.png", contentType: "image/png" });
+
+    expect(response.statusCode).toBe(200);
+    const thumbPath = path.join(thumbsDir, path.basename(response.body.producto.imagen_thumb_url));
+    expect(await sharp(thumbPath).metadata()).toMatchObject({ format: "webp", width: 240, height: 180 });
+  });
+
+  test("borra la imagen anterior y su miniatura al reemplazarla", async () => {
+    fs.mkdirSync(thumbsDir, { recursive: true });
     fs.writeFileSync(path.join(productImagesDir, "vieja.jpg"), JPEG_BYTES);
+    fs.writeFileSync(path.join(thumbsDir, "vieja.webp"), "miniatura vieja");
     mockDatabase({ imagenAnterior: "/uploads/productos/vieja.jpg" });
 
     const response = await uploadAs(distributor)
@@ -112,6 +173,44 @@ describe("POST /api/products/:id/image", () => {
 
     expect(response.statusCode).toBe(200);
     expect(storedImages()).toEqual([path.basename(response.body.producto.imagen_url)]);
+    expect(storedThumbs()).toEqual([path.basename(response.body.producto.imagen_thumb_url)]);
+  });
+
+  test("rechaza una imagen dañada aunque tenga la firma correcta y no deja archivos", async () => {
+    mockDatabase();
+
+    const response = await uploadAs(distributor)
+      .attach("imagen", CORRUPT_PNG, { filename: "rota.png", contentType: "image/png" });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toEqual({
+      error: "No se pudo procesar la imagen. Prueba con otra foto JPEG, PNG o WEBP",
+    });
+    expect(storedImages()).toEqual([]);
+    expect(storedThumbs()).toEqual([]);
+    expect(pool.query.mock.calls.some(([sql]) => sql.includes("SET imagen_url"))).toBe(false);
+  });
+
+  test("si falla la base al guardar no quedan ni la foto ni su miniatura", async () => {
+    mockDatabase({ falloAlGuardar: new Error("conexión perdida") });
+
+    const response = await uploadAs(distributor)
+      .attach("imagen", PNG_BYTES, { filename: "foto.png", contentType: "image/png" });
+
+    expect(response.statusCode).toBe(500);
+    expect(storedImages()).toEqual([]);
+    expect(storedThumbs()).toEqual([]);
+  });
+
+  test("si el producto se desactiva antes de guardar responde 404 y borra la miniatura", async () => {
+    mockDatabase({ sigueActivo: false });
+
+    const response = await uploadAs(distributor)
+      .attach("imagen", PNG_BYTES, { filename: "foto.png", contentType: "image/png" });
+
+    expect(response.statusCode).toBe(404);
+    expect(storedImages()).toEqual([]);
+    expect(storedThumbs()).toEqual([]);
   });
 
   test("no borra archivos fuera de uploads/productos aunque la base lo indique", async () => {
@@ -260,6 +359,7 @@ describe("lectura de imagen_url", () => {
     expect(response.statusCode).toBe(200);
     expect(response.body.products[0].imagen_url).toBe("/uploads/productos/a.png");
     expect(pool.query.mock.calls[1][0]).toMatch(/p\.imagen_url/);
+    expect(pool.query.mock.calls[1][0]).toMatch(/p\.imagen_thumb_url/);
   });
 
   test("GET /api/products/:id incluye imagen_url", async () => {

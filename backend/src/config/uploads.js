@@ -13,6 +13,15 @@ const PRODUCT_IMAGES_DIR = path.join(UPLOADS_DIR, "productos");
 // con el que app.js expone UPLOADS_DIR.
 const PRODUCT_IMAGES_PUBLIC_PATH = "/uploads/productos";
 
+// Las miniaturas viven junto a las fotos para que el mismo express.static de
+// /uploads las sirva sin configurar otra ruta.
+const PRODUCT_THUMBS_DIR = path.join(PRODUCT_IMAGES_DIR, "thumbs");
+const PRODUCT_THUMBS_PUBLIC_PATH = `${PRODUCT_IMAGES_PUBLIC_PATH}/thumbs`;
+
+// Suficiente para las tarjetas del catálogo en pantallas de alta densidad, y
+// mucho más liviano que la foto original de hasta 5 MB.
+const PRODUCT_THUMB_WIDTH = 400;
+
 const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 const PRODUCT_IMAGE_EXTENSIONS = {
@@ -25,6 +34,9 @@ module.exports = {
   UPLOADS_DIR,
   PRODUCT_IMAGES_DIR,
   PRODUCT_IMAGES_PUBLIC_PATH,
+  PRODUCT_THUMBS_DIR,
+  PRODUCT_THUMBS_PUBLIC_PATH,
+  PRODUCT_THUMB_WIDTH,
   PRODUCT_IMAGE_MAX_BYTES,
   PRODUCT_IMAGE_EXTENSIONS,
 };

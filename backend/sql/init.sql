@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS producto (
     instrucciones_uso   TEXT,
     calificacion_promedio DECIMAL(3,2) DEFAULT 0.0,
     activo              BOOLEAN DEFAULT TRUE,
-    imagen_url          VARCHAR(255)
+    imagen_url          VARCHAR(255),
+    imagen_thumb_url    VARCHAR(255)
 );
 
 

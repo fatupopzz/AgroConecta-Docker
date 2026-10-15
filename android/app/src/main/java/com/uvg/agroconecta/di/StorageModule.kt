@@ -10,6 +10,7 @@ import com.uvg.agroconecta.data.images.ContentResolverProductImageReader
 import com.uvg.agroconecta.data.images.ProductImageReader
 import com.uvg.agroconecta.data.local.AgroConectaDatabase
 import com.uvg.agroconecta.data.local.MIGRATION_1_2
+import com.uvg.agroconecta.data.local.MIGRATION_2_3
 import com.uvg.agroconecta.data.local.DataStoreFavoriteLocalDataSource
 import com.uvg.agroconecta.data.local.FavoriteLocalDataSource
 import com.uvg.agroconecta.data.local.ProductCacheDao
@@ -44,7 +45,7 @@ object StorageModule {
             AgroConectaDatabase::class.java,
             "agroconecta.db"
         )
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
 
     @Provides

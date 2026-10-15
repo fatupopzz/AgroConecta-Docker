@@ -3,6 +3,7 @@ const fs = require("node:fs/promises");
 const multer = require("multer");
 const { pool } = require("../config/db");
 const AppError = require("../errors/AppError");
+const { removeProductImageFiles } = require("../services/productImageService");
 const {
   PRODUCT_IMAGES_DIR,
   PRODUCT_IMAGE_MAX_BYTES,
@@ -117,19 +118,16 @@ const receiveProductImage = (req, res, next) => {
 
 /**
  * Si algo falla después de que multer escribió el archivo (firma inválida,
- * error de base de datos) la foto quedaría huérfana en el volumen. Este
- * manejador la borra y deja que el errorHandler central arme la respuesta.
+ * imagen que sharp no puede leer, error de base de datos) la foto y su
+ * miniatura quedarían huérfanas en el volumen. Este manejador las borra y deja
+ * que el errorHandler central arme la respuesta.
  */
 const discardUploadedImageOnError = (error, req, res, next) => {
-  if (!req.file?.path) {
+  if (!req.file?.filename) {
     next(error);
     return;
   }
-  fs.rm(req.file.path, { force: true })
-    .catch((rmError) => {
-      console.warn(`No se pudo borrar la imagen descartada ${req.file.path}: ${rmError.message}`);
-    })
-    .finally(() => next(error));
+  removeProductImageFiles(req.file.filename).finally(() => next(error));
 };
 
 module.exports = {
