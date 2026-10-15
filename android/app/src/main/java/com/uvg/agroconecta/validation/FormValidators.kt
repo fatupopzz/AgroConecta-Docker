@@ -22,7 +22,9 @@ object FormValidators {
         message.takeUnless { value == confirmation }
 
     fun positiveNumber(value: String, message: String): String? =
-        message.takeUnless { value.toDoubleOrNull()?.let { it > 0 } == true }
+        message.takeUnless {
+            value.toDoubleOrNull()?.let { it.isFinite() && it > 0 } == true
+        }
 
     fun nonNegativeInteger(value: String, message: String): String? =
         message.takeUnless { value.toIntOrNull()?.let { it >= 0 } == true }
