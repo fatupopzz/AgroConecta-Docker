@@ -18,7 +18,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 const val UNVERIFIED_ACCOUNT_MESSAGE =
-    "Tu cuenta aún no está verificada. Podrás cambiar las fotos cuando un administrador la apruebe."
+    "Tu cuenta aún no está verificada. Podrás cambiar fotos, precio y stock cuando un administrador la apruebe."
+
+data class InventoryEditorState(
+    val inventoryId: Int,
+    val productName: String,
+    val price: String,
+    val stock: String
+)
 
 data class MyProductsUiState(
     val products: List<InventoryProduct> = emptyList(),
@@ -33,6 +40,7 @@ data class MyProductsUiState(
     // picker está abierto (por ejemplo, al girar el teléfono).
     val pendingPhotoProductId: Int? = null,
     val uploadingProductId: Int? = null,
+    val inventoryEditor: InventoryEditorState? = null,
     val message: String? = null
 )
 
@@ -92,6 +100,40 @@ class MyProductsViewModel @Inject constructor(
         }
         _uiState.update { it.copy(pendingPhotoProductId = productId) }
         return true
+    }
+
+    fun onEditInventoryClick(product: InventoryProduct): Boolean {
+        if (!_uiState.value.isVerified) {
+            _uiState.update { it.copy(message = UNVERIFIED_ACCOUNT_MESSAGE) }
+            return false
+        }
+        _uiState.update {
+            it.copy(
+                inventoryEditor = InventoryEditorState(
+                    inventoryId = product.idInventario,
+                    productName = product.producto,
+                    price = product.precio.toString(),
+                    stock = product.stock.toString()
+                )
+            )
+        }
+        return true
+    }
+
+    fun onInventoryPriceChange(value: String) {
+        _uiState.update { state ->
+            state.copy(inventoryEditor = state.inventoryEditor?.copy(price = value))
+        }
+    }
+
+    fun onInventoryStockChange(value: String) {
+        _uiState.update { state ->
+            state.copy(inventoryEditor = state.inventoryEditor?.copy(stock = value))
+        }
+    }
+
+    fun dismissInventoryEditor() {
+        _uiState.update { it.copy(inventoryEditor = null) }
     }
 
     /**
