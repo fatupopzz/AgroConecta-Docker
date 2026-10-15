@@ -8,6 +8,8 @@ import com.uvg.agroconecta.data.images.ProductImageReadResult
 import com.uvg.agroconecta.data.images.ProductImageReader
 import com.uvg.agroconecta.data.images.ProductImageRules
 import com.uvg.agroconecta.data.models.InventoryProduct
+import com.uvg.agroconecta.data.models.UpdateInventoryRequest
+import com.uvg.agroconecta.validation.InventoryEditFormValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +26,9 @@ data class InventoryEditorState(
     val inventoryId: Int,
     val productName: String,
     val price: String,
-    val stock: String
+    val stock: String,
+    val isSaving: Boolean = false,
+    val error: String? = null
 )
 
 data class MyProductsUiState(
@@ -122,18 +126,96 @@ class MyProductsViewModel @Inject constructor(
 
     fun onInventoryPriceChange(value: String) {
         _uiState.update { state ->
-            state.copy(inventoryEditor = state.inventoryEditor?.copy(price = value))
+            val editor = state.inventoryEditor
+            if (editor == null || editor.isSaving) state else {
+                state.copy(inventoryEditor = editor.copy(price = value, error = null))
+            }
         }
     }
 
     fun onInventoryStockChange(value: String) {
         _uiState.update { state ->
-            state.copy(inventoryEditor = state.inventoryEditor?.copy(stock = value))
+            val editor = state.inventoryEditor
+            if (editor == null || editor.isSaving) state else {
+                state.copy(inventoryEditor = editor.copy(stock = value, error = null))
+            }
         }
     }
 
     fun dismissInventoryEditor() {
-        _uiState.update { it.copy(inventoryEditor = null) }
+        _uiState.update { state ->
+            if (state.inventoryEditor?.isSaving == true) state else {
+                state.copy(inventoryEditor = null)
+            }
+        }
+    }
+
+    fun saveInventoryChanges() {
+        val editor = _uiState.value.inventoryEditor ?: return
+        if (editor.isSaving) return
+
+        val validationError = InventoryEditFormValidator.errorFor(editor.price, editor.stock)
+        if (validationError != null) {
+            updateInventoryEditor { it.copy(error = validationError) }
+            return
+        }
+
+        val price = checkNotNull(InventoryEditFormValidator.priceValue(editor.price))
+        val stock = checkNotNull(InventoryEditFormValidator.stockValue(editor.stock))
+        updateInventoryEditor { it.copy(isSaving = true, error = null) }
+
+        viewModelScope.launch {
+            try {
+                val response = api.updateInventory(
+                    inventoryId = editor.inventoryId,
+                    request = UpdateInventoryRequest(precio = price, stock = stock)
+                )
+                val body = response.body()
+                when {
+                    response.isSuccessful && body != null -> {
+                        val updatedInventory = body.inventario
+                        _uiState.update { state ->
+                            state.copy(
+                                products = state.products.map { product ->
+                                    if (product.idInventario == updatedInventory.idInventario) {
+                                        product.copy(
+                                            precio = updatedInventory.precio,
+                                            stock = updatedInventory.stock
+                                        )
+                                    } else {
+                                        product
+                                    }
+                                },
+                                inventoryEditor = null,
+                                message = "Precio y stock actualizados"
+                            )
+                        }
+                    }
+                    response.code() == 403 -> {
+                        _uiState.update {
+                            it.copy(
+                                isVerified = false,
+                                inventoryEditor = null,
+                                message = UNVERIFIED_ACCOUNT_MESSAGE
+                            )
+                        }
+                    }
+                    else -> finishInventorySaveWithError(
+                        when (response.code()) {
+                            400 -> "Revisa el precio y stock ingresados"
+                            404 -> "El producto ya no está disponible en tu inventario"
+                            else -> "No se pudieron actualizar el precio y stock (${response.code()})"
+                        }
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                finishInventorySaveWithError(
+                    "No se pudieron actualizar el precio y stock. Revisa tu conexión."
+                )
+            }
+        }
     }
 
     /**
@@ -158,6 +240,18 @@ class MyProductsViewModel @Inject constructor(
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    private fun updateInventoryEditor(
+        transform: (InventoryEditorState) -> InventoryEditorState
+    ) {
+        _uiState.update { state ->
+            state.copy(inventoryEditor = state.inventoryEditor?.let(transform))
+        }
+    }
+
+    private fun finishInventorySaveWithError(message: String) {
+        updateInventoryEditor { it.copy(isSaving = false, error = message) }
     }
 
     private suspend fun uploadPhoto(productId: Int, uri: Uri): String {
