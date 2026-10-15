@@ -19,11 +19,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,11 +35,14 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -48,7 +54,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -148,12 +156,23 @@ fun MyProductsScreen(
                                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                     )
                                 }
-                            }
+                            },
+                            onEdit = { viewModel.onEditInventoryClick(product) }
                         )
                     }
                 }
             }
         }
+    }
+
+    uiState.inventoryEditor?.let { editor ->
+        EditInventoryDialog(
+            editor = editor,
+            onPriceChange = viewModel::onInventoryPriceChange,
+            onStockChange = viewModel::onInventoryStockChange,
+            onSave = viewModel::saveInventoryChanges,
+            onDismiss = viewModel::dismissInventoryEditor
+        )
     }
 }
 
@@ -162,7 +181,8 @@ private fun MyProductCard(
     product: InventoryProduct,
     isUploading: Boolean,
     enabled: Boolean,
-    onChangePhoto: () -> Unit
+    onChangePhoto: () -> Unit,
+    onEdit: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -170,67 +190,163 @@ private fun MyProductCard(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                ProductImage(
-                    imagenUrl = product.imagenUrl,
-                    contentDescription = null,
-                    categoria = product.categoria,
-                    iconSize = 32.dp,
-                    modifier = Modifier
-                        .size(76.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(GreenSurface)
-                )
-                if (isUploading) {
-                    CircularProgressIndicator(
-                        color = GreenPrimary,
-                        strokeWidth = 3.dp,
-                        modifier = Modifier.size(32.dp)
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(contentAlignment = Alignment.Center) {
+                    ProductImage(
+                        imagenUrl = product.imagenUrl,
+                        contentDescription = null,
+                        categoria = product.categoria,
+                        iconSize = 32.dp,
+                        modifier = Modifier
+                            .size(76.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(GreenSurface)
+                    )
+                    if (isUploading) {
+                        CircularProgressIndicator(
+                            color = GreenPrimary,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = product.producto,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    listOfNotNull(product.marca, product.categoria)
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { Text(it.joinToString(" · "), fontSize = 12.sp, color = GrayMid) }
+                    Text(
+                        text = "Q${"%.2f".format(product.precio)} · ${product.stock} en stock",
+                        fontSize = 12.sp,
+                        color = GrayMid
                     )
                 }
             }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+            Spacer(Modifier.height(8.dp))
+            // Van debajo y no junto a la foto porque en pantallas de 360 dp los dos
+            // botones no caben al lado de la imagen sin partir el texto.
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CardActionButton(
+                    text = if (product.imagenUrl == null) "Agregar foto" else "Cambiar foto",
+                    icon = Icons.Default.AddPhotoAlternate,
+                    enabled = enabled,
+                    onClick = onChangePhoto,
+                    modifier = Modifier.weight(1f)
+                )
+                CardActionButton(
+                    text = "Precio y stock",
+                    icon = Icons.Default.Edit,
+                    enabled = enabled,
+                    onClick = onEdit,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CardActionButton(
+    text: String,
+    icon: ImageVector,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (enabled) GreenPrimary else GrayMid,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = text,
+            color = if (enabled) GreenPrimary else GrayMid,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun EditInventoryDialog(
+    editor: InventoryEditorState,
+    onPriceChange: (String) -> Unit,
+    onStockChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Edit, contentDescription = null, tint = GreenPrimary) },
+        title = { Text("Precio y stock") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = product.producto,
+                    text = editor.productName,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                listOfNotNull(product.marca, product.categoria)
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { Text(it.joinToString(" · "), fontSize = 12.sp, color = GrayMid) }
-                Text(
-                    text = "Q${"%.2f".format(product.precio)} · ${product.stock} en stock",
-                    fontSize = 12.sp,
-                    color = GrayMid
+                OutlinedTextField(
+                    value = editor.price,
+                    onValueChange = onPriceChange,
+                    label = { Text("Precio (Q)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    enabled = !editor.isSaving,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(Modifier.height(6.dp))
-                OutlinedButton(
-                    onClick = onChangePhoto,
-                    enabled = enabled,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AddPhotoAlternate,
-                        contentDescription = null,
-                        tint = GreenPrimary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = if (product.imagenUrl == null) "Agregar foto" else "Cambiar foto",
-                        color = GreenPrimary,
-                        fontSize = 13.sp
-                    )
+                OutlinedTextField(
+                    value = editor.stock,
+                    onValueChange = onStockChange,
+                    label = { Text("Stock") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    enabled = !editor.isSaving,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                editor.error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                 }
             }
+        },
+        confirmButton = {
+            Button(
+                onClick = onSave,
+                enabled = !editor.isSaving,
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+            ) {
+                if (editor.isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Guardar")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !editor.isSaving) { Text("Cancelar") }
         }
-    }
+    )
 }
 
 @Composable

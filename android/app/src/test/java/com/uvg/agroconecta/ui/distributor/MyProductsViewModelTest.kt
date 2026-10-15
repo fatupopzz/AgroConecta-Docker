@@ -191,6 +191,56 @@ class MyProductsViewModelTest {
         }
 
     @Test
+    fun `stock negativo muestra error sin llamar al put`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono)
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+            viewModel.onEditInventoryClick(abono)
+            viewModel.onInventoryStockChange("-1")
+
+            viewModel.saveInventoryChanges()
+            advanceUntilIdle()
+
+            val editor = checkNotNull(viewModel.uiState.value.inventoryEditor)
+            assertEquals("Ingresá un stock válido", editor.error)
+            assertFalse(editor.isSaving)
+            assertEquals(listOf(abono), viewModel.uiState.value.products)
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 0) { api.updateInventory(any(), any()) }
+            confirmVerified(api)
+        }
+
+    @Test
+    fun `sin conexion al guardar conserva el borrador y avisa`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono)
+            val request = UpdateInventoryRequest(precio = 60.0, stock = 8)
+            coEvery { api.updateInventory(10, request) } throws IOException("sin red")
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+            viewModel.onEditInventoryClick(abono)
+            viewModel.onInventoryPriceChange("60")
+            viewModel.onInventoryStockChange("8")
+
+            viewModel.saveInventoryChanges()
+            advanceUntilIdle()
+
+            val editor = checkNotNull(viewModel.uiState.value.inventoryEditor)
+            assertEquals("60", editor.price)
+            assertEquals("8", editor.stock)
+            assertFalse(editor.isSaving)
+            assertEquals(
+                "No se pudieron actualizar el precio y stock. Revisa tu conexión.",
+                editor.error
+            )
+            assertEquals(listOf(abono), viewModel.uiState.value.products)
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 1) { api.updateInventory(10, request) }
+            confirmVerified(api)
+        }
+
+    @Test
     fun `actualiza solo el producto editado sin recargar el inventario`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubInventory(abono, semilla)
