@@ -9,6 +9,10 @@ const {
   startRecurringOrderScheduler,
   stopRecurringOrderScheduler,
 } = require("./src/services/recurringOrderScheduler");
+const {
+  startPlantingReminderScheduler,
+  stopPlantingReminderScheduler,
+} = require("./src/services/plantingReminderScheduler");
 
 const PORT = process.env.PORT || 8080;
 
@@ -179,6 +183,7 @@ const startServer = async () => {
             console.log(`Backend AgroConecta escuchando en puerto ${PORT}`);
         });
         startRecurringOrderScheduler();
+        startPlantingReminderScheduler();
 
     } catch (error) {
         console.error(error);
@@ -190,6 +195,7 @@ startServer();
 
 process.on("SIGTERM", async () => {
     stopRecurringOrderScheduler();
+    stopPlantingReminderScheduler();
     await shutdownRedis();
     await shutdownPool();
     process.exit(0);
