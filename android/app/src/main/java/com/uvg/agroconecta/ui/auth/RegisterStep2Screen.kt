@@ -4,37 +4,25 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,46 +30,65 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.core.content.ContextCompat
 import com.uvg.agroconecta.data.GuatemalaLocations
 import com.uvg.agroconecta.data.location.BusinessLocationState
 import com.uvg.agroconecta.data.models.TipoCuenta
-import com.uvg.agroconecta.ui.theme.GrayLight
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPale
-import com.uvg.agroconecta.ui.theme.GreenPrimary
+import com.uvg.agroconecta.ui.components.AgroDropdownField
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.AgroTextField
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.theme.AgroSizes
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.validation.RegisterStep2Errors
 import com.uvg.agroconecta.validation.RegisterStep2FormValidator
-import kotlinx.coroutines.launch
 
+/**
+ * Segundo paso del registro. Al crear la cuenta se inicia sesión de una vez
+ * con los mismos datos: antes la app regresaba al login y pedía escribir otra
+ * vez el correo y la contraseña que se acababan de inventar.
+ *
+ * [onAccountCreated] lleva a Inicio; [onAccountCreatedLoginFailed] al login
+ * con un aviso, para el caso raro en que la cuenta se creó pero la sesión no.
+ */
 @Composable
 fun RegisterStep2Screen(
     viewModel: AuthViewModel,
     onNavigateBack: () -> Unit,
-    onRegisterSuccess: () -> Unit
+    onAccountCreated: () -> Unit,
+    onAccountCreatedLoginFailed: () -> Unit
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     val draft by viewModel.registerDraft.observeAsState(viewModel.registerDraft.value!!)
     val registerState by viewModel.registerState.observeAsState(AuthState.Idle)
+    val loginState by viewModel.loginState.observeAsState(AuthState.Idle)
     val businessLocationState by viewModel.businessLocationState.observeAsState(BusinessLocationState.Idle)
 
     var departamento by rememberSaveable { mutableStateOf(draft.departamento ?: "") }
     var municipio by rememberSaveable { mutableStateOf(draft.municipio ?: "") }
     var nombreNegocio by rememberSaveable { mutableStateOf(draft.nombreNegocio ?: "") }
     var nit by rememberSaveable { mutableStateOf(draft.nit ?: "") }
-    var error by remember { mutableStateOf<String?>(null) }
+    var errors by remember { mutableStateOf(RegisterStep2Errors()) }
 
     val esDistribuidor = draft.tipoCuenta == TipoCuenta.DISTRIBUIDOR
+    val hasBusinessLocation = draft.latitude != null && draft.longitude != null
+    val municipios = remember(departamento) { GuatemalaLocations.municipiosDe(departamento) }
+    val isWorking = registerState is AuthState.Loading ||
+        registerState is AuthState.Success ||
+        loginState is AuthState.Loading
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -115,287 +122,177 @@ fun RegisterStep2Screen(
     }
 
     LaunchedEffect(registerState) {
-        when (val state = registerState) {
+        if (registerState is AuthState.Success) {
+            viewModel.login(draft.email, draft.password, context)
+        }
+    }
+
+    LaunchedEffect(loginState) {
+        when (loginState) {
             is AuthState.Success -> {
-                // Lanzar el snackbar sin bloquear para que la navegacion ocurra inmediatamente
-                scope.launch { snackbarHostState.showSnackbar("Cuenta creada. Inicia sesión.") }
                 viewModel.resetRegister()
-                onRegisterSuccess()
+                onAccountCreated()
             }
             is AuthState.Error -> {
-                scope.launch { snackbarHostState.showSnackbar(state.message) }
+                viewModel.resetRegister()
+                onAccountCreatedLoginFailed()
             }
             else -> Unit
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Scaffold(
+        topBar = {
+            AgroTopAppBar(
+                title = "Crear cuenta",
+                onBack = onNavigateBack,
+                backEnabled = !isWorking
+            )
+        }
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(padding)
+                .imePadding()
                 .verticalScroll(scrollState)
+                .padding(horizontal = AgroSpacing.lg, vertical = AgroSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .background(GreenPrimary)
-                    .padding(start = 4.dp, top = 32.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Volver",
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-                Spacer(modifier = Modifier.size(8.dp))
-                Column {
-                    Text(
-                        text = if (esDistribuidor) "Datos del negocio" else "Ubicación",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Text(
-                        text = "Paso 2 de 2",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GreenPale
-                    )
-                }
-            }
+            RegisterProgress(
+                step = 2,
+                totalSteps = 2,
+                label = if (esDistribuidor) "Tu negocio" else "Tu finca"
+            )
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 20.dp)
-            ) {
-                if (esDistribuidor) {
-                    OutlinedTextField(
-                        value = nombreNegocio,
-                        onValueChange = { nombreNegocio = it },
-                        label = { Text("Nombre del negocio") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = step2FieldColors()
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = nit,
-                        onValueChange = { nit = it },
-                        label = { Text("NIT (opcional)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = step2FieldColors()
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = { requestBusinessLocation() },
-                        enabled = businessLocationState !is BusinessLocationState.Loading,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (businessLocationState is BusinessLocationState.Loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(Icons.Default.MyLocation, contentDescription = null)
-                            Spacer(modifier = Modifier.size(8.dp))
-                            Text(
-                                if (draft.latitude != null && draft.longitude != null) {
-                                    "Actualizar ubicación del negocio"
-                                } else {
-                                    "Usar ubicación actual del negocio"
-                                }
-                            )
-                        }
-                    }
-                    when (val locationState = businessLocationState) {
-                        is BusinessLocationState.Located -> Text(
-                            text = "Ubicación del negocio guardada",
-                            color = GreenPrimary,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        is BusinessLocationState.Error -> Text(
-                            text = locationState.message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        else -> Unit
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    DepartamentoDropdown(
-                        selected = departamento,
-                        onSelectedChange = {
-                            departamento = it
-                            municipio = ""
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    MunicipioDropdown(
-                        departamento = departamento,
-                        selected = municipio,
-                        onSelectedChange = { municipio = it },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                error?.let {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Button(
-                    onClick = {
-                        error = RegisterStep2FormValidator.errorFor(
-                            isDistributor = esDistribuidor,
-                            businessName = nombreNegocio,
-                            hasBusinessLocation = draft.latitude != null &&
-                                draft.longitude != null,
-                            department = departamento,
-                            municipality = municipio
-                        )
-                        if (error != null) return@Button
-
-                        viewModel.updateDraft {
-                            it.copy(
-                                departamento = departamento.ifBlank { null },
-                                municipio = municipio.ifBlank { null },
-                                nombreNegocio = if (esDistribuidor) nombreNegocio.trim().ifBlank { null } else null,
-                                nit = if (esDistribuidor) nit.trim().ifBlank { null } else null
-                            )
-                        }
-                        viewModel.submitRegister()
+            if (esDistribuidor) {
+                SectionTitle("Datos del negocio")
+                AgroTextField(
+                    value = nombreNegocio,
+                    onValueChange = {
+                        nombreNegocio = it
+                        errors = errors.copy(businessName = null)
                     },
-                    enabled = registerState !is AuthState.Loading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-                ) {
-                    if (registerState is AuthState.Loading) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
+                    label = "Nombre del negocio",
+                    errorMessage = errors.businessName,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                )
+                AgroTextField(
+                    value = nit,
+                    onValueChange = { nit = it },
+                    label = "NIT (opcional)",
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
+                )
+                AgroSecondaryButton(
+                    text = if (hasBusinessLocation) {
+                        "Actualizar ubicación del negocio"
                     } else {
-                        Text("Crear cuenta", style = MaterialTheme.typography.titleMedium)
+                        "Usar mi ubicación actual"
+                    },
+                    loadingText = "Buscando ubicación…",
+                    onClick = {
+                        errors = errors.copy(businessLocation = null)
+                        requestBusinessLocation()
+                    },
+                    loading = businessLocationState is BusinessLocationState.Loading,
+                    icon = Icons.Default.MyLocation,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                when (val locationState = businessLocationState) {
+                    is BusinessLocationState.Located -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(AgroSizes.iconSmall)
+                        )
+                        Spacer(Modifier.size(AgroSpacing.xs))
+                        Text(
+                            text = "Ubicación del negocio guardada",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
+                    is BusinessLocationState.Error -> InlineError(
+                        message = locationState.message,
+                        onRetry = { requestBusinessLocation() }
+                    )
+                    else -> errors.businessLocation?.let { InlineError(message = it) }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
-        }
 
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
-    }
-}
+            SectionTitle(if (esDistribuidor) "¿Dónde está el negocio?" else "¿Dónde está tu finca?")
+            Text(
+                text = "Así te mostramos distribuidores y alertas de plagas cerca de ti.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DepartamentoDropdown(
-    selected: String,
-    onSelectedChange: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
+            AgroDropdownField(
+                label = "Departamento",
+                options = GuatemalaLocations.departamentos,
+                selected = departamento.ifBlank { null },
+                onSelectedChange = {
+                    departamento = it
+                    municipio = ""
+                    errors = errors.copy(department = null)
+                },
+                optionLabel = { it },
+                errorMessage = errors.department
+            )
+            AgroDropdownField(
+                label = "Municipio",
+                options = municipios,
+                selected = municipio.ifBlank { null },
+                onSelectedChange = {
+                    municipio = it
+                    errors = errors.copy(municipality = null)
+                },
+                optionLabel = { it },
+                errorMessage = errors.municipality,
+                supportingText = if (municipios.isEmpty()) "Primero elige el departamento" else null
+            )
 
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = modifier
-    ) {
-        OutlinedTextField(
-            value = selected,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Departamento") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(),
-            colors = step2FieldColors()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            GuatemalaLocations.departamentos.forEach { depto ->
-                DropdownMenuItem(
-                    text = { Text(depto) },
-                    onClick = {
-                        onSelectedChange(depto)
-                        expanded = false
+            (registerState as? AuthState.Error)?.let { InlineError(message = it.message) }
+
+            Spacer(modifier = Modifier.height(AgroSpacing.xs))
+
+            AgroPrimaryButton(
+                text = "Crear cuenta",
+                loadingText = if (loginState is AuthState.Loading) "Entrando…" else "Creando cuenta…",
+                onClick = {
+                    errors = RegisterStep2FormValidator.fieldErrors(
+                        isDistributor = esDistribuidor,
+                        businessName = nombreNegocio,
+                        hasBusinessLocation = hasBusinessLocation,
+                        department = departamento,
+                        municipality = municipio
+                    )
+                    if (errors.first != null) return@AgroPrimaryButton
+
+                    viewModel.updateDraft {
+                        it.copy(
+                            departamento = departamento.ifBlank { null },
+                            municipio = municipio.ifBlank { null },
+                            nombreNegocio = if (esDistribuidor) nombreNegocio.trim().ifBlank { null } else null,
+                            nit = if (esDistribuidor) nit.trim().ifBlank { null } else null
+                        )
                     }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MunicipioDropdown(
-    departamento: String,
-    selected: String,
-    onSelectedChange: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val municipios = remember(departamento) { GuatemalaLocations.municipiosDe(departamento) }
-    val enabled = municipios.isNotEmpty()
-
-    ExposedDropdownMenuBox(
-        expanded = expanded && enabled,
-        onExpandedChange = { if (enabled) expanded = !expanded },
-        modifier = modifier
-    ) {
-        OutlinedTextField(
-            value = selected,
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text("Municipio") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(),
-            colors = step2FieldColors()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded && enabled,
-            onDismissRequest = { expanded = false }
-        ) {
-            municipios.forEach { mun ->
-                DropdownMenuItem(
-                    text = { Text(mun) },
-                    onClick = {
-                        onSelectedChange(mun)
-                        expanded = false
-                    }
-                )
-            }
+                    viewModel.submitRegister()
+                },
+                loading = isWorking,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
 
 @Composable
-private fun step2FieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = GreenPrimary,
-    unfocusedBorderColor = GrayLight,
-    cursorColor = GreenPrimary,
-    unfocusedLabelColor = GrayMid
-)
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.semantics { heading() }
+    )
+}

@@ -57,7 +57,7 @@ class HelpScreenTest {
             }
         }
 
-        compose.onNodeWithContentDescription("Regresar").performClick()
+        compose.onNodeWithContentDescription("Volver").performClick()
         compose.onNodeWithTag("whatsapp-support-button").performClick()
 
         assertEquals(1, backClicks)

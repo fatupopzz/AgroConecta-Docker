@@ -4,15 +4,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.ui.cart.CartItemUI
 import com.uvg.agroconecta.ui.orders.checkout.CheckoutValidation
+import com.uvg.agroconecta.ui.theme.AgroSpacing
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderConfirmationScreen(
     items: List<CartItemUI>,
@@ -58,8 +56,8 @@ fun OrderConfirmationScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
         ) {
             item {
                 DeliveryTypeCard(
@@ -89,9 +87,8 @@ fun OrderConfirmationScreen(
             }
 
             item { PaymentMethodCard() }
-            item { OrderSummaryHeader(items.size) }
-            items(items) { item -> OrderSummaryItemCard(item) }
-            item { Spacer(Modifier.height(8.dp)) }
+            item { OrderSummaryHeader(items.size, items.firstOrNull()?.distribuidor) }
+            items(items, key = { it.id }) { item -> OrderSummaryItemCard(item) }
         }
     }
 }

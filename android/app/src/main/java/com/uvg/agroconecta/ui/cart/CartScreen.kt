@@ -1,28 +1,60 @@
 package com.uvg.agroconecta.ui.cart
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.*
+import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.AgroTextButton
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.components.EmptyState
+import com.uvg.agroconecta.ui.components.InlineError
 import com.uvg.agroconecta.ui.components.ProductImage
+import com.uvg.agroconecta.ui.components.QuantityStepper
+import com.uvg.agroconecta.ui.components.SkeletonList
+import com.uvg.agroconecta.ui.components.formatQuetzales
+import com.uvg.agroconecta.ui.orders.checkout.CheckoutValidation
+import com.uvg.agroconecta.ui.theme.AgroSizes
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.agroColors
+import com.uvg.agroconecta.ui.theme.tabularNumbers
 
-private val GreenPrimary = Color(0xFF2E7D32)
-
-// Serializable removido — CartItemUI ya no viaja por savedStateHandle,
-// se accede directamente desde el CartViewModel compartido.
+// CartItemUI ya no viaja por savedStateHandle; se lee directamente del
+// CartViewModel compartido, por eso no necesita ser Serializable.
 data class CartItemUI(
     val id: Int,
     val idInventario: Int,
@@ -35,7 +67,11 @@ data class CartItemUI(
     val imagenUrl: String? = null
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Carrito agrupado por distribuidor. Agrupar deja ver de un vistazo a quién
+ * se le compra cada cosa, y explica por qué no se puede pedir todo junto
+ * cuando hay más de un distribuidor (cada pedido sale de uno solo).
+ */
 @Composable
 fun CartScreen(
     items: List<CartItemUI>,
@@ -47,239 +83,285 @@ fun CartScreen(
     onCheckout: () -> Unit,
     onUrgentOrder: () -> Unit,
     onGoToCatalog: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    isLoading: Boolean = false
 ) {
+    val groups = remember(items) { items.groupBy { it.idDistribuidor } }
+    val mixedDistributors = remember(items) { CheckoutValidation.hasMultipleDistributors(items) }
+    val unitCount = items.sumOf { it.cantidad }
+
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Mi carrito",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
-                    )
+            AgroTopAppBar(
+                title = "Mi carrito",
+                subtitle = when {
+                    items.isEmpty() -> null
+                    unitCount == 1 -> "1 producto"
+                    else -> "$unitCount productos"
                 },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = GreenPrimary)
+                onBack = onNavigateBack
             )
         },
         bottomBar = {
             if (items.isNotEmpty()) {
-                Surface(shadowElevation = 8.dp) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Total",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color(0xFF78909C)
-                            )
-                            Text(
-                                text = "Q${"%.2f".format(total)}",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = GreenPrimary
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        OutlinedButton(
-                            onClick = onUrgentOrder,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Solicitar entrega urgente")
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = onCheckout,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-                        ) {
-                            Text("Proceder al pago", style = MaterialTheme.typography.titleSmall)
-                        }
+                CartSummaryBar(
+                    total = total,
+                    canCheckout = !mixedDistributors,
+                    onCheckout = onCheckout,
+                    onUrgentOrder = onUrgentOrder
+                )
+            }
+        }
+    ) { padding ->
+        when {
+            isLoading && items.isEmpty() -> SkeletonList(
+                count = 3,
+                description = "Cargando tu carrito",
+                modifier = Modifier
+                    .padding(padding)
+                    .padding(AgroSpacing.screenHorizontal)
+            )
+
+            items.isEmpty() -> Column(Modifier.padding(padding)) {
+                errorMessage?.let {
+                    InlineError(
+                        message = it,
+                        modifier = Modifier.padding(AgroSpacing.screenHorizontal)
+                    )
+                }
+                EmptyState(
+                    icon = Icons.Outlined.ShoppingCart,
+                    title = "Tu carrito está vacío",
+                    message = "Agrega productos desde el catálogo para hacer tu pedido.",
+                    actionLabel = "Ver productos",
+                    onAction = onGoToCatalog,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            else -> LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
+                verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+            ) {
+                errorMessage?.let { message ->
+                    item(key = "error") { InlineError(message = message) }
+                }
+                if (mixedDistributors) {
+                    item(key = "mixed-warning") { MixedDistributorsNotice(groups.size) }
+                }
+                groups.forEach { (distributorId, groupItems) ->
+                    item(key = "distributor-$distributorId") {
+                        DistributorHeader(
+                            name = groupItems.first().distribuidor,
+                            subtotal = groupItems.sumOf { it.subtotal }
+                        )
+                    }
+                    items(groupItems, key = { it.id }) { item ->
+                        CartItemCard(
+                            item = item,
+                            onIncrease = { onIncreaseQuantity(item.id) },
+                            onDecrease = { onDecreaseQuantity(item.id) },
+                            onRemove = { onRemoveItem(item.id) }
+                        )
                     }
                 }
             }
         }
-    ) { padding ->
+    }
+}
 
+@Composable
+private fun MixedDistributorsNotice(distributorCount: Int) {
+    Surface(
+        color = MaterialTheme.agroColors.warningContainer,
+        contentColor = MaterialTheme.agroColors.onWarningContainer,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier.padding(AgroSpacing.md),
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+        ) {
+            Icon(Icons.Default.Info, contentDescription = null)
+            Column {
+                Text(
+                    text = "Tienes productos de $distributorCount distribuidores",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = "Cada pedido es de un solo distribuidor. Deja en el carrito solo los de uno y pide los otros después.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DistributorHeader(name: String, subtotal: Double) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = AgroSpacing.xs)
+            .semantics(mergeDescendants = true) { heading() },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Storefront,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(AgroSizes.iconSmall)
+        )
+        Spacer(Modifier.width(AgroSpacing.xs))
+        Text(
+            text = name,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = formatQuetzales(subtotal),
+            style = MaterialTheme.typography.labelLarge.tabularNumbers,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun CartItemCard(
+    item: CartItemUI,
+    onIncrease: () -> Unit,
+    onDecrease: () -> Unit,
+    onRemove: () -> Unit
+) {
+    AgroCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(start = AgroSpacing.md, end = AgroSpacing.md, top = AgroSpacing.md)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.semantics(mergeDescendants = true) {}
+            ) {
+                ProductImage(
+                    imagenUrl = item.imagenUrl,
+                    contentDescription = null,
+                    iconSize = 28.dp,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                )
+                Spacer(modifier = Modifier.width(AgroSpacing.sm))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.nombre,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${formatQuetzales(item.precio)} c/u",
+                        style = MaterialTheme.typography.bodySmall.tabularNumbers,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatQuetzales(item.subtotal),
+                        style = MaterialTheme.typography.titleMedium.tabularNumbers,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.semantics {
+                            contentDescription = "Subtotal ${formatQuetzales(item.subtotal)}"
+                        }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(AgroSpacing.xs))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                QuantityStepper(
+                    quantity = item.cantidad,
+                    onDecrease = onDecrease,
+                    onIncrease = onIncrease,
+                    itemName = item.nombre
+                )
+                Spacer(Modifier.weight(1f))
+                AgroTextButton(
+                    text = "Quitar",
+                    icon = Icons.Default.Delete,
+                    destructive = true,
+                    onClick = onRemove,
+                    modifier = Modifier.semantics { contentDescription = "Quitar ${item.nombre} del carrito" }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Total y acciones al pie de la pantalla, al alcance del pulgar. El pedido
+ * normal es la acción principal; el urgente queda como alternativa para no
+ * competir con ella.
+ */
+@Composable
+private fun CartSummaryBar(
+    total: Double,
+    canCheckout: Boolean,
+    onCheckout: () -> Unit,
+    onUrgentOrder: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shadowElevation = 8.dp
+    ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = AgroSpacing.screenHorizontal, vertical = AgroSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
-            errorMessage?.let { message ->
-                Surface(color = MaterialTheme.colorScheme.errorContainer) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics(mergeDescendants = true) {},
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                }
-            }
-
-            if (items.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "Tu carrito está vacío",
+                        text = "Total",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Agrega productos desde el catálogo para continuar.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF78909C)
+                        text = "Pagas al recibir",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Button(
-                        onClick = onGoToCatalog,
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-                    ) {
-                        Text("Ir al catálogo")
-                    }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(items) { item ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    ProductImage(
-                                        imagenUrl = item.imagenUrl,
-                                        contentDescription = null,
-                                        iconSize = 28.dp,
-                                        modifier = Modifier
-                                            .size(56.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(Color(0xFFE8F5E9))
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = item.nombre,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = item.distribuidor,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF78909C)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        FilledIconButton(
-                                            onClick = { onDecreaseQuantity(item.id) },
-                                            modifier = Modifier.size(32.dp),
-                                            colors = IconButtonDefaults.filledIconButtonColors(
-                                                containerColor = Color(0xFFECEFF1)
-                                            )
-                                        ) {
-                                            Text(
-                                                "-",
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF37474F)
-                                            )
-                                        }
-                                        Text(
-                                            text = "${item.cantidad}",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        FilledIconButton(
-                                            onClick = { onIncreaseQuantity(item.id) },
-                                            modifier = Modifier.size(32.dp),
-                                            colors = IconButtonDefaults.filledIconButtonColors(
-                                                containerColor = GreenPrimary
-                                            )
-                                        ) {
-                                            Text(
-                                                "+",
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text(
-                                            text = "Q${"%.2f".format(item.subtotal)}",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = GreenPrimary
-                                        )
-                                        TextButton(
-                                            onClick = { onRemoveItem(item.id) },
-                                            contentPadding = PaddingValues(0.dp)
-                                        ) {
-                                            Text(
-                                                "Eliminar",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.error
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                Text(
+                    text = formatQuetzales(total),
+                    style = MaterialTheme.typography.headlineMedium.tabularNumbers,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
+            AgroPrimaryButton(
+                text = if (canCheckout) "Continuar con el pedido" else "Deja productos de un solo distribuidor",
+                onClick = onCheckout,
+                enabled = canCheckout,
+                modifier = Modifier.fillMaxWidth()
+            )
+            AgroSecondaryButton(
+                text = "Necesito entrega urgente",
+                icon = Icons.Default.Warning,
+                destructive = true,
+                onClick = onUrgentOrder,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

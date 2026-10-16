@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-        Theme base para la app.
-        Cambiado a Theme.MaterialComponents para soportar MaterialButtons y otros atributos como selectableItemBackgroundBorderless.
+        Tema de la ventana. Compose pinta todo lo demás con AgroConectaTheme;
+        aquí solo se evita el destello de color equivocado al abrir la app y
+        se hereda DayNight para que respete el modo oscuro del teléfono.
     -->
-    <style name="Theme.AgroConecta" parent="Theme.MaterialComponents.Light.NoActionBar">
+    <style name="Theme.AgroConecta" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/green_primary</item>
-        <item name="colorPrimaryVariant">@color/green_primary_dark</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="android:windowBackground">@color/white</item>
-        <item name="android:statusBarColor">@color/green_primary_dark</item>
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@color/status_bar</item>
+        <item name="android:navigationBarColor">@color/navigation_bar</item>
     </style>
 </resources>

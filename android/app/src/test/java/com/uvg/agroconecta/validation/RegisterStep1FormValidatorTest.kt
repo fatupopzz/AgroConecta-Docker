@@ -39,6 +39,23 @@ class RegisterStep1FormValidatorTest {
         assertNull(validationError())
     }
 
+    @Test
+    fun `reporta todos los campos con problema a la vez`() {
+        val errors = RegisterStep1FormValidator.fieldErrors(
+            name = "",
+            phone = "123",
+            email = "ana@correo.com",
+            password = "secreto",
+            passwordConfirmation = "otra"
+        )
+
+        assertEquals("Ingresa tu nombre", errors.name)
+        assertEquals("El teléfono debe tener al menos 8 dígitos", errors.phone)
+        assertNull(errors.email)
+        assertNull(errors.password)
+        assertEquals("Las contraseñas no coinciden", errors.passwordConfirmation)
+    }
+
     private fun validationError(
         name: String = "Ana",
         phone: String = "55551234",

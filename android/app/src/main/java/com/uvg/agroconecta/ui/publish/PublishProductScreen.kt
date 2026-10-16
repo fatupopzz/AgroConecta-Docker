@@ -4,36 +4,66 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.uvg.agroconecta.data.images.SelectedProductImage
 import com.uvg.agroconecta.data.models.Category
+import com.uvg.agroconecta.ui.components.AgroDropdownField
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.AgroTextButton
+import com.uvg.agroconecta.ui.components.AgroTextField
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
-import com.uvg.agroconecta.ui.theme.GrayLight
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPrimary
-import com.uvg.agroconecta.ui.theme.GreenSurface
+import com.uvg.agroconecta.ui.theme.AgroSpacing
 import com.uvg.agroconecta.validation.PublishProductFormValidator
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PublishProductScreen(
     onNavigateBack: () -> Unit,
@@ -56,7 +86,6 @@ fun PublishProductScreen(
     var stock by remember { mutableStateOf("") }
     var unidadMedida by remember { mutableStateOf("") }
     var tiempoEntrega by remember { mutableStateOf("") }
-    var dropdownExpanded by remember { mutableStateOf(false) }
 
     // PhotoPicker del sistema: no pide permiso de almacenamiento y solo
     // entrega la foto que el usuario elige.
@@ -70,7 +99,7 @@ fun PublishProductScreen(
     LaunchedEffect(uiState.publishState) {
         when (val state = uiState.publishState) {
             is PublishState.Success -> {
-                snackbarHostState.showSnackbar("¡Producto publicado correctamente!")
+                snackbarHostState.showSnackbar("¡Listo! Tu producto ya está publicado.")
                 viewModel.resetState()
                 onNavigateBack()
             }
@@ -96,14 +125,11 @@ fun PublishProductScreen(
         }
     }
 
+    val isPublishing = uiState.publishState is PublishState.Loading
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Publicar producto", color = Color.White) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = GreenPrimary)
-            )
-        },
+        topBar = { AgroTopAppBar(title = "Publicar producto") },
         bottomBar = {
             AppBottomBar(
                 selectedTab = BottomNavTab.AGREGAR,
@@ -120,139 +146,103 @@ fun PublishProductScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(scrollState)
-                .padding(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = AgroSpacing.screenHorizontal, vertical = AgroSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
         ) {
             ProductImagePicker(
                 imagen = uiState.imagen,
                 isReading = uiState.isReadingImage,
-                enabled = uiState.publishState !is PublishState.Loading,
+                enabled = !isPublishing,
                 onPick = launchImagePicker,
                 onRemove = viewModel::removeImage
             )
 
-            OutlinedTextField(
+            SectionTitle("Producto")
+            AgroTextField(
                 value = nombre,
                 onValueChange = { nombre = it },
-                label = { Text("Nombre del producto *") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = fieldColors()
+                label = "Nombre del producto",
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
-            OutlinedTextField(
+            AgroTextField(
                 value = marca,
                 onValueChange = { marca = it },
-                label = { Text("Marca (opcional)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = fieldColors()
+                label = "Marca (opcional)",
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
-            OutlinedTextField(
+            AgroTextField(
                 value = descripcion,
                 onValueChange = { descripcion = it },
-                label = { Text("Descripción (opcional)") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 80.dp),
-                maxLines = 4,
-                colors = fieldColors()
+                label = "Descripción (opcional)",
+                supportingText = "Para qué sirve y cómo se usa",
+                singleLine = false,
+                minLines = 3,
+                maxLines = 5
+            )
+            AgroDropdownField(
+                label = "Categoría",
+                options = uiState.categorias,
+                selected = categoriaSeleccionada,
+                onSelectedChange = { categoriaSeleccionada = it },
+                optionLabel = { it.nombre },
+                supportingText = if (uiState.isLoadingCategorias) "Cargando categorías…" else null
             )
 
-            ExposedDropdownMenuBox(
-                expanded = dropdownExpanded,
-                onExpandedChange = { dropdownExpanded = !dropdownExpanded }
-            ) {
-                OutlinedTextField(
-                    value = categoriaSeleccionada?.nombre ?: "",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Categoría *") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(),
-                    colors = fieldColors()
-                )
-                ExposedDropdownMenu(
-                    expanded = dropdownExpanded,
-                    onDismissRequest = { dropdownExpanded = false }
-                ) {
-                    if (uiState.isLoadingCategorias) {
-                        DropdownMenuItem(text = { Text("Cargando...") }, onClick = {})
-                    } else {
-                        uiState.categorias.forEach { cat ->
-                            DropdownMenuItem(
-                                text = { Text(cat.nombre) },
-                                onClick = {
-                                    categoriaSeleccionada = cat
-                                    dropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            HorizontalDivider(color = GrayLight)
-
-            Text(
-                "Datos de inventario",
-                style = MaterialTheme.typography.titleSmall,
-                color = GreenPrimary
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(vertical = AgroSpacing.xs)
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = precio,
-                    onValueChange = { precio = it },
-                    label = { Text("Precio (Q) *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    colors = fieldColors()
-                )
-                OutlinedTextField(
-                    value = stock,
-                    onValueChange = { stock = it },
-                    label = { Text("Stock *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    colors = fieldColors()
-                )
-            }
+            SectionTitle("Precio y existencias")
 
+            AgroTextField(
+                value = precio,
+                onValueChange = { precio = it },
+                label = "Precio en quetzales",
+                placeholder = "Ej: 125.50",
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Next
+                )
+            )
+            AgroTextField(
+                value = stock,
+                onValueChange = { stock = it },
+                label = "Cantidad disponible",
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Next
+                )
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
-                OutlinedTextField(
+                AgroTextField(
                     value = unidadMedida,
                     onValueChange = { unidadMedida = it },
-                    label = { Text("Unidad (ej: kg, L)") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    colors = fieldColors()
+                    label = "Unidad",
+                    placeholder = "kg, L, saco",
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    modifier = Modifier.weight(1f)
                 )
-                OutlinedTextField(
+                AgroTextField(
                     value = tiempoEntrega,
                     onValueChange = { tiempoEntrega = it },
-                    label = { Text("Entrega (días)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    colors = fieldColors()
+                    label = "Días de entrega",
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    modifier = Modifier.weight(1f)
                 )
             }
 
-            // Botón publicar al fondo del scroll
-            Spacer(Modifier.height(8.dp))
-            Button(
+            Spacer(Modifier.height(AgroSpacing.xs))
+            AgroPrimaryButton(
+                text = "Publicar producto",
+                loadingText = "Publicando…",
+                icon = Icons.Default.CloudUpload,
                 onClick = {
                     scope.launch {
                         val validationError = PublishProductFormValidator.errorFor(
@@ -265,12 +255,8 @@ fun PublishProductScreen(
                             snackbarHostState.showSnackbar(validationError)
                             return@launch
                         }
-                        val precioNum = checkNotNull(
-                            PublishProductFormValidator.priceValue(precio)
-                        )
-                        val stockNum = checkNotNull(
-                            PublishProductFormValidator.stockValue(stock)
-                        )
+                        val precioNum = checkNotNull(PublishProductFormValidator.priceValue(precio))
+                        val stockNum = checkNotNull(PublishProductFormValidator.stockValue(stock))
                         viewModel.publishProduct(
                             nombre = nombre,
                             marca = marca,
@@ -285,21 +271,22 @@ fun PublishProductScreen(
                 },
                 // Mientras se lee la foto todavía no hay bytes que subir; publicar
                 // en ese momento dejaría el producto sin imagen sin avisar.
-                enabled = uiState.publishState !is PublishState.Loading && !uiState.isReadingImage,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                if (uiState.publishState is PublishState.Loading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                } else {
-                    Text("Publicar producto", style = MaterialTheme.typography.titleSmall)
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
+                enabled = !uiState.isReadingImage,
+                loading = isPublishing,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.semantics { heading() }
+    )
 }
 
 @Composable
@@ -310,17 +297,17 @@ private fun ProductImagePicker(
     onPick: () -> Unit,
     onRemove: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(GreenSurface),
+                .aspectRatio(16f / 9f)
+                .clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             when {
-                isReading -> CircularProgressIndicator(color = GreenPrimary)
+                isReading -> CircularProgressIndicator()
                 imagen != null -> AsyncImage(
                     model = imagen.previewUri,
                     contentDescription = "Vista previa de la foto del producto",
@@ -331,40 +318,42 @@ private fun ProductImagePicker(
                     Icon(
                         imageVector = Icons.Default.AddPhotoAlternate,
                         contentDescription = null,
-                        tint = GreenPrimary,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(40.dp)
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(AgroSpacing.xs))
                     Text(
-                        "Foto del producto (opcional)",
+                        text = "Foto del producto (opcional)",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = GrayMid
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        "Se ajusta el tamaño automáticamente",
+                        text = "Con foto se vende mejor",
                         style = MaterialTheme.typography.bodySmall,
-                        color = GrayMid
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onPick, enabled = enabled && !isReading) {
-                Text(if (imagen == null) "Elegir foto" else "Cambiar foto", color = GreenPrimary)
-            }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AgroSecondaryButton(
+                text = if (imagen == null) "Elegir foto" else "Cambiar foto",
+                icon = Icons.Default.PhotoCamera,
+                onClick = onPick,
+                enabled = enabled && !isReading
+            )
             if (imagen != null) {
-                TextButton(onClick = onRemove, enabled = enabled && !isReading) {
-                    Text("Quitar", color = MaterialTheme.colorScheme.error)
-                }
+                AgroTextButton(
+                    text = "Quitar",
+                    icon = Icons.Default.Delete,
+                    destructive = true,
+                    onClick = onRemove,
+                    enabled = enabled && !isReading
+                )
             }
         }
     }
 }
-
-@Composable
-private fun fieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = GreenPrimary,
-    unfocusedBorderColor = GrayLight,
-    cursorColor = GreenPrimary,
-    unfocusedLabelColor = GrayMid
-)

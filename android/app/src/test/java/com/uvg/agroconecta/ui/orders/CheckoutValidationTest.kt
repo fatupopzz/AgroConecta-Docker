@@ -12,6 +12,17 @@ import org.junit.Test
 class CheckoutValidationTest {
 
     @Test
+    fun `detecta carrito con productos de varios distribuidores`() {
+        val deAgroCentro = CartItemUI(1, 10, 3, "Urea", "Agro Centro", 1, 50.0, 50.0)
+        val otroDeAgroCentro = deAgroCentro.copy(id = 2, idInventario = 11)
+        val deOtroDistribuidor = deAgroCentro.copy(id = 3, idInventario = 12, idDistribuidor = 4)
+
+        assertFalse(CheckoutValidation.hasMultipleDistributors(listOf(deAgroCentro, otroDeAgroCentro)))
+        assertTrue(CheckoutValidation.hasMultipleDistributors(listOf(deAgroCentro, deOtroDistribuidor)))
+        assertFalse(CheckoutValidation.hasMultipleDistributors(emptyList()))
+    }
+
+    @Test
     fun `habilitacion conserva reglas visibles de domicilio y recogida`() {
         assertFalse(canConfirm(hasItems = false, address = "Aldea El Tablón"))
         assertFalse(canConfirm(address = "1234"))

@@ -1,8 +1,6 @@
 package com.uvg.agroconecta.ui.auth
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,26 +8,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,18 +35,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.TipoCuenta
-import com.uvg.agroconecta.ui.theme.GrayDark
-import com.uvg.agroconecta.ui.theme.GrayLight
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPale
-import com.uvg.agroconecta.ui.theme.GreenPrimary
+import com.uvg.agroconecta.ui.components.AgroPasswordField
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroTextField
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.validation.RegisterStep1Errors
 import com.uvg.agroconecta.validation.RegisterStep1FormValidator
 
 @Composable
@@ -70,63 +67,34 @@ fun RegisterStep1Screen(
     var email by rememberSaveable { mutableStateOf(draft.email) }
     var password by rememberSaveable { mutableStateOf(draft.password) }
     var confirmPassword by rememberSaveable { mutableStateOf("") }
-    var passwordVisible by rememberSaveable { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var errors by remember { mutableStateOf(RegisterStep1Errors()) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .background(GreenPrimary)
-                .padding(start = 4.dp, top = 32.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onNavigateBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Volver",
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-            Spacer(modifier = Modifier.size(8.dp))
-            Column {
-                Text(
-                    text = "Crear cuenta",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-                Text(
-                    text = "Paso 1 de 2: datos personales",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = GreenPale
-                )
-            }
-        }
-
+    Scaffold(
+        topBar = { AgroTopAppBar(title = "Crear cuenta", onBack = onNavigateBack) }
+    ) { padding ->
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .fillMaxSize()
+                .padding(padding)
+                .imePadding()
+                .verticalScroll(scrollState)
+                .padding(horizontal = AgroSpacing.lg, vertical = AgroSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
         ) {
-            Text(
-                text = "Tipo de cuenta",
-                style = MaterialTheme.typography.titleMedium,
-                color = GrayDark
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            RegisterProgress(step = 1, totalSteps = 2, label = "Tus datos")
+
+            SectionTitle("¿Cómo vas a usar AgroConecta?")
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
                 TipoCuentaCard(
                     icon = Icons.Default.Agriculture,
                     label = "Agricultor",
+                    description = "Compro insumos",
                     selected = draft.tipoCuenta == TipoCuenta.AGRICULTOR,
                     onClick = { viewModel.updateDraft { it.copy(tipoCuenta = TipoCuenta.AGRICULTOR) } },
                     modifier = Modifier.weight(1f)
@@ -134,122 +102,96 @@ fun RegisterStep1Screen(
                 TipoCuentaCard(
                     icon = Icons.Default.Storefront,
                     label = "Distribuidor",
+                    description = "Vendo insumos",
                     selected = draft.tipoCuenta == TipoCuenta.DISTRIBUIDOR,
                     onClick = { viewModel.updateDraft { it.copy(tipoCuenta = TipoCuenta.DISTRIBUIDOR) } },
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider(color = GrayLight)
-            Spacer(modifier = Modifier.height(20.dp))
+            SectionTitle("Tus datos", modifier = Modifier.padding(top = AgroSpacing.xs))
 
-            Text(
-                text = "Datos personales",
-                style = MaterialTheme.typography.titleMedium,
-                color = GrayDark
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = nombre,
-                    onValueChange = { nombre = it },
-                    label = { Text("Nombre") },
-                    placeholder = { Text("John") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    colors = step1FieldColors()
-                )
-                OutlinedTextField(
-                    value = apellido,
-                    onValueChange = { apellido = it },
-                    label = { Text("Apellido") },
-                    placeholder = { Text("Doe") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    colors = step1FieldColors()
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = telefono,
-                onValueChange = { telefono = it },
-                label = { Text("Número de teléfono") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = step1FieldColors()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Correo electrónico") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = step1FieldColors()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Contraseña") },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true,
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = null
-                        )
-                    }
+            AgroTextField(
+                value = nombre,
+                onValueChange = {
+                    nombre = it
+                    errors = errors.copy(name = null)
                 },
-                modifier = Modifier.fillMaxWidth(),
-                colors = step1FieldColors()
+                label = "Nombre",
+                errorMessage = errors.name,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
+            AgroTextField(
+                value = apellido,
+                onValueChange = { apellido = it },
+                label = "Apellido (opcional)",
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+            )
+            AgroTextField(
+                value = telefono,
+                onValueChange = {
+                    telefono = it
+                    errors = errors.copy(phone = null)
+                },
+                label = "Número de teléfono",
+                placeholder = "5555 5555",
+                supportingText = "Lo usa el distribuidor para coordinar la entrega",
+                errorMessage = errors.phone,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone,
+                    imeAction = ImeAction.Next
+                )
+            )
+            AgroTextField(
+                value = email,
+                onValueChange = {
+                    email = it
+                    errors = errors.copy(email = null)
+                },
+                label = "Correo electrónico",
+                placeholder = "tu@correo.com",
+                errorMessage = errors.email,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                )
+            )
+            AgroPasswordField(
+                value = password,
+                onValueChange = {
+                    password = it
+                    errors = errors.copy(password = null)
+                },
+                label = "Contraseña",
+                supportingText = "Al menos 6 caracteres",
+                errorMessage = errors.password,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+            )
+            AgroPasswordField(
                 value = confirmPassword,
-                onValueChange = { confirmPassword = it },
-                label = { Text("Confirmar contraseña") },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = step1FieldColors()
+                onValueChange = {
+                    confirmPassword = it
+                    errors = errors.copy(passwordConfirmation = null)
+                },
+                label = "Repite la contraseña",
+                errorMessage = errors.passwordConfirmation,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
             )
 
-            error?.let {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            }
+            Spacer(modifier = Modifier.height(AgroSpacing.xs))
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
+            AgroPrimaryButton(
+                text = "Siguiente",
+                icon = Icons.AutoMirrored.Filled.ArrowForward,
                 onClick = {
-                    error = RegisterStep1FormValidator.errorFor(
+                    errors = RegisterStep1FormValidator.fieldErrors(
                         name = nombre,
                         phone = telefono,
                         email = email,
                         password = password,
                         passwordConfirmation = confirmPassword
                     )
-                    if (error != null) return@Button
+                    if (errors.first != null) return@AgroPrimaryButton
 
                     viewModel.updateDraft {
                         it.copy(
@@ -262,65 +204,82 @@ fun RegisterStep1Screen(
                     }
                     onNext()
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-            ) {
-                Text("Siguiente paso", style = MaterialTheme.typography.titleMedium)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
 
 @Composable
+private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier.semantics { heading() }
+    )
+}
+
+/**
+ * Opción de tipo de cuenta. Se comporta como un radio (rol y estado
+ * seleccionados para TalkBack) aunque se vea como tarjeta grande, que es más
+ * fácil de acertar con el dedo que un círculo pequeño.
+ */
+@Composable
 private fun TipoCuentaCard(
     icon: ImageVector,
     label: String,
+    description: String,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier
-            .height(110.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = if (selected) GreenPale else Color.White,
+            .heightIn(min = 120.dp)
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
+        shape = MaterialTheme.shapes.large,
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLowest
+        },
         border = BorderStroke(
             width = if (selected) 2.dp else 1.dp,
-            color = if (selected) GreenPrimary else GrayLight
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
         )
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
+            modifier = Modifier.padding(AgroSpacing.sm),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = label,
-                tint = if (selected) GreenPrimary else GrayMid,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(36.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(AgroSpacing.xs))
             Text(
                 text = label,
                 style = MaterialTheme.typography.titleSmall,
-                color = if (selected) GreenPrimary else GrayDark
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
         }
     }
 }
-
-@Composable
-private fun step1FieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = GreenPrimary,
-    unfocusedBorderColor = GrayLight,
-    cursorColor = GreenPrimary,
-    unfocusedLabelColor = GrayMid
-)

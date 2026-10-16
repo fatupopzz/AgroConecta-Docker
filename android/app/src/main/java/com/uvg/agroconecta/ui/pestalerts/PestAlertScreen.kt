@@ -1,65 +1,66 @@
 package com.uvg.agroconecta.ui.pestalerts
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestType
-import com.uvg.agroconecta.ui.theme.ErrorRed
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPrimary
-import com.uvg.agroconecta.ui.theme.GreenSurface
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroTextButton
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.components.EmptyState
+import com.uvg.agroconecta.ui.components.ErrorState
+import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.components.SkeletonList
+import com.uvg.agroconecta.ui.components.StatusTag
+import com.uvg.agroconecta.ui.components.TagTone
+import com.uvg.agroconecta.ui.theme.AgroSizes
+import com.uvg.agroconecta.ui.theme.AgroSpacing
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PestAlertScreen(
     uiState: PestAlertUiState,
@@ -95,38 +96,17 @@ fun PestAlertScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Alertas de plagas") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Regresar"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = GreenPrimary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                )
-            )
-        },
+        topBar = { AgroTopAppBar(title = "Alertas de plagas", onBack = onNavigateBack) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onReportPest,
                 modifier = Modifier.testTag("report-pest"),
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.BugReport,
-                        contentDescription = null
-                    )
-                },
-                text = { Text("Reportar plaga") },
-                containerColor = GreenPrimary,
-                contentColor = Color.White
+                icon = { Icon(imageVector = Icons.Default.BugReport, contentDescription = null) },
+                text = { Text("Reportar plaga", style = MaterialTheme.typography.labelLarge) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             )
         }
     ) { contentPadding ->
@@ -140,10 +120,7 @@ fun PestAlertScreen(
             }
 
             uiState.reportSuccessMessage?.let { message ->
-                ReportSuccessBanner(
-                    message = message,
-                    onDismiss = onDismissReportSuccess
-                )
+                ReportSuccessBanner(message = message, onDismiss = onDismissReportSuccess)
             }
 
             PestAlertViewSelector(
@@ -153,37 +130,48 @@ fun PestAlertScreen(
 
             when {
                 isLoadingLocationOrAlerts && uiState.alerts.isEmpty() -> {
-                    LoadingAlertsState()
+                    SkeletonList(
+                        count = 3,
+                        description = "Buscando alertas cercanas",
+                        modifier = Modifier.padding(AgroSpacing.screenHorizontal)
+                    )
                 }
 
                 primaryErrorMessage != null && uiState.alerts.isEmpty() -> {
-                    AlertsErrorState(
+                    ErrorState(
+                        title = "No pudimos ver las alertas",
                         message = primaryErrorMessage,
-                        onRetry = onRetry
+                        onRetry = onRetry,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
                 uiState.alerts.isEmpty() -> {
-                    EmptyAlertsState()
+                    EmptyState(
+                        icon = Icons.Default.CheckCircle,
+                        title = "No hay alertas activas cerca",
+                        message = "Tu zona no tiene reportes recientes de plagas.",
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                uiState.viewMode == PestAlertViewMode.MAP -> {
+                    PestAlertsMap(
+                        alerts = uiState.alerts,
+                        currentLocation = uiState.location,
+                        errorMessage = primaryErrorMessage,
+                        onRetry = onRetry,
+                        onAlertClick = onAlertClick
+                    )
                 }
 
                 else -> {
-                    if (uiState.viewMode == PestAlertViewMode.MAP) {
-                        PestAlertsMap(
-                            alerts = uiState.alerts,
-                            currentLocation = uiState.location,
-                            errorMessage = primaryErrorMessage,
-                            onRetry = onRetry,
-                            onAlertClick = onAlertClick
-                        )
-                    } else {
-                        AlertsList(
-                            alerts = uiState.alerts,
-                            errorMessage = primaryErrorMessage,
-                            onRetry = onRetry,
-                            onAlertClick = onAlertClick
-                        )
-                    }
+                    AlertsList(
+                        alerts = uiState.alerts,
+                        errorMessage = primaryErrorMessage,
+                        onRetry = onRetry,
+                        onAlertClick = onAlertClick
+                    )
                 }
             }
         }
@@ -219,65 +207,65 @@ fun PestAlertScreen(
     }
 }
 
+/**
+ * Selector de lista o mapa. Botones segmentados en lugar de dos chips sueltos:
+ * se entiende que es una sola elección entre dos vistas.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PestAlertViewSelector(
     selectedMode: PestAlertViewMode,
     onModeSelected: (PestAlertViewMode) -> Unit
 ) {
-    Row(
+    val options = listOf(
+        Triple(PestAlertViewMode.LIST, "Lista", Icons.AutoMirrored.Filled.List),
+        Triple(PestAlertViewMode.MAP, "Mapa", Icons.Default.Map)
+    )
+    SingleChoiceSegmentedButtonRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(horizontal = AgroSpacing.screenHorizontal, vertical = AgroSpacing.xs)
     ) {
-        FilterChip(
-            selected = selectedMode == PestAlertViewMode.LIST,
-            onClick = { onModeSelected(PestAlertViewMode.LIST) },
-            label = { Text("Lista") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.List,
-                    contentDescription = null
-                )
-            },
-            modifier = Modifier.weight(1f)
-        )
-        FilterChip(
-            selected = selectedMode == PestAlertViewMode.MAP,
-            onClick = { onModeSelected(PestAlertViewMode.MAP) },
-            label = { Text("Mapa") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Map,
-                    contentDescription = null
-                )
-            },
-            modifier = Modifier.weight(1f)
-        )
+        options.forEachIndexed { index, (mode, label, icon) ->
+            SegmentedButton(
+                selected = selectedMode == mode,
+                onClick = { onModeSelected(mode) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                icon = {
+                    SegmentedButtonDefaults.Icon(active = selectedMode == mode) {
+                        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
+                },
+                label = { Text(label, style = MaterialTheme.typography.labelLarge) }
+            )
+        }
     }
 }
 
 @Composable
 private fun ReportSuccessBanner(message: String, onDismiss: () -> Unit) {
     Surface(
-        color = GreenSurface,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = AgroSpacing.screenHorizontal, vertical = AgroSpacing.xs)
+            .semantics { liveRegion = LiveRegionMode.Polite },
         shape = MaterialTheme.shapes.medium
     ) {
         Row(
-            modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            modifier = Modifier.padding(start = AgroSpacing.md, end = AgroSpacing.xxs),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Icon(Icons.Default.CheckCircle, contentDescription = null)
             Text(
                 text = message,
-                color = GreenPrimary,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = AgroSpacing.sm, vertical = AgroSpacing.xs)
             )
-            TextButton(onClick = onDismiss) { Text("Cerrar") }
+            AgroTextButton(text = "Cerrar", onClick = onDismiss)
         }
     }
 }
@@ -291,38 +279,37 @@ private fun AlertsList(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            start = 16.dp,
-            top = 20.dp,
-            end = 16.dp,
+        // Espacio inferior extra para que el botón flotante no tape la última alerta.
+        contentPadding = PaddingValues(
+            start = AgroSpacing.screenHorizontal,
+            top = AgroSpacing.md,
+            end = AgroSpacing.screenHorizontal,
             bottom = 104.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
     ) {
-        item {
-            Text(
-                text = "Alertas activas cerca de ti",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "${alerts.size} ${if (alerts.size == 1) "reporte cercano" else "reportes cercanos"}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = GrayMid
-            )
-        }
-
-        errorMessage?.let { message ->
-            item {
-                InlineAlertsError(message = message, onRetry = onRetry)
+        item(key = "title") {
+            Column {
+                Text(
+                    text = "Alertas activas cerca de ti",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.semantics { heading() }
+                )
+                Text(
+                    text = "${alerts.size} ${if (alerts.size == 1) "reporte cercano" else "reportes cercanos"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
+        errorMessage?.let { message ->
+            item(key = "error") { InlineAlertsError(message = message, onRetry = onRetry) }
+        }
+
         items(items = alerts, key = PestAlert::id) { alert ->
-            PestAlertCard(
-                alert = alert,
-                onClick = { onAlertClick(alert) }
-            )
+            PestAlertCard(alert = alert, onClick = { onAlertClick(alert) })
         }
     }
 }
@@ -332,57 +319,50 @@ private fun PestAlertCard(
     alert: PestAlert,
     onClick: () -> Unit
 ) {
-    Card(
+    AgroCard(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("pest-alert-${alert.id}"),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .testTag("pest-alert-${alert.id}")
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(AgroSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = MaterialTheme.shapes.medium
                 ) {
-                    Surface(
-                        color = GreenSurface,
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.BugReport,
-                            contentDescription = null,
-                            tint = GreenPrimary,
-                            modifier = Modifier.padding(8.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = pestTypeDisplayName(alert.pestType),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Cultivo: ${alert.cultivo}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = GrayMid
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.BugReport,
+                        contentDescription = null,
+                        modifier = Modifier.padding(AgroSpacing.xs)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = pestTypeDisplayName(alert.pestType),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Cultivo: ${alert.cultivo}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 SeverityBadge(alert.severidad)
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.lg)
             ) {
                 AlertMetadata(
                     icon = Icons.Default.LocationOn,
@@ -396,154 +376,65 @@ private fun PestAlertCard(
                 )
             }
 
-            Text(
-                text = "Ver detalle y productos preventivos",
-                style = MaterialTheme.typography.labelLarge,
-                color = GreenPrimary,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-    }
-}
-
-@Composable
-private fun SeverityBadge(severity: String) {
-    val normalized = severity.trim().lowercase(Locale.ROOT)
-    val (label, background, foreground) = when (normalized) {
-        "critica" -> Triple("Crítica", Color(0xFFFFE7E7), ErrorRed)
-        "alta" -> Triple("Alta", Color(0xFFFFEDE5), Color(0xFFB54708))
-        "baja" -> Triple("Baja", GreenSurface, GreenPrimary)
-        else -> Triple("Media", Color(0xFFFFF4D6), Color(0xFF8A6100))
-    }
-    Surface(color = background, shape = MaterialTheme.shapes.small) {
-        Text(
-            text = label,
-            color = foreground,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
-        )
-    }
-}
-
-@Composable
-private fun AlertMetadata(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    value: String
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = GrayMid,
-            modifier = Modifier.size(17.dp)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            color = GrayMid
-        )
-    }
-}
-
-@Composable
-private fun LoadingAlertsState() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = GreenPrimary)
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Buscando alertas cercanas…", color = GrayMid)
-        }
-    }
-}
-
-@Composable
-private fun AlertsErrorState(message: String, onRetry: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.BugReport,
-                contentDescription = null,
-                tint = ErrorRed,
-                modifier = Modifier.size(44.dp)
-            )
-            Text(
-                text = message,
-                color = ErrorRed,
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Button(onClick = onRetry) {
-                Icon(Icons.Default.Refresh, contentDescription = null)
-                Text("Reintentar", modifier = Modifier.padding(start = 8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Ver qué hacer y productos para prevenir",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
 }
 
+/**
+ * Severidad con palabra y tono. La palabra va siempre: "Crítica" se tiene que
+ * entender aunque no se distinga el rojo bajo el sol.
+ */
 @Composable
-internal fun InlineAlertsError(message: String, onRetry: () -> Unit) {
-    Surface(
-        color = Color(0xFFFFEDEA),
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier.fillMaxWidth()
+private fun SeverityBadge(severity: String) {
+    val (label, tone) = when (severity.trim().lowercase(Locale.ROOT)) {
+        "critica" -> "Crítica" to TagTone.Danger
+        "alta" -> "Alta" to TagTone.Warning
+        "baja" -> "Baja" to TagTone.Success
+        else -> "Media" to TagTone.Neutral
+    }
+    StatusTag(text = label, tone = tone)
+}
+
+@Composable
+private fun AlertMetadata(
+    icon: ImageVector,
+    contentDescription: String,
+    value: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = message,
-                color = ErrorRed,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.weight(1f)
-            )
-            TextButton(onClick = onRetry) { Text("Reintentar") }
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(AgroSizes.iconSmall)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
-private fun EmptyAlertsState() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.BugReport,
-                contentDescription = null,
-                tint = GreenPrimary,
-                modifier = Modifier.size(52.dp)
-            )
-            Text(
-                text = "No hay alertas activas cerca",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Tu zona no tiene reportes recientes de plagas.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = GrayMid
-            )
-        }
-    }
+internal fun InlineAlertsError(message: String, onRetry: () -> Unit) {
+    InlineError(message = message, onRetry = onRetry)
 }
 
 internal fun pestTypeDisplayName(apiValue: String): String =

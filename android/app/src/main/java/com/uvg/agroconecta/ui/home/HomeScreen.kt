@@ -7,64 +7,109 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.ShoppingCart
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.uvg.agroconecta.data.models.AppNotification
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.CropPhase
 import com.uvg.agroconecta.data.models.Distributor
-import com.uvg.agroconecta.ui.notifications.PriceNotificationState
-import com.uvg.agroconecta.ui.notifications.priceNotificationText
-import com.uvg.agroconecta.data.models.AppNotification
 import com.uvg.agroconecta.data.models.Product
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.AgroTextButton
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
+import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.components.ProductCard
+import com.uvg.agroconecta.ui.components.ProductCardSkeleton
+import com.uvg.agroconecta.ui.components.ProductGridSkeleton
 import com.uvg.agroconecta.ui.components.ProductImage
+import com.uvg.agroconecta.ui.components.SectionHeader
+import com.uvg.agroconecta.ui.components.SkeletonBox
 import com.uvg.agroconecta.ui.components.StarRating
-import com.uvg.agroconecta.ui.favorites.FavoriteButton
-import androidx.compose.ui.draw.clip
+import com.uvg.agroconecta.ui.components.StatusTag
+import com.uvg.agroconecta.ui.components.TagTone
+import com.uvg.agroconecta.ui.components.categoryBackground
+import com.uvg.agroconecta.ui.notifications.PriceNotificationState
+import com.uvg.agroconecta.ui.notifications.priceNotificationText
+import com.uvg.agroconecta.ui.theme.AgroConectaTheme
+import com.uvg.agroconecta.ui.theme.AgroSizes
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.agroColors
+import com.uvg.agroconecta.ui.theme.tabularNumbers
+import java.time.LocalTime
 import java.util.Locale
 
-private val VerdeAgroConecta = Color(0xFF2D6A1F)
-private val VerdeClaro = Color(0xFF4CAF50)
-private val NaranjaOferta = Color(0xFFE65100)
-private val NaranjaOfertaClaro = Color(0xFFFFF3E0)
-private val GrisFondo = Color(0xFFF5F5F5)
-private val TextoGris = Color(0xFF757575)
 private val homeLocationPermissions = arrayOf(
     Manifest.permission.ACCESS_FINE_LOCATION,
     Manifest.permission.ACCESS_COARSE_LOCATION
 )
-internal const val OFFLINE_INDICATOR_TEXT = "Sin conexión"
 
 internal fun shouldShowCropCycleCard(
     userType: String,
@@ -74,10 +119,21 @@ internal fun shouldShowCropCycleCard(
 internal fun cropCycleTitle(crop: String): String =
     "Tu cultivo: ${crop.replaceFirstChar { character -> character.titlecase() }}"
 
-internal fun offlineIndicatorText(isOffline: Boolean): String? =
-    OFFLINE_INDICATOR_TEXT.takeIf { isOffline }
+/** "Buen día" a las 8 de la noche suena a app hecha sin pensar en quien la usa. */
+internal fun greetingFor(hour: Int): String = when (hour) {
+    in 5..11 -> "Buenos días"
+    in 12..18 -> "Buenas tardes"
+    else -> "Buenas noches"
+}
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Inicio de la app. El orden sigue lo que más se hace: buscar o elegir una
+ * categoría arriba, después lo personalizado (avisos, cultivo, recomendados)
+ * y al final lo de consulta (alertas de plagas, distribuidores).
+ *
+ * La búsqueda y las categorías llevan al catálogo en vez de filtrar aquí: en
+ * Inicio solo se ven cuatro productos y filtrar esa lista confundía.
+ */
 @Composable
 fun HomeScreen(
     onProductoClick: (productoId: Int) -> Unit,
@@ -90,6 +146,8 @@ fun HomeScreen(
     onDistribuidorClick: (Int) -> Unit,
     tipoUsuario: String = "agricultor",
     cartItemCount: Int = 0,
+    onSearch: (String) -> Unit = {},
+    onCategoryClick: (Int) -> Unit = {},
     priceNotifications: PriceNotificationState = PriceNotificationState(),
     onPriceNotificationClick: (AppNotification) -> Unit = {},
     onPriceNotificationRead: (AppNotification) -> Unit = {},
@@ -142,20 +200,11 @@ fun HomeScreen(
         }
     }
 
-    if (uiState.filtrosAbiertos) {
-        FilterBottomSheet(
-            precioMinInicial = uiState.filtroPrecioMin,
-            precioMaxInicial = uiState.filtroPrecioMax,
-            marcaInicial = uiState.filtroMarca,
-            onAplicar = { min, max, marca -> viewModel.onFiltrosAplicados(min, max, marca) },
-            onLimpiar = { viewModel.onFiltrosLimpiados() },
-            onDismiss = { viewModel.cerrarFiltros() }
-        )
-    }
+    val esAgricultor = tipoUsuario == "agricultor"
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = GrisFondo,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             AppBottomBar(
                 selectedTab = BottomNavTab.HOME,
@@ -171,46 +220,48 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentPadding = PaddingValues(bottom = 16.dp)
+            contentPadding = PaddingValues(bottom = AgroSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
-            item {
+            item(key = "header") {
                 HomeHeader(
                     nombre = uiState.nombreAgricultor,
                     tipoUsuario = tipoUsuario,
                     cartItemCount = cartItemCount,
-                    searchQuery = uiState.searchQuery,
-                    onSearchChange = { viewModel.onSearchChange(it) },
-                    onSearchSubmit = { viewModel.onSearchSubmit() },
-                    onFiltrosClick = { viewModel.abrirFiltros() },
+                    onSearch = onSearch,
                     onCarritoClick = onCarritoClick
                 )
             }
-            if (uiState.isOffline) {
-                item(key = "offline-indicator") {
-                    OfflineModeIndicator()
-                }
-            }
-            if (tipoUsuario == "agricultor") {
+
+            if (esAgricultor) {
                 if (priceNotifications.isLoading) item(key = "price-loading") {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AgroSpacing.screenHorizontal)
+                    )
                 }
                 priceNotifications.error?.let { error ->
                     item(key = "price-error") {
-                        Column(Modifier.padding(horizontal = 16.dp)) {
-                            Text(error, color = MaterialTheme.colorScheme.error)
-                            TextButton(onClick = onRetryPriceNotifications) { Text("Reintentar alertas") }
-                        }
+                        InlineError(
+                            message = error,
+                            onRetry = onRetryPriceNotifications,
+                            modifier = Modifier.padding(horizontal = AgroSpacing.screenHorizontal)
+                        )
                     }
                 }
                 priceNotifications.notifications.forEach { notification ->
                     item(key = "price-${notification.id}") {
-                        PriceDropNotificationAlert(notification,
+                        PriceDropNotificationAlert(
+                            notification,
                             reading = notification.id in priceNotifications.readingIds,
                             onClick = { onPriceNotificationClick(notification) },
-                            onRead = { onPriceNotificationRead(notification) })
+                            onRead = { onPriceNotificationRead(notification) }
+                        )
                     }
                 }
             }
+
             if (tipoUsuario == "distribuidor") {
                 urgentNotification?.let { notification ->
                     item(key = "urgent-notification-${notification.id}") {
@@ -221,9 +272,16 @@ fun HomeScreen(
                     }
                 }
             }
-            item(key = "pest-alerts-shortcut") {
-                PestAlertsShortcutCard(onClick = onPestAlertsClick)
+
+            item(key = "categories") {
+                CategoryTilesSection(
+                    categorias = uiState.categorias,
+                    isLoading = uiState.isLoadingCategorias,
+                    onCategoryClick = onCategoryClick,
+                    onVerTodas = onVerTodasCategorias
+                )
             }
+
             if (shouldShowCropCycleCard(tipoUsuario, uiState.cicloRelevante)) {
                 uiState.cicloRelevante?.let { cycle ->
                     item(key = "crop-cycle-${cycle.faseActual?.idCiclo}") {
@@ -234,8 +292,9 @@ fun HomeScreen(
                     }
                 }
             }
-            item {
-                if (tipoUsuario == "agricultor") {
+
+            if (esAgricultor) {
+                item(key = "recommended") {
                     RecommendedProductsSection(
                         productos = uiState.productosRecomendados,
                         isLoading = uiState.isLoadingRecomendados,
@@ -246,40 +305,29 @@ fun HomeScreen(
                     )
                 }
             }
-            item {
-                SeccionCategorias(
-                    categorias = uiState.categorias,
-                    categoriaSeleccionadaId = uiState.categoriaSeleccionadaId,
-                    onCategoriaSelect = { viewModel.onCategoriaSelect(it) },
-                    onVerTodas = onVerTodasCategorias
-                )
-            }
-            item {
-                SeccionProductosDestacados(
-                    productos = uiState.productos.take(4),
+
+            item(key = "featured") {
+                FeaturedProductsSection(
+                    productos = uiState.productos.take(FEATURED_COUNT),
                     isLoading = uiState.isLoadingProductos,
                     onProductoClick = onProductoClick,
                     onVerMas = onVerMasProductos,
-                    showFavoriteAction = tipoUsuario == "agricultor",
+                    showFavoriteAction = esAgricultor,
                     favoriteIds = favoriteIds,
                     pendingFavoriteIds = pendingFavoriteIds,
                     onFavoriteClick = onFavoriteClick
                 )
             }
-            uiState.ofertaDelDia?.let { oferta ->
-                item {
-                    OfertaBanner(
-                        producto = oferta,
-                        onClick = { onProductoClick(oferta.id) },
-                        showFavoriteAction = tipoUsuario == "agricultor",
-                        isFavorite = oferta.id in favoriteIds,
-                        isUpdatingFavorite = oferta.id in pendingFavoriteIds,
-                        onFavoriteClick = { onFavoriteClick(oferta.id) }
-                    )
-                }
+
+            item(key = "pest-alerts-shortcut") {
+                PestAlertsShortcutCard(
+                    onClick = onPestAlertsClick,
+                    modifier = Modifier.padding(top = AgroSpacing.xs)
+                )
             }
-            item {
-                SeccionDistribuidores(
+
+            item(key = "distributors") {
+                DistributorsSection(
                     distribuidores = uiState.distribuidores,
                     isLoading = uiState.isLoadingDistribuidores,
                     onDistribuidorClick = onDistribuidorClick
@@ -288,6 +336,8 @@ fun HomeScreen(
         }
     }
 }
+
+private const val FEATURED_COUNT = 4
 
 private fun Context.hasHomeLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(
@@ -300,88 +350,247 @@ private fun Context.hasHomeLocationPermission(): Boolean =
         ) == PackageManager.PERMISSION_GRANTED
 
 @Composable
+private fun HomeHeader(
+    nombre: String,
+    tipoUsuario: String,
+    cartItemCount: Int,
+    onSearch: (String) -> Unit,
+    onCarritoClick: () -> Unit
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val onHeader = MaterialTheme.agroColors.onTopBar
+    var query by rememberSaveable { mutableStateOf("") }
+    val greeting = remember { greetingFor(LocalTime.now().hour) }
+
+    val submit: () -> Unit = {
+        keyboardController?.hide()
+        onSearch(query.trim())
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = MaterialTheme.agroColors.topBarContainer,
+                // Esquinas redondeadas solo abajo: separa el encabezado del
+                // contenido sin que parezca una tarjeta flotando.
+                shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+            )
+            .padding(
+                start = AgroSpacing.screenHorizontal,
+                end = AgroSpacing.xs,
+                top = AgroSpacing.md,
+                bottom = AgroSpacing.lg
+            )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "$greeting,",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = onHeader
+                )
+                Text(
+                    text = nombre.ifBlank { if (tipoUsuario == "distribuidor") "Distribuidor" else "Agricultor" },
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = onHeader,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Solo los agricultores compran, así que solo ellos ven el carrito.
+            if (tipoUsuario != "distribuidor") {
+                IconButton(onClick = onCarritoClick) {
+                    BadgedBox(
+                        badge = {
+                            if (cartItemCount > 0) {
+                                Badge(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                ) { Text("$cartItemCount") }
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.ShoppingCart,
+                            contentDescription = if (cartItemCount > 0) {
+                                "Carrito, $cartItemCount productos"
+                            } else {
+                                "Carrito"
+                            },
+                            tint = onHeader
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(AgroSpacing.sm))
+
+        TextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = AgroSpacing.xs),
+            shape = MaterialTheme.shapes.extraLarge,
+            textStyle = MaterialTheme.typography.bodyLarge,
+            placeholder = { Text("¿Qué producto buscas?") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                IconButton(onClick = submit) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Buscar")
+                }
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { submit() }),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                focusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                unfocusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                focusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                focusedTrailingIconColor = MaterialTheme.colorScheme.primary,
+                unfocusedTrailingIconColor = MaterialTheme.colorScheme.primary,
+                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+    }
+}
+
+/**
+ * Categorías como tarjetas con foto. La imagen se reconoce antes de leer la
+ * palabra, lo que ayuda a quien lee con dificultad; son las mismas fotos de
+ * respaldo que usan los productos sin foto propia.
+ */
+@Composable
+private fun CategoryTilesSection(
+    categorias: List<Category>,
+    isLoading: Boolean,
+    onCategoryClick: (Int) -> Unit,
+    onVerTodas: () -> Unit
+) {
+    if (!isLoading && categorias.isEmpty()) return
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(title = "Categorías", actionLabel = "Ver catálogo", onAction = onVerTodas)
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = AgroSpacing.screenHorizontal),
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+        ) {
+            if (isLoading && categorias.isEmpty()) {
+                items(4) {
+                    SkeletonBox(
+                        modifier = Modifier.size(width = CATEGORY_TILE_WIDTH, height = 112.dp),
+                        shape = MaterialTheme.shapes.large
+                    )
+                }
+            } else {
+                items(categorias, key = { it.id }) { categoria ->
+                    CategoryTile(categoria = categoria, onClick = { onCategoryClick(categoria.id) })
+                }
+            }
+        }
+    }
+}
+
+private val CATEGORY_TILE_WIDTH = 104.dp
+
+@Composable
+private fun CategoryTile(categoria: Category, onClick: () -> Unit) {
+    AgroCard(
+        onClick = onClick,
+        modifier = Modifier
+            .width(CATEGORY_TILE_WIDTH)
+            .semantics { contentDescription = "Ver ${categoria.nombre}" }
+    ) {
+        ProductImage(
+            imagenUrl = null,
+            contentDescription = null,
+            categoria = categoria.nombre,
+            iconSize = 32.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(72.dp)
+                .background(categoryBackground(categoria.nombre))
+        )
+        Text(
+            text = categoria.nombre,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            minLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = AgroSpacing.xs, vertical = AgroSpacing.xs)
+        )
+    }
+}
+
+@Composable
 internal fun PestAlertsShortcutCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    AgroCard(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = AgroSpacing.screenHorizontal)
             .testTag("pest-alerts-shortcut"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
-        border = BorderStroke(1.dp, VerdeClaro.copy(alpha = 0.45f))
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        border = null
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(AgroSpacing.md),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
         ) {
-            Surface(
-                color = VerdeAgroConecta,
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.BugReport,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.padding(10.dp)
-                )
-            }
+            IconBadge(icon = Icons.Default.BugReport)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Alertas de plagas",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = VerdeAgroConecta
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
                     text = "Consulta reportes cercanos o informa una plaga",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextoGris
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = "Abrir alertas de plagas",
-                tint = VerdeAgroConecta
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
     }
 }
 
 @Composable
-internal fun OfflineModeIndicator(modifier: Modifier = Modifier) {
+private fun IconBadge(icon: ImageVector) {
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-            .testTag("offline-indicator")
-            .semantics(mergeDescendants = true) {
-                contentDescription = OFFLINE_INDICATOR_TEXT
-            },
-        shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFFFF3E0),
-        border = BorderStroke(1.dp, Color(0xFFF57C00))
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = MaterialTheme.shapes.medium
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.WifiOff,
-                contentDescription = null,
-                tint = Color(0xFFE65100)
-            )
-            Text(
-                text = OFFLINE_INDICATOR_TEXT,
-                color = Color(0xFF8A3B00),
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier
+                .padding(AgroSpacing.xs)
+                .size(AgroSizes.iconMedium)
+        )
     }
 }
 
@@ -393,106 +602,74 @@ internal fun CropCycleInfoCard(
 ) {
     val currentPhase = cycle.faseActual ?: return
 
-    Card(
+    AgroCard(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = AgroSpacing.screenHorizontal, vertical = AgroSpacing.xs)
             .testTag("crop-cycle-card"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9)),
-        border = BorderStroke(1.5.dp, VerdeClaro.copy(alpha = 0.65f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(AgroSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = VerdeAgroConecta
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Eco,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.padding(9.dp).size(24.dp)
-                    )
-                }
+                IconBadge(icon = Icons.Default.Eco)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = cropCycleTitle(cycle.cultivo),
-                        color = VerdeAgroConecta,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Fase actual: ${currentPhase.fase}",
-                        color = Color(0xFF1B5E20),
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
             Text(
                 text = currentPhase.descripcion,
-                color = Color(0xFF37474F),
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             if (currentPhase.productosRecomendados.isNotEmpty()) {
-                HorizontalDivider(color = VerdeClaro.copy(alpha = 0.3f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Text(
-                    text = "Productos recomendados para esta fase",
-                    color = VerdeAgroConecta,
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.labelLarge
+                    text = "Lo que te puede servir en esta fase",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 currentPhase.productosRecomendados.take(3).forEach { product ->
-                    TextButton(
+                    AgroTextButton(
+                        text = product,
+                        icon = Icons.Default.Search,
                         onClick = { onRecommendedProductClick(product) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("recommended-product-link"),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = VerdeClaro,
-                            modifier = Modifier.size(17.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = product,
-                            color = Color(0xFF37474F),
-                            style = MaterialTheme.typography.bodySmall,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Start,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "Ver en catálogo",
-                            color = VerdeAgroConecta,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
+                            .testTag("recommended-product-link")
+                            .semantics { contentDescription = "Buscar $product en el catálogo" }
+                    )
                 }
             }
 
             cycle.proximaFase?.let { nextPhase ->
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.White.copy(alpha = 0.7f)
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow
                 ) {
                     Text(
                         text = "Próxima fase: ${nextPhase.fase} · mes ${nextPhase.mesInicio}",
-                        color = TextoGris,
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.fillMaxWidth().padding(10.dp)
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(AgroSpacing.sm)
                     )
                 }
             }
@@ -500,10 +677,10 @@ internal fun CropCycleInfoCard(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF5F5F5)
+@Preview(showBackground = true)
 @Composable
 private fun CropCycleInfoCardPreview() {
-    MaterialTheme {
+    AgroConectaTheme(darkTheme = false) {
         CropCycleInfoCard(
             cycle = CropCycleResponse(
                 cultivo = "maíz",
@@ -541,48 +718,55 @@ private fun UrgentOrderNotificationAlert(
 ) {
     val content = notification.contenido
 
-    Card(
+    AgroCard(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
-        border = BorderStroke(2.dp, MaterialTheme.colorScheme.error),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .padding(horizontal = AgroSpacing.screenHorizontal),
+        containerColor = MaterialTheme.colorScheme.errorContainer,
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.error)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(AgroSpacing.md),
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm),
             verticalAlignment = Alignment.Top
         ) {
             Icon(
                 imageVector = Icons.Default.Warning,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(30.dp)
+                modifier = Modifier.size(AgroSizes.iconLarge)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "PEDIDO URGENTE",
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
+                    text = "Pedido urgente",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer
                 )
                 Text(
-                    text = content.mensaje ?: "Pedido urgente por detección de plaga",
-                    fontWeight = FontWeight.SemiBold
+                    text = content.mensaje ?: "Un agricultor necesita insumos por una plaga",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer
                 )
                 content.tipoPlaga?.takeIf { it.isNotBlank() }?.let { pestType ->
-                    Text("Plaga detectada: $pestType")
+                    Text(
+                        text = "Plaga detectada: $pestType",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
                 }
                 content.agricultor?.takeIf { it.isNotBlank() }?.let { farmer ->
-                    Text("Agricultor: $farmer")
+                    Text(
+                        text = "Agricultor: $farmer",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
                 }
                 Text(
-                    text = "Toca para revisar los pedidos recibidos",
-                    color = TextoGris,
+                    text = "Toca para ver los pedidos recibidos",
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 6.dp)
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(top = AgroSpacing.xxs)
                 )
             }
         }
@@ -598,32 +782,25 @@ private fun RecommendedProductsSection(
     pendingFavoriteIds: Set<Int>,
     onFavoriteClick: (Int) -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp, bottom = 4.dp)
-    ) {
-        Text(
-            text = "Recomendados para ti",
-            fontWeight = FontWeight.Bold,
-            fontSize = 17.sp,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-        Spacer(modifier = Modifier.height(12.dp))
+    if (!isLoading && productos.isEmpty()) return
 
-        when {
-            isLoading && productos.isEmpty() -> Box(
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(title = "Recomendados para ti")
+
+        if (isLoading && productos.isEmpty()) {
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = AgroSpacing.screenHorizontal)
+                    .semantics { contentDescription = "Cargando recomendaciones" },
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
-                CircularProgressIndicator(color = VerdeAgroConecta)
+                ProductCardSkeleton(Modifier.width(RECOMMENDED_CARD_WIDTH))
+                ProductCardSkeleton(Modifier.width(RECOMMENDED_CARD_WIDTH))
             }
-
-            productos.isNotEmpty() -> LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+        } else {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = AgroSpacing.screenHorizontal),
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
                 items(productos, key = { it.id }) { producto ->
                     ProductCard(
@@ -633,7 +810,7 @@ private fun RecommendedProductsSection(
                         isFavorite = producto.id in favoriteIds,
                         isUpdatingFavorite = producto.id in pendingFavoriteIds,
                         onFavoriteClick = { onFavoriteClick(producto.id) },
-                        modifier = Modifier.width(190.dp)
+                        modifier = Modifier.width(RECOMMENDED_CARD_WIDTH)
                     )
                 }
             }
@@ -641,159 +818,10 @@ private fun RecommendedProductsSection(
     }
 }
 
-@Composable
-private fun HomeHeader(
-    nombre: String,
-    tipoUsuario: String,
-    cartItemCount: Int,
-    searchQuery: String,
-    onSearchChange: (String) -> Unit,
-    onSearchSubmit: () -> Unit,
-    onFiltrosClick: () -> Unit,
-    onCarritoClick: () -> Unit
-) {
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(VerdeAgroConecta)
-            .padding(horizontal = 16.dp, vertical = 20.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text("Buen día,", color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp)
-                Text(
-                    text = nombre.ifBlank { if (tipoUsuario == "distribuidor") "Distribuidor" else "Agricultor" },
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            // Solo agricultores ven el carrito en el header
-            if (tipoUsuario != "distribuidor") {
-                BadgedBox(
-                    badge = {
-                        if (cartItemCount > 0) {
-                            Badge { Text("$cartItemCount") }
-                        }
-                    }
-                ) {
-                    IconButton(onClick = onCarritoClick) {
-                        Icon(
-                            Icons.Outlined.ShoppingCart,
-                            contentDescription = "Carrito",
-                            tint = Color.White
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        TextField(
-            value = searchQuery,
-            onValueChange = onSearchChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp)),
-            placeholder = { Text("Buscar productos...", color = Color.Gray) },
-            leadingIcon = {
-                IconButton(onClick = onFiltrosClick) {
-                    Icon(Icons.Default.Menu, contentDescription = "Filtros", tint = Color.Gray)
-                }
-            },
-            trailingIcon = {
-                IconButton(onClick = {
-                    keyboardController?.hide()
-                    onSearchSubmit()
-                }) {
-                    Icon(Icons.Default.Search, contentDescription = "Buscar", tint = VerdeAgroConecta)
-                }
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = {
-                keyboardController?.hide()
-                onSearchSubmit()
-            }),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent
-            )
-        )
-    }
-}
+private val RECOMMENDED_CARD_WIDTH = 180.dp
 
 @Composable
-private fun SeccionCategorias(
-    categorias: List<Category>,
-    categoriaSeleccionadaId: Int?,
-    onCategoriaSelect: (Int?) -> Unit,
-    onVerTodas: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.White)
-            .padding(vertical = 16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Categorías", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-            Text(
-                "Ver todas...",
-                color = VerdeClaro,
-                fontSize = 14.sp,
-                modifier = Modifier.clickable { onVerTodas() }
-            )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = categoriaSeleccionadaId == null,
-                onClick = { onCategoriaSelect(null) },
-                label = { Text("Todos") },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = VerdeAgroConecta,
-                    selectedLabelColor = Color.White
-                )
-            )
-            categorias.forEach { cat ->
-                FilterChip(
-                    selected = categoriaSeleccionadaId == cat.id,
-                    onClick = { onCategoriaSelect(cat.id) },
-                    label = { Text(cat.nombre) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = VerdeAgroConecta,
-                        selectedLabelColor = Color.White
-                    )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SeccionProductosDestacados(
+private fun FeaturedProductsSection(
     productos: List<Product>,
     isLoading: Boolean,
     onProductoClick: (Int) -> Unit,
@@ -803,37 +831,28 @@ private fun SeccionProductosDestacados(
     pendingFavoriteIds: Set<Int>,
     onFavoriteClick: (Int) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Productos destacados", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-            Text(
-                "Ver más",
-                color = VerdeClaro,
-                fontSize = 14.sp,
-                modifier = Modifier.clickable { onVerMas() }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(title = "Productos destacados", actionLabel = "Ver todos", onAction = onVerMas)
+        when {
+            isLoading && productos.isEmpty() -> ProductGridSkeleton(
+                modifier = Modifier.padding(horizontal = AgroSpacing.screenHorizontal)
             )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        if (isLoading && productos.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxWidth().height(200.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = VerdeAgroConecta)
-            }
-        } else {
-            Column(
-                modifier = Modifier.padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+
+            productos.isEmpty() -> Text(
+                text = "Todavía no hay productos publicados. Vuelve pronto.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = AgroSpacing.screenHorizontal)
+            )
+
+            else -> Column(
+                modifier = Modifier.padding(horizontal = AgroSpacing.screenHorizontal),
+                verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
                 productos.chunked(2).forEach { rowItems ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
                     ) {
                         rowItems.forEach { producto ->
                             ProductCard(
@@ -849,224 +868,49 @@ private fun SeccionProductosDestacados(
                         if (rowItems.size == 1) Spacer(modifier = Modifier.weight(1f))
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun ProductCard(
-    producto: Product,
-    onClick: () -> Unit,
-    showFavoriteAction: Boolean = false,
-    isFavorite: Boolean = false,
-    isUpdatingFavorite: Boolean = false,
-    onFavoriteClick: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
-    val tieneStock = (producto.precioDesde ?: 0.0) > 0.0
-    val precioTexto = producto.precioDesde?.let { "Q %.2f".format(it) } ?: "Sin stock"
-
-    Card(
-        modifier = modifier.clickable(enabled = tieneStock, onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(130.dp)
-                    .background(
-                        when (producto.categoria?.lowercase()) {
-                            "fertilizantes" -> Color(0xFFE8F5E9)
-                            "pesticidas", "herbicidas" -> Color(0xFFFFF8E1)
-                            "semillas" -> Color(0xFFE3F2FD)
-                            else -> Color(0xFFF5F5F5)
-                        }
-                    )
-            ) {
-                // Sin descripción propia: el nombre ya se lee justo debajo y
-                // TalkBack lo anunciaría dos veces.
-                ProductImage(
-                    imagenUrl = producto.imagenUrl,
-                    contentDescription = null,
-                    categoria = producto.categoria,
-                    modifier = Modifier.matchParentSize()
+                AgroSecondaryButton(
+                    text = "Ver todo el catálogo",
+                    icon = Icons.AutoMirrored.Filled.ArrowForward,
+                    onClick = onVerMas,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                if (!tieneStock) {
-                    Box(
-                        modifier = Modifier
-                            .align(if (showFavoriteAction) Alignment.TopStart else Alignment.TopEnd)
-                            .padding(6.dp)
-                            .background(Color(0xFFB71C1C), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text("Sin stock", color = Color.White, fontSize = 10.sp)
-                    }
-                }
-                if (showFavoriteAction) {
-                    FavoriteButton(
-                        productId = producto.id,
-                        isFavorite = isFavorite,
-                        isPending = isUpdatingFavorite,
-                        onClick = onFavoriteClick,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                    )
-                }
-            }
-            Column(modifier = Modifier.padding(10.dp)) {
-                producto.categoria?.let { cat ->
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = VerdeClaro.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = cat,
-                            color = VerdeAgroConecta,
-                            fontSize = 11.sp,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-                Text(
-                    text = producto.nombre,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = precioTexto,
-                        fontWeight = FontWeight.Bold,
-                        color = if (tieneStock) VerdeAgroConecta else TextoGris,
-                        fontSize = 15.sp
-                    )
-                    if (tieneStock) {
-                        SmallFloatingActionButton(
-                            onClick = onClick,
-                            containerColor = VerdeAgroConecta,
-                            contentColor = Color.White,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = "Ver",
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
             }
         }
     }
 }
 
 @Composable
-private fun OfertaBanner(
-    producto: Product,
-    onClick: () -> Unit,
-    showFavoriteAction: Boolean,
-    isFavorite: Boolean,
-    isUpdatingFavorite: Boolean,
-    onFavoriteClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = NaranjaOfertaClaro),
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, NaranjaOferta)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = RoundedCornerShape(20.dp), color = NaranjaOferta) {
-                    Text(
-                        "Oferta del día",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
-                if (showFavoriteAction) {
-                    FavoriteButton(
-                        productId = producto.id,
-                        isFavorite = isFavorite,
-                        isPending = isUpdatingFavorite,
-                        onClick = onFavoriteClick
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "15% de descuento · Solo hoy",
-                color = NaranjaOferta.copy(alpha = 0.85f),
-                fontSize = 13.sp
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                producto.nombre,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = NaranjaOferta
-            )
-        }
-    }
-}
-
-@Composable
-private fun SeccionDistribuidores(
+private fun DistributorsSection(
     distribuidores: List<Distributor>,
     isLoading: Boolean,
     onDistribuidorClick: (Int) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)) {
-        Text(
-            "Distribuidores verificados",
-            fontWeight = FontWeight.Bold,
-            fontSize = 17.sp,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-        )
+    if (!isLoading && distribuidores.isEmpty()) return
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(title = "Distribuidores verificados")
         if (isLoading && distribuidores.isEmpty()) {
-            CircularProgressIndicator(
-                modifier = Modifier
-                    .size(32.dp)
-                    .align(Alignment.CenterHorizontally),
-                color = VerdeAgroConecta
-            )
-        } else if (distribuidores.isEmpty()) {
-            Text(
-                "No hay distribuidores verificados aún",
-                color = TextoGris,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-        } else {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(horizontal = AgroSpacing.screenHorizontal)
+                    .semantics { contentDescription = "Cargando distribuidores" },
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
-                distribuidores.forEach { dist ->
+                repeat(2) {
+                    SkeletonBox(
+                        modifier = Modifier
+                            .width(DISTRIBUTOR_CARD_WIDTH)
+                            .height(120.dp),
+                        shape = MaterialTheme.shapes.large
+                    )
+                }
+            }
+        } else {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = AgroSpacing.screenHorizontal),
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+            ) {
+                items(distribuidores, key = { it.id }) { dist ->
                     DistribuidorCard(
                         distribuidor = dist,
                         onClick = { onDistribuidorClick(dist.id) }
@@ -1077,6 +921,8 @@ private fun SeccionDistribuidores(
     }
 }
 
+private val DISTRIBUTOR_CARD_WIDTH = 196.dp
+
 @Composable
 internal fun DistribuidorCard(
     distribuidor: Distributor,
@@ -1086,73 +932,75 @@ internal fun DistribuidorCard(
         ?: ((distribuidor.calificacion ?: 0.0) > 0.0)
     val displayedRating = distribuidor.calificacion.takeIf { hasReviews } ?: 0.0
 
-    Card(
-        modifier = Modifier
-            .width(180.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    AgroCard(
+        onClick = onClick,
+        modifier = Modifier.width(DISTRIBUTOR_CARD_WIDTH)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
+        Column(
+            modifier = Modifier.padding(AgroSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Storefront,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(AgroSizes.iconSmall)
+                    )
+                }
+                Spacer(Modifier.width(AgroSpacing.xs))
                 Text(
                     text = distribuidor.nombreNegocio,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    maxLines = 1,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                if (distribuidor.estadoVerificacion == "verificado") {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = VerdeClaro.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            "Verificado",
-                            color = VerdeAgroConecta,
-                            fontSize = 9.sp,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                        )
-                    }
-                }
+            }
+            if (distribuidor.estadoVerificacion == "verificado") {
+                StatusTag(text = "Verificado", tone = TagTone.Info, icon = Icons.Default.Verified)
             }
             distribuidor.departamento?.let {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(it, color = TextoGris, fontSize = 11.sp)
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             formatDistributorDistanceKm(distribuidor.distanciaKm)?.let { distance ->
-                Spacer(modifier = Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = "Distancia al distribuidor",
-                        tint = VerdeAgroConecta,
-                        modifier = Modifier.size(14.dp)
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(3.dp))
+                    Spacer(modifier = Modifier.width(AgroSpacing.xxs))
                     Text(
                         text = distance,
-                        color = VerdeAgroConecta,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.labelMedium.tabularNumbers,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            StarRating(rating = displayedRating)
-            if (!hasReviews) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "Sin reseñas",
-                    color = TextoGris,
-                    fontSize = 10.sp
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StarRating(rating = displayedRating)
+                if (!hasReviews) {
+                    Spacer(modifier = Modifier.width(AgroSpacing.xs))
+                    Text(
+                        text = "Sin reseñas",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -1170,18 +1018,40 @@ internal fun PriceDropNotificationAlert(
     onClick: () -> Unit,
     onRead: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    AgroCard(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = AgroSpacing.screenHorizontal),
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        border = null
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("¡Bajó de precio!", fontWeight = FontWeight.Bold)
-            Text(notification.contenido.producto.orEmpty(), style = MaterialTheme.typography.titleMedium)
-            Text(priceNotificationText(notification))
-            Text("Toca para ver el producto", style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = onRead, enabled = !reading) {
-                Text(if (reading) "Marcando…" else "Marcar como leída")
-            }
+        Column(
+            modifier = Modifier.padding(start = AgroSpacing.md, end = AgroSpacing.md, top = AgroSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)
+        ) {
+            StatusTag(text = "¡Bajó de precio!", tone = TagTone.Success)
+            Text(
+                text = notification.contenido.producto.orEmpty(),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Text(
+                text = priceNotificationText(notification),
+                style = MaterialTheme.typography.bodyMedium.tabularNumbers,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Text(
+                text = "Toca para ver el producto",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
         }
+        AgroTextButton(
+            text = if (reading) "Marcando…" else "Marcar como leída",
+            onClick = onRead,
+            enabled = !reading,
+            modifier = Modifier.padding(start = AgroSpacing.xs, bottom = AgroSpacing.xxs)
+        )
     }
 }

@@ -220,7 +220,9 @@ class ProductViewModel @Inject constructor(
         }
     }
 
-    fun addToCart(idAgricultor: Int) {
+    // La cantidad llega desde el selector del detalle; por defecto 1 para no
+    // romper a quien llame sin elegirla.
+    fun addToCart(idAgricultor: Int, cantidad: Int = 1) {
         val offer = _selectedOffer.value ?: return
         _isAddingToCart.value = true
         viewModelScope.launch {
@@ -229,7 +231,7 @@ class ProductViewModel @Inject constructor(
                     idAgricultor = idAgricultor,
                     request = AddItemRequest(
                         idInventario = offer.idInventario,
-                        cantidad = 1
+                        cantidad = cantidad.coerceAtLeast(1)
                     )
                 )
                 if (response.isSuccessful) {

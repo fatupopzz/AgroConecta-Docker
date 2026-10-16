@@ -47,6 +47,9 @@ class OrderConfirmationScreenTest {
         compose.onNodeWithText("Reintentar").assertDoesNotExist()
         compose.onNode(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertIsDisplayed()
         compose.onNodeWithContentDescription("Volver").assertIsNotEnabled()
+        // Las opciones de entrega ocupan más alto que antes (tarjetas táctiles de
+        // 48 dp), así que el campo puede quedar fuera de la parte visible.
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Parcela norte"))
         compose.onNodeWithText("Parcela norte").assertIsNotEnabled()
         assertEquals(1, retries)
         assertEquals(0, confirmations)

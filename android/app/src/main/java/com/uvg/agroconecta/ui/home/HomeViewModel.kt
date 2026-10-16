@@ -328,11 +328,11 @@ class HomeViewModel @Inject constructor(
 
     fun onSearchSubmit() { loadProductos(reset = true) }
 
-    fun applyCatalogFilter(query: String) {
+    fun applyCatalogFilter(query: String, categoryId: Int? = null) {
         _uiState.update {
             it.copy(
                 searchQuery = normalizeCatalogQuery(query),
-                categoriaSeleccionadaId = null,
+                categoriaSeleccionadaId = categoryId,
                 currentPage = 1,
                 hasMore = true
             )
