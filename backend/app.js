@@ -25,6 +25,7 @@ const pestAlertRoutes = require("./src/routes/pestAlertRoutes");
 const favoriteRoutes = require("./src/routes/favoriteRoutes");
 
 const weatherRoutes = require("./src/routes/weatherRoutes");
+const plantingRoutes = require("./src/routes/plantingRoutes");
 
 const app = express();
 
@@ -77,6 +78,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/distribuidoresReview", distribuidorReviewRoutes);
 app.use("/api/alerts/pests", verifyToken, pestAlertRoutes);
 app.use("/api/favorites", verifyToken, favoriteRoutes);
+app.use("/api/plantings", verifyToken, plantingRoutes);
 
 app.get("/", (req, res) => {
     res.json({
