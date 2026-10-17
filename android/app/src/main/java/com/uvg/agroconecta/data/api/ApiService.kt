@@ -15,6 +15,18 @@ import com.uvg.agroconecta.ui.profile.DistributorProfile
  * cabecera cuando no hay token.
  */
 interface ApiService {
+    @GET("plantings/templates")
+    suspend fun getPlantingTemplates(): Response<List<PlantingTemplate>>
+
+    @GET("plantings/mine")
+    suspend fun getMyPlantings(): Response<List<Planting>>
+
+    @POST("plantings")
+    suspend fun createPlanting(@Body request: CreatePlantingRequest): Response<Planting>
+
+    @PATCH("plantings/tasks/{id}")
+    suspend fun updatePlantingTask(@Path("id") id: Int, @Body request: UpdatePlantingTaskRequest): Response<PlantingTaskStatus>
+
 
     // ── Auth ──────────────────────────────────────────────────────────────
     @POST("auth/login")
