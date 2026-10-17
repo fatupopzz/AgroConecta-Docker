@@ -22,6 +22,8 @@ import com.uvg.agroconecta.ui.auth.AuthViewModel
 import com.uvg.agroconecta.ui.auth.LoginScreen
 import com.uvg.agroconecta.ui.auth.RegisterStep1Screen
 import com.uvg.agroconecta.ui.auth.RegisterStep2Screen
+import com.uvg.agroconecta.ui.calendar.CropCalendarViewModel
+import com.uvg.agroconecta.ui.calendar.CropCalendarScreen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
 import com.uvg.agroconecta.ui.home.CatalogScreen
@@ -234,6 +236,7 @@ fun AgroConectaNavHost(
                 onRecommendedProductClick = { productName ->
                     navController.navigate(Screen.Catalog.createRoute(productName))
                 },
+                onCropCalendarClick = { navController.navigate(Screen.CropCalendar.route) },
                 onPestAlertsClick = {
                     navController.navigate(Screen.PestAlerts.route) {
                         launchSingleTop = true
@@ -263,20 +266,35 @@ fun AgroConectaNavHost(
             )
         }
 
+        composable(Screen.CropCalendar.route) {
+            val calendarViewModel: CropCalendarViewModel = hiltViewModel()
+            LaunchedEffect(userIdFlow, tipoUsuarioFlow) {
+                calendarViewModel.start(userIdFlow ?: 0, tipoUsuarioFlow.orEmpty())
+            }
+            CropCalendarScreen(calendarViewModel, onBack = { navController.popBackStack() }, onCatalog = { category ->
+                navController.navigate(Screen.Catalog.createRoute(category = category ?: 0, calendar = true))
+            })
+        }
+
         composable(
             route = Screen.Catalog.route,
             arguments = listOf(
                 navArgument("query") {
                     type = NavType.StringType
                     defaultValue = ""
-                }
+                },
+                navArgument("category") { type = NavType.IntType; defaultValue = 0 },
+                navArgument("calendar") { type = NavType.BoolType; defaultValue = false }
             )
         ) { backStackEntry ->
+            val calendarContext = backStackEntry.arguments?.getBoolean("calendar") == true
             CatalogScreen(
+                initialCategoryId = backStackEntry.arguments?.getInt("category")?.takeIf { it > 0 },
+                calendarContext = calendarContext,
                 initialQuery = backStackEntry.arguments?.getString("query").orEmpty(),
                 onBack = { navController.popBackStack() },
                 onProductClick = { productId ->
-                    navController.navigate(Screen.ProductDetail.createRoute(productId))
+                    navController.navigate(Screen.ProductDetail.createRoute(productId, chooseOffer = calendarContext))
                 },
                 showFavoriteAction = tipoUsuario == "agricultor",
                 favoriteIds = favoriteUiState.favoriteIds,
@@ -657,12 +675,13 @@ fun AgroConectaNavHost(
 
         composable(
             route = Screen.ProductDetail.route,
-            arguments = listOf(navArgument("productoId") { type = NavType.IntType })
+            arguments = listOf(navArgument("productoId") { type = NavType.IntType }, navArgument("chooseOffer") { type = NavType.BoolType; defaultValue = false })
         ) { backStackEntry ->
             val productoId = backStackEntry.arguments?.getInt("productoId") ?: return@composable
             val scope = rememberCoroutineScope()
             ProductDetailScreen(
                 productId = productoId,
+                requireOfferSelection = backStackEntry.arguments?.getBoolean("chooseOffer") == true,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToCart = { navController.navigate(Screen.Cart.route) },
                 onAddedToCart = {

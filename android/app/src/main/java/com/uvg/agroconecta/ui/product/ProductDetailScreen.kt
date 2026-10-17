@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ProductDetailScreen(
     productId: Int,
+    requireOfferSelection: Boolean = false,
     onNavigateBack: () -> Unit,
     onNavigateToCart: () -> Unit = {},
     onAddedToCart: () -> Unit = {},
@@ -57,7 +58,7 @@ fun ProductDetailScreen(
 
     LaunchedEffect(productId) {
         isFarmer = SessionManager.getTipoUsuario(context).first() == "agricultor"
-        viewModel.loadProduct(productId)
+        viewModel.loadProduct(productId, requireOfferSelection)
         viewModel.loadComparison(productId)
         if (isFarmer) {
             viewModel.loadFollowStatus(productId)

@@ -51,6 +51,8 @@ private val CatalogBackground = Color(0xFFF5F5F5)
 @Composable
 fun CatalogScreen(
     initialQuery: String,
+    initialCategoryId: Int? = null,
+    calendarContext: Boolean = false,
     onBack: () -> Unit,
     onProductClick: (Int) -> Unit,
     showFavoriteAction: Boolean = false,
@@ -65,8 +67,8 @@ fun CatalogScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(initialQuery) {
-        viewModel.applyCatalogFilter(initialQuery)
+    LaunchedEffect(initialQuery, initialCategoryId) {
+        viewModel.applyCatalogFilter(initialQuery, initialCategoryId)
     }
 
     LaunchedEffect(favoriteErrorMessage) {
@@ -100,11 +102,17 @@ fun CatalogScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (uiState.isOffline) item { Text("Sin conexión: solo se muestran coincidencias que se puedan verificar en la copia guardada.") }
+            if (calendarContext) item { Text("Elige un producto y luego un distribuidor. La sugerencia es una categoría; todavía no hay un inventario seleccionado.") }
+            uiState.errorMessage?.let { message -> item {
+                Text(message)
+                TextButton(onClick = viewModel::onSearchSubmit) { Text("Reintentar búsqueda") }
+            } }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = if (uiState.searchQuery.isBlank()) {
-                            "Todos los productos"
+                            if (initialCategoryId != null) "Productos de la categoría sugerida" else "Todos los productos"
                         } else {
                             "Resultados para “${uiState.searchQuery}”"
                         },

@@ -328,11 +328,11 @@ class HomeViewModel @Inject constructor(
 
     fun onSearchSubmit() { loadProductos(reset = true) }
 
-    fun applyCatalogFilter(query: String) {
+    fun applyCatalogFilter(query: String, categoryId: Int? = null) {
         _uiState.update {
             it.copy(
                 searchQuery = normalizeCatalogQuery(query),
-                categoriaSeleccionadaId = null,
+                categoriaSeleccionadaId = categoryId,
                 currentPage = 1,
                 hasMore = true
             )
@@ -421,8 +421,8 @@ class HomeViewModel @Inject constructor(
             val matchesQuery = query.isBlank() ||
                 product.nombre.contains(query, ignoreCase = true) ||
                 product.descripcion.orEmpty().contains(query, ignoreCase = true)
-            val matchesCategory = categoryName == null ||
-                product.categoria.equals(categoryName, ignoreCase = true)
+            val matchesCategory = state.categoriaSeleccionadaId == null ||
+                (categoryName != null && product.categoria.equals(categoryName, ignoreCase = true))
             val matchesMinimum = state.filtroPrecioMin == null ||
                 (product.precioDesde ?: Double.NEGATIVE_INFINITY) >= state.filtroPrecioMin.toDouble()
             val matchesMaximum = state.filtroPrecioMax == null ||

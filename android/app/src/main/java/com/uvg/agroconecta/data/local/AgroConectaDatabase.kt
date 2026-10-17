@@ -6,11 +6,12 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [ProductCacheEntity::class],
-    version = 3,
+    entities = [ProductCacheEntity::class, PlantingCacheEntity::class],
+    version = 4,
     exportSchema = false
 )
 abstract class AgroConectaDatabase : RoomDatabase() {
+    abstract fun plantingCacheDao(): PlantingCacheDao
     abstract fun productCacheDao(): ProductCacheDao
 }
 
@@ -30,5 +31,12 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
 val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE producto_cache ADD COLUMN imagenThumbUrl TEXT")
+    }
+}
+
+/** Conserva la caché del catálogo y agrega snapshots de siembras por usuario. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `planting_cache` (`userId` INTEGER NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`userId`))")
     }
 }

@@ -98,6 +98,7 @@ fun HomeScreen(
     onUrgentNotificationClick: (AppNotification) -> Unit = {},
     onRecommendedProductClick: (String) -> Unit = {},
     onPestAlertsClick: () -> Unit = {},
+    onCropCalendarClick: () -> Unit = {},
     favoriteIds: Set<Int> = emptySet(),
     pendingFavoriteIds: Set<Int> = emptySet(),
     favoriteErrorMessage: String? = null,
@@ -218,6 +219,13 @@ fun HomeScreen(
                             notification = notification,
                             onClick = { onUrgentNotificationClick(notification) }
                         )
+                    }
+                }
+            }
+            if (tipoUsuario == "agricultor") {
+                item(key = "crop-calendar-shortcut") {
+                    OutlinedButton(onClick = onCropCalendarClick, modifier = Modifier.fillMaxWidth()) {
+                        Text("Calendario de cultivo · Mis siembras")
                     }
                 }
             }
