@@ -2,6 +2,7 @@ package com.uvg.agroconecta.ui.home
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.ContextCompat
 import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchAvailability
+import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchRecognizerSession
+import com.uvg.agroconecta.ui.home.voice.VoiceSearchRecognizerManager
 import com.uvg.agroconecta.ui.home.voice.VoiceSearchPermissionAction
 import com.uvg.agroconecta.ui.home.voice.voiceSearchPermissionAction
 
@@ -79,10 +83,21 @@ fun CatalogScreen(
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val voiceRecognizerManager = remember(context) {
+        VoiceSearchRecognizerManager {
+            AndroidVoiceSearchRecognizerSession(
+                SpeechRecognizer.createSpeechRecognizer(context.applicationContext)
+            )
+        }
+    }
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) onVoiceSearchClick()
+    }
+
+    DisposableEffect(voiceRecognizerManager) {
+        onDispose(voiceRecognizerManager::destroy)
     }
 
     LaunchedEffect(initialQuery, initialCategoryId) {
