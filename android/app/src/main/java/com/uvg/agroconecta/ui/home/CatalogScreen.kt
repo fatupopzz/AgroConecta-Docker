@@ -1,5 +1,9 @@
 package com.uvg.agroconecta.ui.home
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,7 +49,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.ContextCompat
 import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchAvailability
+import com.uvg.agroconecta.ui.home.voice.VoiceSearchPermissionAction
+import com.uvg.agroconecta.ui.home.voice.voiceSearchPermissionAction
 
 private val CatalogGreen = Color(0xFF2D6A1F)
 private val CatalogBackground = Color(0xFFF5F5F5)
@@ -69,8 +76,14 @@ fun CatalogScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) onVoiceSearchClick()
+    }
 
     LaunchedEffect(initialQuery, initialCategoryId) {
         viewModel.applyCatalogFilter(initialQuery, initialCategoryId)
@@ -136,7 +149,19 @@ fun CatalogScreen(
                         trailingIcon = {
                             CatalogSearchActions(
                                 voiceSearchAvailable = voiceSearchAvailable,
-                                onVoiceSearchClick = onVoiceSearchClick,
+                                onVoiceSearchClick = {
+                                    keyboardController?.hide()
+                                    val permissionGranted = ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.RECORD_AUDIO
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                    when (voiceSearchPermissionAction(permissionGranted)) {
+                                        VoiceSearchPermissionAction.START_RECOGNITION ->
+                                            onVoiceSearchClick()
+                                        VoiceSearchPermissionAction.REQUEST_PERMISSION ->
+                                            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    }
+                                },
                                 onSearchClick = {
                                     keyboardController?.hide()
                                     viewModel.onSearchSubmit()
