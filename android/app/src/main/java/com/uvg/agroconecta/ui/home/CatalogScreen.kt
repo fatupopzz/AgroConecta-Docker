@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,11 +39,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchAvailability
 
 private val CatalogGreen = Color(0xFF2D6A1F)
 private val CatalogBackground = Color(0xFFF5F5F5)
@@ -61,6 +64,8 @@ fun CatalogScreen(
     favoriteErrorMessage: String? = null,
     onFavoriteClick: (Int) -> Unit = {},
     onFavoriteErrorShown: () -> Unit = {},
+    onVoiceSearchClick: () -> Unit = {},
+    voiceSearchAvailable: Boolean = rememberVoiceSearchAvailable(),
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -129,12 +134,14 @@ fun CatalogScreen(
                             Icon(Icons.Default.Search, contentDescription = null)
                         },
                         trailingIcon = {
-                            IconButton(onClick = {
-                                keyboardController?.hide()
-                                viewModel.onSearchSubmit()
-                            }) {
-                                Icon(Icons.Default.Search, contentDescription = "Buscar")
-                            }
+                            CatalogSearchActions(
+                                voiceSearchAvailable = voiceSearchAvailable,
+                                onVoiceSearchClick = onVoiceSearchClick,
+                                onSearchClick = {
+                                    keyboardController?.hide()
+                                    viewModel.onSearchSubmit()
+                                }
+                            )
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
@@ -208,6 +215,32 @@ fun CatalogScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun rememberVoiceSearchAvailable(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        AndroidVoiceSearchAvailability(context).isAvailable()
+    }
+}
+
+@Composable
+internal fun CatalogSearchActions(
+    voiceSearchAvailable: Boolean,
+    onVoiceSearchClick: () -> Unit,
+    onSearchClick: () -> Unit
+) {
+    Row {
+        if (voiceSearchAvailable) {
+            IconButton(onClick = onVoiceSearchClick) {
+                Icon(Icons.Default.Mic, contentDescription = "Buscar por voz")
+            }
+        }
+        IconButton(onClick = onSearchClick) {
+            Icon(Icons.Default.Search, contentDescription = "Buscar")
         }
     }
 }
