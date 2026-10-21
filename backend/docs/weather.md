@@ -1,5 +1,25 @@
 # KAN-111 — Clima backend
 
+## Extensión para tarjeta Android
+
+La respuesta incorpora `forecast_3d`, tres días de calendario (hoy y dos días
+siguientes) con `date` (YYYY-MM-DD), `temperature_min_c`, `temperature_max_c`,
+`precipitation_mm` y `precipitation_probability_max`. `forecast_timezone` es
+`America/Guatemala`; `data_time`, `fetched_at` y el resumen de 24 horas conservan
+instantes ISO UTC. Los agregados diarios se solicitan al proveedor para esa zona
+y se rechazan respuestas diarias incompletas. Contrato del proveedor:
+[Open-Meteo](https://open-meteo.com/en/docs).
+
+`GET /api/weather/farm` usa JWT y el mismo rol agricultor; obtiene exclusivamente
+las coordenadas de su dirección de entrega predeterminada. Devuelve el mismo
+contrato de clima, 404 si no tiene coordenadas guardadas, y no acepta IDs de otro
+usuario. Android puede usar GPS mediante `GET /api/weather?lat=...&lng=...` cuando
+recibe ese 404. Un fallo del proveedor conserva 503 o el último dato `stale`.
+
+Las claves de caché llevan ahora el prefijo `daily3:` antes de las coordenadas
+para no servir el contrato antiguo sin pronóstico diario. TTL y namespaces se
+conservan. Verificación de esta extensión: 67 pruebas de clima aprobadas.
+
 ## Diagnóstico y alcance
 
 Base: origin/develop `faada19`, con KAN-107 integrado mediante PR #101

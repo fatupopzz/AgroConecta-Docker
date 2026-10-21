@@ -15,6 +15,15 @@ import com.uvg.agroconecta.ui.profile.DistributorProfile
  * cabecera cuando no hay token.
  */
 interface ApiService {
+    @GET("weather/farm")
+    suspend fun getFarmWeather(): Response<WeatherReport>
+
+    @GET("weather")
+    suspend fun getWeather(
+        @Query("lat") latitude: Double,
+        @Query("lng") longitude: Double
+    ): Response<WeatherReport>
+
     @GET("plantings/templates")
     suspend fun getPlantingTemplates(): Response<List<PlantingTemplate>>
 

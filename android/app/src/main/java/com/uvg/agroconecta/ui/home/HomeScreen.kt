@@ -104,6 +104,8 @@ fun HomeScreen(
     favoriteErrorMessage: String? = null,
     onFavoriteClick: (Int) -> Unit = {},
     onFavoriteErrorShown: () -> Unit = {},
+    weatherState: WeatherUiState = WeatherUiState(),
+    onRefreshWeather: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -185,6 +187,12 @@ fun HomeScreen(
                     onFiltrosClick = { viewModel.abrirFiltros() },
                     onCarritoClick = onCarritoClick
                 )
+            }
+            if (tipoUsuario == "agricultor") {
+                item(key = "weather-card") {
+                    WeatherCard(weatherState, onRefreshWeather,
+                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                }
             }
             if (uiState.isOffline) {
                 item(key = "offline-indicator") {

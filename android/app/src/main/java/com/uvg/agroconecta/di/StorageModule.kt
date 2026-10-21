@@ -43,6 +43,11 @@ object StorageModule {
 
     @Provides
     @Singleton
+    fun provideWeatherRepository(api: ApiService): com.uvg.agroconecta.data.repository.WeatherRepository =
+        com.uvg.agroconecta.data.repository.RemoteWeatherRepository(api)
+
+    @Provides
+    @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AgroConectaDatabase =
         Room.databaseBuilder(
             context,

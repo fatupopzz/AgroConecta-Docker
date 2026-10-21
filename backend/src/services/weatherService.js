@@ -29,7 +29,7 @@ const createWeatherService = ({ cache = cacheService, provider = createOpenMeteo
   };
   return {
     async getWeather(coordinates) {
-      const key = `${coordinates.lat.toFixed(2)}:${coordinates.lng.toFixed(2)}`;
+      const key = `daily3:${coordinates.lat.toFixed(2)}:${coordinates.lng.toFixed(2)}`;
       const fresh = await read("weather:fresh", key);
       if (fresh.hit) return { ...fresh.value, cached: true, stale: false };
       const last = await read("weather:last", key);
