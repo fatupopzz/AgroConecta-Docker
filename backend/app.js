@@ -26,6 +26,7 @@ const favoriteRoutes = require("./src/routes/favoriteRoutes");
 
 const weatherRoutes = require("./src/routes/weatherRoutes");
 const plantingRoutes = require("./src/routes/plantingRoutes");
+const diagnosisRoutes = require("./src/routes/diagnosisRoutes");
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use(
 );
 
 app.use("/api/auth", authRoutes);
+app.use("/api/diagnoses", diagnosisRoutes);
 app.use("/api/weather", weatherRoutes);
 
 app.get("/api/protected", verifyToken, (req, res) => {

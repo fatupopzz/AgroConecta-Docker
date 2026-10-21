@@ -149,6 +149,12 @@ const runStartupMigrations = async () => {
   );
   await pool.query(pestAlertsMigration);
 
+  const diagnosisMigration = await fs.readFile(
+    path.join(__dirname, "sql", "diagnostico_migration.sql"),
+    "utf8",
+  );
+  await pool.query(diagnosisMigration);
+
   const favoritesMigration = await fs.readFile(
     path.join(__dirname, "sql", "favorites_migration.sql"),
     "utf8",
