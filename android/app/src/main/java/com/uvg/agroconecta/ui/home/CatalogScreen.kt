@@ -76,7 +76,6 @@ fun CatalogScreen(
     favoriteErrorMessage: String? = null,
     onFavoriteClick: (Int) -> Unit = {},
     onFavoriteErrorShown: () -> Unit = {},
-    onVoiceSearchClick: () -> Unit = {},
     voiceSearchAvailable: Boolean = rememberVoiceSearchAvailable(),
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -84,7 +83,11 @@ fun CatalogScreen(
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val voiceRecognitionListener = remember { VoiceSearchRecognitionListener() }
+    val voiceRecognitionListener = remember(viewModel) {
+        VoiceSearchRecognitionListener(
+            onFinalResults = viewModel::onVoiceSearchResults
+        )
+    }
     val voiceRecognizerManager = remember(context, voiceRecognitionListener) {
         VoiceSearchRecognizerManager {
             AndroidVoiceSearchRecognizerSession(
@@ -95,7 +98,6 @@ fun CatalogScreen(
     }
     val startVoiceRecognition = {
         voiceRecognizerManager.startListening()
-        onVoiceSearchClick()
     }
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()

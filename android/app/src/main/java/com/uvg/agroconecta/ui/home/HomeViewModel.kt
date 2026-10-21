@@ -333,6 +333,15 @@ class HomeViewModel @Inject constructor(
         loadProductos(reset = true)
     }
 
+    fun onVoiceSearchResults(results: List<String>) {
+        val recognizedQuery = results
+            .firstOrNull { it.isNotBlank() }
+            ?.let(::normalizeCatalogQuery)
+            ?: return
+        _uiState.update { state -> state.copy(searchQuery = recognizedQuery) }
+        loadProductos(reset = true)
+    }
+
     fun applyCatalogFilter(query: String, categoryId: Int? = null) {
         _uiState.update {
             it.copy(

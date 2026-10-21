@@ -48,6 +48,37 @@ class CatalogSearchViewModelTest {
         assertEquals(listOf(ProductRequest(name = null)), repository.requests)
     }
 
+    @Test
+    fun `coloca el mejor resultado de voz y ejecuta la busqueda`() {
+        val repository = FakeHomeProductCatalogRepository(
+            loadResult = ProductLoadResult.Success(emptyList(), total = 0)
+        )
+        val viewModel = viewModel(repository)
+
+        viewModel.onVoiceSearchResults(
+            listOf("  abono   foliar  ", "fertilizante")
+        )
+
+        assertEquals("abono foliar", viewModel.uiState.value.searchQuery)
+        assertEquals(
+            listOf(ProductRequest(name = "abono foliar")),
+            repository.requests
+        )
+    }
+
+    @Test
+    fun `ignora resultados de voz sin texto util`() {
+        val repository = FakeHomeProductCatalogRepository()
+        val viewModel = viewModel(repository)
+        viewModel.onSearchChange("urea")
+
+        viewModel.onVoiceSearchResults(emptyList())
+        viewModel.onVoiceSearchResults(listOf("", "   "))
+
+        assertEquals("urea", viewModel.uiState.value.searchQuery)
+        assertEquals(emptyList<ProductRequest>(), repository.requests)
+    }
+
     private fun viewModel(repository: FakeHomeProductCatalogRepository) = HomeViewModel(
         api = api,
         cropCycleRepository = NoOpCropCycleRepository,
