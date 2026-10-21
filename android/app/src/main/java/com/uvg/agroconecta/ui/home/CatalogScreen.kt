@@ -54,6 +54,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.ContextCompat
 import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchAvailability
 import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchRecognizerSession
+import com.uvg.agroconecta.ui.home.voice.VoiceSearchRecognitionListener
 import com.uvg.agroconecta.ui.home.voice.VoiceSearchRecognizerManager
 import com.uvg.agroconecta.ui.home.voice.VoiceSearchPermissionAction
 import com.uvg.agroconecta.ui.home.voice.voiceSearchPermissionAction
@@ -83,17 +84,23 @@ fun CatalogScreen(
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val voiceRecognizerManager = remember(context) {
+    val voiceRecognitionListener = remember { VoiceSearchRecognitionListener() }
+    val voiceRecognizerManager = remember(context, voiceRecognitionListener) {
         VoiceSearchRecognizerManager {
             AndroidVoiceSearchRecognizerSession(
-                SpeechRecognizer.createSpeechRecognizer(context.applicationContext)
+                recognizer = SpeechRecognizer.createSpeechRecognizer(context.applicationContext),
+                recognitionListener = voiceRecognitionListener
             )
         }
+    }
+    val startVoiceRecognition = {
+        voiceRecognizerManager.startListening()
+        onVoiceSearchClick()
     }
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) onVoiceSearchClick()
+        if (granted) startVoiceRecognition()
     }
 
     DisposableEffect(voiceRecognizerManager) {
@@ -172,7 +179,7 @@ fun CatalogScreen(
                                     ) == PackageManager.PERMISSION_GRANTED
                                     when (voiceSearchPermissionAction(permissionGranted)) {
                                         VoiceSearchPermissionAction.START_RECOGNITION ->
-                                            onVoiceSearchClick()
+                                            startVoiceRecognition()
                                         VoiceSearchPermissionAction.REQUEST_PERMISSION ->
                                             audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                     }

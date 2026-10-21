@@ -45,8 +45,24 @@ class VoiceSearchRecognizerManagerTest {
         assertEquals(0, creations)
     }
 
+    @Test
+    fun `inicia escucha reutilizando la sesion existente`() {
+        val session = FakeVoiceSearchRecognizerSession()
+        val manager = VoiceSearchRecognizerManager { session }
+
+        manager.startListening()
+        manager.startListening()
+
+        assertEquals(2, session.startCalls)
+    }
+
     private class FakeVoiceSearchRecognizerSession : VoiceSearchRecognizerSession {
+        var startCalls = 0
         var destroyCalls = 0
+
+        override fun startListening() {
+            startCalls += 1
+        }
 
         override fun destroy() {
             destroyCalls += 1
