@@ -27,8 +27,26 @@ const normalizeForecast = (data, coordinates, now) => {
     return { temperature, rain, probability, wind };
   });
 
+  const daily = data?.daily;
+  const forecast_3d = Array.from({ length: 3 }, (_, index) => {
+    const time = daily?.time?.[index];
+    const min = daily?.temperature_2m_min?.[index];
+    const max = daily?.temperature_2m_max?.[index];
+    const rain = daily?.precipitation_sum?.[index];
+    const probability = daily?.precipitation_probability_max?.[index];
+    if (!numeric(time) || !numeric(min) || !numeric(max) || min > max ||
+        !numeric(rain, 0) || !numeric(probability, 0, 100)) throw new Error("Incomplete daily weather response");
+    return {
+      date: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Guatemala' }).format(new Date(time * 1000)),
+      temperature_min_c: min, temperature_max_c: max,
+      precipitation_mm: rain, precipitation_probability_max: probability,
+    };
+  });
+
   return {
     coordinates,
+    forecast_3d,
+    forecast_timezone: "America/Guatemala",
     current: {
       temperature_c: current.temperature_2m,
       wind_speed_kmh: current.wind_speed_10m,
@@ -64,8 +82,9 @@ const createOpenMeteoService = ({
         latitude: coordinates.lat, longitude: coordinates.lng,
         current: "temperature_2m,precipitation,weather_code,wind_speed_10m",
         hourly: "temperature_2m,precipitation,precipitation_probability,wind_speed_10m",
+        daily: "temperature_2m_min,temperature_2m_max,precipitation_sum,precipitation_probability_max",
         temperature_unit: "celsius", wind_speed_unit: "kmh", precipitation_unit: "mm",
-        timezone: "GMT", timeformat: "unixtime", forecast_days: 3,
+        timezone: "America/Guatemala", timeformat: "unixtime", forecast_days: 3,
       }).forEach(([key, value]) => url.searchParams.set(key, value));
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);

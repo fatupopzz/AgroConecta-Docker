@@ -5,7 +5,7 @@ const { performance } = require("node:perf_hooks");
 const { normalizeCoordinates, createWeatherService } = require("../src/services/weatherService");
 const { getRecommendations } = require("../src/services/weatherRules");
 const { createOpenMeteoService } = require("../src/services/openMeteoService");
-const { createWeatherController } = require("../src/controllers/weatherController");
+const { createWeatherController, createFarmWeatherController } = require("../src/controllers/weatherController");
 const verifyToken = require("../src/middleware/authMiddleware");
 const asyncHandler = require("../src/middleware/asyncHandler");
 const { errorHandler } = require("../src/middleware/errorHandler");
@@ -20,6 +20,11 @@ const weather = () => ({
   data_time: now.toISOString(), fetched_at: now.toISOString(), timezone: "UTC", source: "Open-Meteo",
 });
 const rawWeather = () => ({
+  daily: {
+    time: [1791957600, 1792044000, 1792130400],
+    temperature_2m_min: [15, 16, 17], temperature_2m_max: [24, 25, 26],
+    precipitation_sum: [1, 2, 3], precipitation_probability_max: [10, 20, 30],
+  },
   current: { time: now.getTime() / 1000, temperature_2m: 20, wind_speed_10m: 10, precipitation: 0, weather_code: 0 },
   hourly: {
     time: Array.from({ length: 26 }, (_, i) => start + i * 3600),
@@ -43,6 +48,37 @@ const fixture = () => {
   const logger = { warn: vi.fn() };
   return { cache, provider, logger, service: createWeatherService({ cache, provider, logger }) };
 };
+
+describe('clima de dirección principal', () => {
+  const farmApp = (service, database) => {
+    const app = express();
+    app.get('/api/weather/farm', verifyToken, asyncHandler(createFarmWeatherController(service, database)));
+    app.use(errorHandler);
+    return app;
+  };
+  test('resuelve solo la dirección principal del usuario autenticado', async () => {
+    const database = { query: vi.fn().mockResolvedValue({ rows: [{ latitud: '14.634', longitud: '-90.506' }] }) };
+    const service = { getWeather: vi.fn().mockResolvedValue(weather()) };
+    const response = await request(farmApp(service, database)).get('/api/weather/farm?id_usuario=999').set('Authorization', `Bearer ${token()}`);
+    expect(response.status).toBe(200);
+    expect(database.query).toHaveBeenCalledWith(expect.stringContaining('d.es_predeterminada = TRUE'), [1]);
+    expect(service.getWeather).toHaveBeenCalledWith(coordinates);
+  });
+  test('404 sin coordenadas guardadas permite fallback GPS en Android', async () => {
+    const database = { query: vi.fn().mockResolvedValue({ rows: [] }) };
+    const service = { getWeather: vi.fn() };
+    const response = await request(farmApp(service, database)).get('/api/weather/farm').set('Authorization', `Bearer ${token()}`);
+    expect(response.status).toBe(404);
+    expect(service.getWeather).not.toHaveBeenCalled();
+  });
+  test('401 y 403 no consultan direcciones', async () => {
+    const database = { query: vi.fn() };
+    const app = farmApp({}, database);
+    expect((await request(app).get('/api/weather/farm')).status).toBe(401);
+    expect((await request(app).get('/api/weather/farm').set('Authorization', `Bearer ${token('distribuidor')}`)).status).toBe(403);
+    expect(database.query).not.toHaveBeenCalled();
+  });
+});
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
@@ -108,7 +144,7 @@ describe("caché y fallback", () => {
     expect(response.body).toMatchObject({ cached: true, stale: false, coordinates });
     expect(f.provider.getWeather).not.toHaveBeenCalled();
     expect(f.cache.set).not.toHaveBeenCalled();
-    expect(f.cache.get).toHaveBeenCalledExactlyOnceWith("weather:fresh", "14.63:-90.51");
+    expect(f.cache.get).toHaveBeenCalledExactlyOnceWith("weather:fresh", "daily3:14.63:-90.51");
   });
   test("éxito guarda ambas entradas con TTL exactos", async () => {
     const f = fixture(); const data = await f.service.getWeather(coordinates);
@@ -188,12 +224,17 @@ describe("Open-Meteo aislado", () => {
     expect(url.searchParams.has("apikey")).toBe(false);
     expect(data.forecast_24h).toMatchObject({ precipitation_mm: 1, from: "2026-10-15T04:00:00.000Z", to: "2026-10-16T04:00:00.000Z" });
     expect(data.data_time).toBe(now.toISOString());
+    expect(data.forecast_3d).toHaveLength(3);
+    expect(data.forecast_3d[0]).toMatchObject({ date: '2026-10-14', temperature_min_c: 15, precipitation_mm: 1 });
+    expect(url.searchParams.get('timezone')).toBe('America/Guatemala');
   });
-  test.each(["missing", "null", "old", "http", "json"])('rechaza respuesta %s', async type => {
+  test.each(["missing", "null", "old", "http", "json", "daily", "daily-null"])('rechaza respuesta %s', async type => {
     const raw = rawWeather();
     if (type === "missing") raw.hourly.time.pop(), raw.hourly.time.pop();
     if (type === "null") raw.hourly.temperature_2m[1] = null;
     if (type === "old") raw.current.time -= 7200;
+    if (type === "daily") raw.daily.time.pop();
+    if (type === "daily-null") raw.daily.precipitation_sum[1] = null;
     const fetchImpl = vi.fn(async () => ({ ok: type !== "http", json: async () => { if (type === "json") throw new Error("bad json"); return raw; } }));
     await expect(createOpenMeteoService({ fetchImpl, now: () => now }).getWeather(coordinates)).rejects.toThrow();
   });
