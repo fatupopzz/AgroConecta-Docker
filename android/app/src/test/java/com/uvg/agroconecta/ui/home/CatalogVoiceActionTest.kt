@@ -2,6 +2,7 @@ package com.uvg.agroconecta.ui.home
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -25,6 +26,7 @@ class CatalogVoiceActionTest {
             MaterialTheme {
                 CatalogSearchActions(
                     voiceSearchAvailable = false,
+                    isVoiceListening = false,
                     onVoiceSearchClick = {},
                     onSearchClick = {}
                 )
@@ -42,6 +44,7 @@ class CatalogVoiceActionTest {
             MaterialTheme {
                 CatalogSearchActions(
                     voiceSearchAvailable = true,
+                    isVoiceListening = false,
                     onVoiceSearchClick = { clicked = true },
                     onSearchClick = {}
                 )
@@ -52,5 +55,24 @@ class CatalogVoiceActionTest {
             .assertIsDisplayed()
             .performClick()
         assertTrue(clicked)
+    }
+
+    @Test
+    fun `muestra estado escuchando y evita pulsaciones repetidas`() {
+        compose.setContent {
+            MaterialTheme {
+                CatalogSearchActions(
+                    voiceSearchAvailable = true,
+                    isVoiceListening = true,
+                    onVoiceSearchClick = {},
+                    onSearchClick = {}
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Buscar por voz").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Escuchando")
+            .assertIsDisplayed()
+            .assertIsNotEnabled()
     }
 }

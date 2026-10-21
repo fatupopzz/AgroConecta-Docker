@@ -34,15 +34,21 @@ internal class AndroidVoiceSearchRecognizerSession(
 
 internal class VoiceSearchRecognitionListener(
     private val onFinalResults: (List<String>) -> Unit = {},
-    private val onRecognitionError: (Int) -> Unit = {}
+    private val onRecognitionError: (Int) -> Unit = {},
+    private val onListeningChanged: (Boolean) -> Unit = {}
 ) : RecognitionListener {
-    override fun onReadyForSpeech(params: Bundle?) = Unit
-    override fun onBeginningOfSpeech() = Unit
+    override fun onReadyForSpeech(params: Bundle?) = onListeningChanged(true)
+    override fun onBeginningOfSpeech() = onListeningChanged(true)
     override fun onRmsChanged(rmsdB: Float) = Unit
     override fun onBufferReceived(buffer: ByteArray?) = Unit
-    override fun onEndOfSpeech() = Unit
-    override fun onError(error: Int) = onRecognitionError(error)
+    override fun onEndOfSpeech() = onListeningChanged(false)
+    override fun onError(error: Int) {
+        onListeningChanged(false)
+        onRecognitionError(error)
+    }
+
     override fun onResults(results: Bundle?) {
+        onListeningChanged(false)
         onFinalResults(
             results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
         )

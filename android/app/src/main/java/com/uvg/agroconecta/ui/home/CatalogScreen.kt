@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,7 +42,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,9 +57,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.ContextCompat
 import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchAvailability
 import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchRecognizerSession
+import com.uvg.agroconecta.ui.home.voice.VOICE_NO_MATCH_MESSAGE
+import com.uvg.agroconecta.ui.home.voice.VOICE_PERMISSION_DENIED_MESSAGE
+import com.uvg.agroconecta.ui.home.voice.VOICE_SEARCH_START_ERROR_MESSAGE
 import com.uvg.agroconecta.ui.home.voice.VoiceSearchRecognitionListener
 import com.uvg.agroconecta.ui.home.voice.VoiceSearchRecognizerManager
 import com.uvg.agroconecta.ui.home.voice.VoiceSearchPermissionAction
+import com.uvg.agroconecta.ui.home.voice.voiceSearchErrorMessage
 import com.uvg.agroconecta.ui.home.voice.voiceSearchPermissionAction
 
 private val CatalogGreen = Color(0xFF2D6A1F)
@@ -83,9 +90,23 @@ fun CatalogScreen(
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
+    var isVoiceListening by remember { mutableStateOf(false) }
+    var voiceFeedbackMessage by remember { mutableStateOf<String?>(null) }
     val voiceRecognitionListener = remember(viewModel) {
         VoiceSearchRecognitionListener(
-            onFinalResults = viewModel::onVoiceSearchResults
+            onFinalResults = { results ->
+                if (results.any { it.isNotBlank() }) {
+                    viewModel.onVoiceSearchResults(results)
+                } else {
+                    voiceFeedbackMessage = VOICE_NO_MATCH_MESSAGE
+                }
+            },
+            onRecognitionError = { error ->
+                voiceFeedbackMessage = voiceSearchErrorMessage(error)
+            },
+            onListeningChanged = { listening ->
+                isVoiceListening = listening
+            }
         )
     }
     val voiceRecognizerManager = remember(context, voiceRecognitionListener) {
@@ -97,12 +118,22 @@ fun CatalogScreen(
         }
     }
     val startVoiceRecognition = {
-        voiceRecognizerManager.startListening()
+        isVoiceListening = true
+        runCatching {
+            voiceRecognizerManager.startListening()
+        }.onFailure {
+            isVoiceListening = false
+            voiceFeedbackMessage = VOICE_SEARCH_START_ERROR_MESSAGE
+        }
     }
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) startVoiceRecognition()
+        if (granted) {
+            startVoiceRecognition()
+        } else {
+            voiceFeedbackMessage = VOICE_PERMISSION_DENIED_MESSAGE
+        }
     }
 
     DisposableEffect(voiceRecognizerManager) {
@@ -117,6 +148,13 @@ fun CatalogScreen(
         favoriteErrorMessage?.let {
             snackbarHostState.showSnackbar(it)
             onFavoriteErrorShown()
+        }
+    }
+
+    LaunchedEffect(voiceFeedbackMessage) {
+        voiceFeedbackMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            voiceFeedbackMessage = null
         }
     }
 
@@ -173,6 +211,7 @@ fun CatalogScreen(
                         trailingIcon = {
                             CatalogSearchActions(
                                 voiceSearchAvailable = voiceSearchAvailable,
+                                isVoiceListening = isVoiceListening,
                                 onVoiceSearchClick = {
                                     keyboardController?.hide()
                                     val permissionGranted = ContextCompat.checkSelfPermission(
@@ -279,13 +318,28 @@ internal fun rememberVoiceSearchAvailable(): Boolean {
 @Composable
 internal fun CatalogSearchActions(
     voiceSearchAvailable: Boolean,
+    isVoiceListening: Boolean,
     onVoiceSearchClick: () -> Unit,
     onSearchClick: () -> Unit
 ) {
     Row {
         if (voiceSearchAvailable) {
-            IconButton(onClick = onVoiceSearchClick) {
-                Icon(Icons.Default.Mic, contentDescription = "Buscar por voz")
+            IconButton(
+                onClick = onVoiceSearchClick,
+                enabled = !isVoiceListening
+            ) {
+                Icon(
+                    imageVector = if (isVoiceListening) {
+                        Icons.Default.GraphicEq
+                    } else {
+                        Icons.Default.Mic
+                    },
+                    contentDescription = if (isVoiceListening) {
+                        "Escuchando"
+                    } else {
+                        "Buscar por voz"
+                    }
+                )
             }
         }
         IconButton(onClick = onSearchClick) {
