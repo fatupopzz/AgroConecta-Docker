@@ -26,6 +26,13 @@ import com.uvg.agroconecta.ui.calendar.CropCalendarViewModel
 import com.uvg.agroconecta.ui.calendar.CropCalendarScreen
 import com.uvg.agroconecta.ui.home.HomeScreen
 import com.uvg.agroconecta.ui.home.HomeViewModel
+import com.uvg.agroconecta.ui.home.WeatherViewModel
+import com.uvg.agroconecta.ui.home.WeatherUiState
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import com.uvg.agroconecta.ui.home.CatalogScreen
 import com.uvg.agroconecta.ui.help.HelpScreen
 import com.uvg.agroconecta.ui.help.openWhatsAppSupport
@@ -192,6 +199,22 @@ fun AgroConectaNavHost(
 
         composable(Screen.Home.route) {
             val homeViewModel: HomeViewModel = hiltViewModel()
+            val weatherViewModel: WeatherViewModel = hiltViewModel()
+            val weatherState by weatherViewModel.state.collectAsState()
+            val homeState by homeViewModel.uiState.collectAsState()
+            val lifecycleOwner = LocalLifecycleOwner.current
+            LaunchedEffect(userIdFlow, tipoUsuarioFlow, homeState.location) {
+                weatherViewModel.start(userIdFlow ?: 0, tipoUsuarioFlow.orEmpty(), homeState.location)
+            }
+            LaunchedEffect(lifecycleOwner, weatherViewModel) {
+                lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                    weatherViewModel.onForeground()
+                    while (isActive) {
+                        delay(60_000)
+                        weatherViewModel.updateAge()
+                    }
+                }
+            }
             val notificationViewModel: DistributorNotificationViewModel = hiltViewModel()
             val priceViewModel: PriceNotificationViewModel = hiltViewModel()
             val priceState by priceViewModel.state.collectAsState()
@@ -218,6 +241,8 @@ fun AgroConectaNavHost(
 
             HomeScreen(
                 viewModel = homeViewModel,
+                weatherState = if (weatherState.ownerId == userIdFlow) weatherState else WeatherUiState(),
+                onRefreshWeather = weatherViewModel::refresh,
                 tipoUsuario = tipoUsuario,
                 cartItemCount = cartItems.size,
                 priceNotifications = if (priceState.ownerId == userIdFlow && tipoUsuarioFlow == "agricultor") priceState else PriceNotificationState(),

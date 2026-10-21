@@ -169,6 +169,14 @@ class WeatherViewModelTest {
         vm.start(7, "agricultor", GeoCoordinates(15.0, -91.0))
         assertEquals(report, vm.state.value.report); verifyFarm()
     }
+    @Test fun `si se elimina direccion y no hay GPS descarta el clima de esa direccion`() {
+        coEvery { repository.farmWeather() } returns report
+        vm.start(7, "agricultor")
+        coEvery { repository.farmWeather() } returns null
+        vm.refresh()
+        assertNull(vm.state.value.report); assertNull(vm.state.value.location)
+        assertNotNull(vm.state.value.error); verifyFarm(2)
+    }
     @Test fun `nuevo GPS no conserva pronostico de otra ubicacion`() {
         coEvery { repository.farmWeather() } returns null
         coEvery { repository.weatherAt(coordinates) } returns report

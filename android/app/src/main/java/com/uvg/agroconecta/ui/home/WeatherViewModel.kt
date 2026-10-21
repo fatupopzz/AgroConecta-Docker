@@ -80,7 +80,8 @@ class WeatherViewModel @Inject constructor(
                 val report = farm ?: coordinates?.let { repository.weatherAt(it) }
                 if (version != generation) return@launch
                 if (report == null) {
-                    _state.update { it.copy(error = "Guarda coordenadas en tu dirección principal o permite la ubicación para ver el clima.") }
+                    _state.update { it.copy(report = null, location = null, stale = false,
+                        error = "Guarda coordenadas en tu dirección principal o permite la ubicación para ver el clima.") }
                 } else {
                     _state.update { it.copy(report = report,
                         location = if (farm != null) WeatherLocation.MAIN_ADDRESS else WeatherLocation.CURRENT,
