@@ -261,6 +261,9 @@ fun AgroConectaNavHost(
                 onRecommendedProductClick = { productName ->
                     navController.navigate(Screen.Catalog.createRoute(productName))
                 },
+                onCatalogSearch = { query ->
+                    navController.navigate(catalogSearchRoute(query))
+                },
                 onCropCalendarClick = { navController.navigate(Screen.CropCalendar.route) },
                 onPestAlertsClick = {
                     navController.navigate(Screen.PestAlerts.route) {

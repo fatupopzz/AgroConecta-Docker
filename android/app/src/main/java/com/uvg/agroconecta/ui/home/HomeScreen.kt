@@ -97,6 +97,7 @@ fun HomeScreen(
     urgentNotification: AppNotification? = null,
     onUrgentNotificationClick: (AppNotification) -> Unit = {},
     onRecommendedProductClick: (String) -> Unit = {},
+    onCatalogSearch: (String) -> Unit = {},
     onPestAlertsClick: () -> Unit = {},
     onCropCalendarClick: () -> Unit = {},
     favoriteIds: Set<Int> = emptySet(),
@@ -183,7 +184,7 @@ fun HomeScreen(
                     cartItemCount = cartItemCount,
                     searchQuery = uiState.searchQuery,
                     onSearchChange = { viewModel.onSearchChange(it) },
-                    onSearchSubmit = { viewModel.onSearchSubmit() },
+                    onSearchSubmit = { onCatalogSearch(uiState.searchQuery) },
                     onFiltrosClick = { viewModel.abrirFiltros() },
                     onCarritoClick = onCarritoClick
                 )

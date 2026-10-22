@@ -11,6 +11,8 @@ const normalizeOptionalText = (value) => {
   return trimmed.length === 0 ? null : trimmed;
 };
 
+const escapeLikePattern = (value) => value.replace(/[!%_]/g, "!$&");
+
 const parseRating = (value) => {
   if (value === undefined) return { valid: true, parsed: undefined };
 
@@ -141,13 +143,21 @@ const getProducts = async (req, res) => {
       .json({ error: "Parámetros de paginación inválidos" });
   }
 
+  if (nombre !== undefined && typeof nombre !== "string") {
+    return res.status(400).json({ error: "nombre debe ser texto" });
+  }
+
   const offset = (pageNumber - 1) * limitNumber;
   const params = [];
   let whereClause = " WHERE p.activo = true";
+  const normalizedName = nombre?.trim() || "";
+  const orderClause = normalizedName
+    ? "ORDER BY LOWER(p.nombre) ASC, p.id_producto ASC"
+    : "ORDER BY RANDOM()";
 
-  if (nombre) {
-    params.push(`%${nombre}%`);
-    whereClause += ` AND p.nombre ILIKE $${params.length}`;
+  if (normalizedName) {
+    params.push(`%${escapeLikePattern(normalizedName)}%`);
+    whereClause += ` AND p.nombre ILIKE $${params.length} ESCAPE '!'`;
   }
 
   if (id_categoria) {
@@ -179,7 +189,7 @@ const getProducts = async (req, res) => {
      ${whereClause}
      GROUP BY p.id_producto, p.nombre, p.marca, p.descripcion,
               p.calificacion_promedio, p.imagen_url, p.imagen_thumb_url, c.nombre
-     ORDER BY RANDOM()
+      ${orderClause}
      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
     queryParams,
   );

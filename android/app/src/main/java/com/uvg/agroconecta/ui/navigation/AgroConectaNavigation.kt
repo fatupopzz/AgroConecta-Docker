@@ -1,5 +1,7 @@
 package com.uvg.agroconecta.ui.navigation
 
+import com.uvg.agroconecta.ui.home.normalizeCatalogQuery
+
 sealed class Screen(val route: String) {
 
     data object Login : Screen("login")
@@ -61,3 +63,6 @@ sealed class Screen(val route: String) {
                 "&distributorName=${android.net.Uri.encode(distributorName)}"
     }
 }
+
+internal fun catalogSearchRoute(query: String): String =
+    Screen.Catalog.createRoute(normalizeCatalogQuery(query))

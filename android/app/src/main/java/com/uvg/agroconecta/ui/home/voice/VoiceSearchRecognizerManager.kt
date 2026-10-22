@@ -1,0 +1,94 @@
+package com.uvg.agroconecta.ui.home.voice
+
+import android.content.Intent
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+
+internal const val VOICE_SEARCH_LANGUAGE_TAG = "es-GT"
+
+internal interface VoiceSearchRecognizerSession {
+    fun startListening()
+    fun destroy()
+}
+
+internal class AndroidVoiceSearchRecognizerSession(
+    internal val recognizer: SpeechRecognizer,
+    recognitionListener: RecognitionListener,
+    private val recognitionIntent: () -> Intent = ::createVoiceSearchIntent
+) : VoiceSearchRecognizerSession {
+
+    init {
+        recognizer.setRecognitionListener(recognitionListener)
+    }
+
+    override fun startListening() {
+        recognizer.startListening(recognitionIntent())
+    }
+
+    override fun destroy() {
+        recognizer.destroy()
+    }
+}
+
+internal class VoiceSearchRecognitionListener(
+    private val onFinalResults: (List<String>) -> Unit = {},
+    private val onRecognitionError: (Int) -> Unit = {},
+    private val onListeningChanged: (Boolean) -> Unit = {}
+) : RecognitionListener {
+    override fun onReadyForSpeech(params: Bundle?) = onListeningChanged(true)
+    override fun onBeginningOfSpeech() = onListeningChanged(true)
+    override fun onRmsChanged(rmsdB: Float) = Unit
+    override fun onBufferReceived(buffer: ByteArray?) = Unit
+    override fun onEndOfSpeech() = Unit
+    override fun onError(error: Int) {
+        onListeningChanged(false)
+        onRecognitionError(error)
+    }
+
+    override fun onResults(results: Bundle?) {
+        onListeningChanged(false)
+        onFinalResults(
+            results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
+        )
+    }
+    override fun onPartialResults(partialResults: Bundle?) = Unit
+    override fun onEvent(eventType: Int, params: Bundle?) = Unit
+}
+
+internal fun createVoiceSearchIntent(): Intent =
+    Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+        )
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE, VOICE_SEARCH_LANGUAGE_TAG)
+        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+    }
+
+internal class VoiceSearchRecognizerManager(
+    private val createSession: () -> VoiceSearchRecognizerSession
+) {
+    private var session: VoiceSearchRecognizerSession? = null
+
+    fun getOrCreate(): VoiceSearchRecognizerSession =
+        session ?: createSession().also { session = it }
+
+    fun startListening() {
+        val activeSession = getOrCreate()
+        try {
+            activeSession.startListening()
+        } catch (error: RuntimeException) {
+            session = null
+            runCatching(activeSession::destroy)
+            throw error
+        }
+    }
+
+    fun destroy() {
+        session?.destroy()
+        session = null
+    }
+}
