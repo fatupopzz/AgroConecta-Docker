@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.LocationOn
@@ -156,11 +157,14 @@ fun HomeScreen(
     onUrgentNotificationClick: (AppNotification) -> Unit = {},
     onRecommendedProductClick: (String) -> Unit = {},
     onPestAlertsClick: () -> Unit = {},
+    onCropCalendarClick: () -> Unit = {},
     favoriteIds: Set<Int> = emptySet(),
     pendingFavoriteIds: Set<Int> = emptySet(),
     favoriteErrorMessage: String? = null,
     onFavoriteClick: (Int) -> Unit = {},
     onFavoriteErrorShown: () -> Unit = {},
+    weatherState: WeatherUiState = WeatherUiState(),
+    onRefreshWeather: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -231,6 +235,18 @@ fun HomeScreen(
                     onSearch = onSearch,
                     onCarritoClick = onCarritoClick
                 )
+            }
+
+            // El clima va primero para el agricultor: decide si hoy conviene
+            // aplicar un producto antes que cualquier compra.
+            if (esAgricultor) {
+                item(key = "weather-card") {
+                    WeatherCard(
+                        weatherState,
+                        onRefreshWeather,
+                        Modifier.padding(horizontal = AgroSpacing.screenHorizontal)
+                    )
+                }
             }
 
             if (esAgricultor) {
@@ -317,6 +333,18 @@ fun HomeScreen(
                     pendingFavoriteIds = pendingFavoriteIds,
                     onFavoriteClick = onFavoriteClick
                 )
+            }
+
+            if (esAgricultor) {
+                item(key = "crop-calendar-shortcut") {
+                    ShortcutCard(
+                        icon = Icons.Default.CalendarMonth,
+                        title = "Calendario de cultivo",
+                        subtitle = "Tus siembras y qué toca hacer cada mes",
+                        onClick = onCropCalendarClick,
+                        modifier = Modifier.padding(top = AgroSpacing.xs)
+                    )
+                }
             }
 
             item(key = "pest-alerts-shortcut") {
@@ -572,6 +600,47 @@ internal fun PestAlertsShortcutCard(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = "Abrir alertas de plagas",
                 tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun ShortcutCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AgroCard(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = AgroSpacing.screenHorizontal)
+    ) {
+        Row(
+            modifier = Modifier.padding(AgroSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+        ) {
+            IconBadge(icon = icon)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

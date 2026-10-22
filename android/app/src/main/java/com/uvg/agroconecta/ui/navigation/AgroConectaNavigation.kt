@@ -7,10 +7,10 @@ sealed class Screen(val route: String) {
     data object RegisterStep2 : Screen("register_step2")
 
     data object Home : Screen("home")
-    data object Catalog : Screen("catalog?query={query}&categoryId={categoryId}") {
-        // -1 significa "sin categoría": los argumentos Int de navegación no aceptan null.
-        fun createRoute(query: String = "", categoryId: Int? = null) =
-            "catalog?query=${android.net.Uri.encode(query)}&categoryId=${categoryId ?: -1}"
+    data object CropCalendar : Screen("crop_calendar")
+    data object Catalog : Screen("catalog?query={query}&category={category}&calendar={calendar}") {
+        fun createRoute(query: String = "", category: Int = 0, calendar: Boolean = false) =
+            "catalog?query=${android.net.Uri.encode(query)}&category=$category&calendar=$calendar"
     }
     data object Cart : Screen("cart")
     data object UrgentOrder : Screen("urgent_order")
@@ -37,8 +37,8 @@ sealed class Screen(val route: String) {
     data object DoseCalculator : Screen("dose_calculator")
     data object PestAlerts : Screen("pest_alerts")
 
-    data object ProductDetail : Screen("product_detail/{productoId}") {
-        fun createRoute(productoId: Int) = "product_detail/$productoId"
+    data object ProductDetail : Screen("product_detail/{productoId}?chooseOffer={chooseOffer}") {
+        fun createRoute(productoId: Int, chooseOffer: Boolean = false) = "product_detail/$productoId?chooseOffer=$chooseOffer"
     }
 
     data object DistributorProfile : Screen("distributor_profile/{distribuidorId}") {

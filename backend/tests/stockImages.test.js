@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { installCommonJsMock } = require("./helpers/commonJsMocks");
+const { createTestImage } = require("./helpers/testImages");
 
 // La prueba de punta a punta levanta app.js, que lee UPLOADS_DIR al importarse.
 const uploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), "agroconecta-stock-uploads-"));
@@ -232,11 +233,15 @@ describe("subida por la API", () => {
       if (sql.includes("FROM inventario_distribuidor i")) return { rows: [] };
       if (sql.includes("SET imagen_url")) {
         updates.push(params);
-        return { rowCount: 1, rows: [{ id_producto: params[1], imagen_url: params[0], imagen_anterior: null }] };
+        return {
+          rowCount: 1,
+          rows: [{ id_producto: params[2], imagen_url: params[0], imagen_thumb_url: params[1], imagen_anterior: null }],
+        };
       }
       throw new Error(`Consulta no esperada: ${sql}`);
     });
-    fs.writeFileSync(path.join(workDir, "7.png"), PNG);
+    const photo = await createTestImage();
+    fs.writeFileSync(path.join(workDir, "7.png"), photo);
 
     const server = app.listen(0);
     try {
@@ -253,7 +258,7 @@ describe("subida por la API", () => {
       expect(results[0]).toMatchObject({ status: "subida", idProducto: 7 });
       expect(results[0].imagenUrl).toMatch(/^\/uploads\/productos\/[0-9a-f-]{36}\.png$/);
       const stored = path.join(uploadsDir, "productos", path.basename(results[0].imagenUrl));
-      expect(fs.readFileSync(stored)).toEqual(PNG);
+      expect(fs.readFileSync(stored)).toEqual(photo);
       expect(updates).toHaveLength(1);
     } finally {
       await new Promise((resolve) => server.close(resolve));

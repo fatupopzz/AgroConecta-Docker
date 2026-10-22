@@ -60,6 +60,15 @@ import com.uvg.agroconecta.ui.orders.UrgentOrderScreen
 import com.uvg.agroconecta.ui.pestalerts.PestAlertRoute
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import com.uvg.agroconecta.ui.profile.ProfileScreen
+import com.uvg.agroconecta.ui.calendar.CropCalendarViewModel
+import com.uvg.agroconecta.ui.calendar.CropCalendarScreen
+import com.uvg.agroconecta.ui.home.WeatherViewModel
+import com.uvg.agroconecta.ui.home.WeatherUiState
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -232,6 +241,22 @@ fun AgroConectaNavHost(
 
             composable(Screen.Home.route) {
                 val homeViewModel: HomeViewModel = hiltViewModel()
+                val weatherViewModel: WeatherViewModel = hiltViewModel()
+                val weatherState by weatherViewModel.state.collectAsState()
+                val homeState by homeViewModel.uiState.collectAsState()
+                val lifecycleOwner = LocalLifecycleOwner.current
+                LaunchedEffect(userIdFlow, tipoUsuarioFlow, homeState.location) {
+                    weatherViewModel.start(userIdFlow ?: 0, tipoUsuarioFlow.orEmpty(), homeState.location)
+                }
+                LaunchedEffect(lifecycleOwner, weatherViewModel) {
+                    lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                        weatherViewModel.onForeground()
+                        while (isActive) {
+                            delay(60_000)
+                            weatherViewModel.updateAge()
+                        }
+                    }
+                }
                 val notificationViewModel: DistributorNotificationViewModel = hiltViewModel()
                 val priceViewModel: PriceNotificationViewModel = hiltViewModel()
                 val priceState by priceViewModel.state.collectAsState()
@@ -260,6 +285,9 @@ fun AgroConectaNavHost(
 
                 HomeScreen(
                     viewModel = homeViewModel,
+                    weatherState = if (weatherState.ownerId == userIdFlow) weatherState else WeatherUiState(),
+                    onRefreshWeather = weatherViewModel::refresh,
+                    onCropCalendarClick = { navController.navigate(Screen.CropCalendar.route) },
                     tipoUsuario = tipoUsuario,
                     cartItemCount = cartItems.size,
                     priceNotifications = if (priceState.ownerId == userIdFlow && tipoUsuarioFlow == "agricultor") priceState else PriceNotificationState(),
@@ -293,7 +321,7 @@ fun AgroConectaNavHost(
                         navController.navigate(Screen.Catalog.createRoute(query))
                     },
                     onCategoryClick = { categoryId ->
-                        navController.navigate(Screen.Catalog.createRoute(categoryId = categoryId))
+                        navController.navigate(Screen.Catalog.createRoute(category = categoryId))
                     },
                     onVerTodasCategorias = {
                         navController.navigate(Screen.Catalog.createRoute())
@@ -313,6 +341,20 @@ fun AgroConectaNavHost(
                 )
             }
 
+            composable(Screen.CropCalendar.route) {
+                val calendarViewModel: CropCalendarViewModel = hiltViewModel()
+                LaunchedEffect(userIdFlow, tipoUsuarioFlow) {
+                    calendarViewModel.start(userIdFlow ?: 0, tipoUsuarioFlow.orEmpty())
+                }
+                CropCalendarScreen(
+                    calendarViewModel,
+                    onBack = { navController.popBackStack() },
+                    onCatalog = { category ->
+                        navController.navigate(Screen.Catalog.createRoute(category = category ?: 0, calendar = true))
+                    }
+                )
+            }
+
             composable(
                 route = Screen.Catalog.route,
                 arguments = listOf(
@@ -320,18 +362,24 @@ fun AgroConectaNavHost(
                         type = NavType.StringType
                         defaultValue = ""
                     },
-                    navArgument("categoryId") {
+                    navArgument("category") {
                         type = NavType.IntType
-                        defaultValue = -1
+                        defaultValue = 0
+                    },
+                    navArgument("calendar") {
+                        type = NavType.BoolType
+                        defaultValue = false
                     }
                 )
             ) { backStackEntry ->
+                val calendarContext = backStackEntry.arguments?.getBoolean("calendar") == true
                 CatalogScreen(
                     initialQuery = backStackEntry.arguments?.getString("query").orEmpty(),
-                    initialCategoryId = backStackEntry.arguments?.getInt("categoryId")?.takeIf { it > 0 },
+                    initialCategoryId = backStackEntry.arguments?.getInt("category")?.takeIf { it > 0 },
+                    calendarContext = calendarContext,
                     onBack = { navController.popBackStack() },
                     onProductClick = { productId ->
-                        navController.navigate(Screen.ProductDetail.createRoute(productId))
+                        navController.navigate(Screen.ProductDetail.createRoute(productId, chooseOffer = calendarContext))
                     },
                     showFavoriteAction = tipoUsuario == "agricultor",
                     favoriteIds = favoriteUiState.favoriteIds,
@@ -715,12 +763,19 @@ fun AgroConectaNavHost(
 
             composable(
                 route = Screen.ProductDetail.route,
-                arguments = listOf(navArgument("productoId") { type = NavType.IntType })
+                arguments = listOf(
+                    navArgument("productoId") { type = NavType.IntType },
+                    navArgument("chooseOffer") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                )
             ) { backStackEntry ->
                 val productoId = backStackEntry.arguments?.getInt("productoId") ?: return@composable
                 val scope = rememberCoroutineScope()
                 ProductDetailScreen(
                     productId = productoId,
+                    requireOfferSelection = backStackEntry.arguments?.getBoolean("chooseOffer") == true,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToCart = { navController.navigate(Screen.Cart.route) },
                     onAddedToCart = {

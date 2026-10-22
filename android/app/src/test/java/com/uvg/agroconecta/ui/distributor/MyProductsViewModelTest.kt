@@ -11,9 +11,13 @@ import com.uvg.agroconecta.data.models.DistributorInventoryResponse
 import com.uvg.agroconecta.data.models.InventoryOwner
 import com.uvg.agroconecta.data.models.InventoryProduct
 import com.uvg.agroconecta.data.models.ProductImageInfo
+import com.uvg.agroconecta.data.models.UpdateInventoryRequest
+import com.uvg.agroconecta.data.models.UpdateInventoryResponse
 import com.uvg.agroconecta.data.models.UploadProductImageResponse
+import com.uvg.agroconecta.data.models.UpdatedInventory
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.confirmVerified
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -127,6 +131,239 @@ class MyProductsViewModelTest {
         assertNull(viewModel.uiState.value.loadError)
         assertEquals(listOf(abono), viewModel.uiState.value.products)
     }
+
+    @Test
+    fun `abre el editor con el inventario seleccionado y sus valores actuales`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono, semilla)
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+
+            assertTrue(viewModel.onEditInventoryClick(semilla))
+
+            val editor = checkNotNull(viewModel.uiState.value.inventoryEditor)
+            assertEquals(11, editor.inventoryId)
+            assertEquals("Semilla de maíz", editor.productName)
+            assertEquals("85.0", editor.price)
+            assertEquals("10", editor.stock)
+            assertFalse(editor.isSaving)
+            assertNull(editor.error)
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 0) { api.updateInventory(any(), any()) }
+            confirmVerified(api)
+        }
+
+    @Test
+    fun `una cuenta sin verificar no puede abrir el editor ni actualizar inventario`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono, estado = "pendiente")
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.onEditInventoryClick(abono))
+
+            assertNull(viewModel.uiState.value.inventoryEditor)
+            assertEquals(UNVERIFIED_ACCOUNT_MESSAGE, viewModel.uiState.value.message)
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 0) { api.updateInventory(any(), any()) }
+            confirmVerified(api)
+        }
+
+    @Test
+    fun `datos invalidos muestran error sin llamar al put`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono)
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+            viewModel.onEditInventoryClick(abono)
+            viewModel.onInventoryPriceChange("0")
+
+            viewModel.saveInventoryChanges()
+            advanceUntilIdle()
+
+            val editor = checkNotNull(viewModel.uiState.value.inventoryEditor)
+            assertEquals("Ingresá un precio válido", editor.error)
+            assertFalse(editor.isSaving)
+            assertEquals(listOf(abono), viewModel.uiState.value.products)
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 0) { api.updateInventory(any(), any()) }
+            confirmVerified(api)
+        }
+
+    @Test
+    fun `stock negativo muestra error sin llamar al put`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono)
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+            viewModel.onEditInventoryClick(abono)
+            viewModel.onInventoryStockChange("-1")
+
+            viewModel.saveInventoryChanges()
+            advanceUntilIdle()
+
+            val editor = checkNotNull(viewModel.uiState.value.inventoryEditor)
+            assertEquals("Ingresá un stock válido", editor.error)
+            assertFalse(editor.isSaving)
+            assertEquals(listOf(abono), viewModel.uiState.value.products)
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 0) { api.updateInventory(any(), any()) }
+            confirmVerified(api)
+        }
+
+    @Test
+    fun `sin conexion al guardar conserva el borrador y avisa`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono)
+            val request = UpdateInventoryRequest(precio = 60.0, stock = 8)
+            coEvery { api.updateInventory(10, request) } throws IOException("sin red")
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+            viewModel.onEditInventoryClick(abono)
+            viewModel.onInventoryPriceChange("60")
+            viewModel.onInventoryStockChange("8")
+
+            viewModel.saveInventoryChanges()
+            advanceUntilIdle()
+
+            val editor = checkNotNull(viewModel.uiState.value.inventoryEditor)
+            assertEquals("60", editor.price)
+            assertEquals("8", editor.stock)
+            assertFalse(editor.isSaving)
+            assertEquals(
+                "No se pudieron actualizar el precio y stock. Revisa tu conexión.",
+                editor.error
+            )
+            assertEquals(listOf(abono), viewModel.uiState.value.products)
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 1) { api.updateInventory(10, request) }
+            confirmVerified(api)
+        }
+
+    @Test
+    fun `actualiza solo el producto editado sin recargar el inventario`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono, semilla)
+            val request = UpdateInventoryRequest(precio = 72.5, stock = 4)
+            coEvery { api.updateInventory(10, request) } returns Response.success(
+                updateResponse(abono, price = 72.5, stock = 4)
+            )
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+            viewModel.onEditInventoryClick(abono)
+            viewModel.onInventoryPriceChange("72.5")
+            viewModel.onInventoryStockChange("4")
+
+            viewModel.saveInventoryChanges()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            val updated = state.products.first { it.idInventario == 10 }
+            val unchanged = state.products.first { it.idInventario == 11 }
+            assertEquals(72.5, updated.precio, 0.0)
+            assertEquals(4, updated.stock)
+            assertEquals(semilla, unchanged)
+            assertNull(state.inventoryEditor)
+            assertEquals("Precio y stock actualizados", state.message)
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 1) { api.updateInventory(10, request) }
+            confirmVerified(api)
+        }
+
+    @Test
+    fun `un error del backend conserva el borrador para reintentar`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono)
+            val request = UpdateInventoryRequest(precio = 90.0, stock = 12)
+            coEvery { api.updateInventory(10, request) } returns Response.error(
+                500,
+                "{}".toResponseBody("application/json".toMediaTypeOrNull())
+            )
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+            viewModel.onEditInventoryClick(abono)
+            viewModel.onInventoryPriceChange("90.0")
+            viewModel.onInventoryStockChange("12")
+
+            viewModel.saveInventoryChanges()
+            advanceUntilIdle()
+
+            val editor = checkNotNull(viewModel.uiState.value.inventoryEditor)
+            assertEquals("90.0", editor.price)
+            assertEquals("12", editor.stock)
+            assertFalse(editor.isSaving)
+            assertEquals(
+                "No se pudieron actualizar el precio y stock (500)",
+                editor.error
+            )
+            assertEquals(listOf(abono), viewModel.uiState.value.products)
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 1) { api.updateInventory(10, request) }
+            confirmVerified(api)
+        }
+
+    @Test
+    fun `si el backend responde 403 bloquea futuras ediciones`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono)
+            val request = UpdateInventoryRequest(precio = 90.0, stock = 10)
+            coEvery { api.updateInventory(10, request) } returns Response.error(
+                403,
+                "{}".toResponseBody("application/json".toMediaTypeOrNull())
+            )
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+            viewModel.onEditInventoryClick(abono)
+            viewModel.onInventoryPriceChange("90.0")
+
+            viewModel.saveInventoryChanges()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isVerified)
+            assertNull(state.inventoryEditor)
+            assertEquals(UNVERIFIED_ACCOUNT_MESSAGE, state.message)
+            assertFalse(viewModel.onEditInventoryClick(abono))
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 1) { api.updateInventory(10, request) }
+            confirmVerified(api)
+        }
+
+    @Test
+    fun `mientras guarda ignora otro envio cambios y cierre del editor`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubInventory(abono)
+            val request = UpdateInventoryRequest(precio = 70.0, stock = 3)
+            val pendingUpdate = CompletableDeferred<Response<UpdateInventoryResponse>>()
+            coEvery { api.updateInventory(10, request) } coAnswers { pendingUpdate.await() }
+            val viewModel = MyProductsViewModel(api, imageReader)
+            advanceUntilIdle()
+            viewModel.onEditInventoryClick(abono)
+            viewModel.onInventoryPriceChange("70.0")
+            viewModel.onInventoryStockChange("3")
+
+            viewModel.saveInventoryChanges()
+            advanceUntilIdle()
+            assertTrue(checkNotNull(viewModel.uiState.value.inventoryEditor).isSaving)
+
+            viewModel.saveInventoryChanges()
+            viewModel.onInventoryPriceChange("100.0")
+            viewModel.onInventoryStockChange("99")
+            viewModel.dismissInventoryEditor()
+
+            val savingEditor = checkNotNull(viewModel.uiState.value.inventoryEditor)
+            assertEquals("70.0", savingEditor.price)
+            assertEquals("3", savingEditor.stock)
+            coVerify(exactly = 1) { api.updateInventory(10, request) }
+
+            pendingUpdate.complete(Response.success(updateResponse(abono, 70.0, 3)))
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.inventoryEditor)
+            coVerify(exactly = 1) { api.getMyInventory() }
+            coVerify(exactly = 1) { api.updateInventory(10, request) }
+            confirmVerified(api)
+        }
 
     @Test
     fun `cambiar la foto la sube y actualiza solo ese producto`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -258,6 +495,20 @@ class MyProductsViewModelTest {
         coEvery { imageReader.read(uri) } returns ProductImageReadResult.Success(image)
         return uri
     }
+
+    private fun updateResponse(
+        product: InventoryProduct,
+        price: Double,
+        stock: Int
+    ) = UpdateInventoryResponse(
+        message = "Inventario actualizado correctamente",
+        inventario = UpdatedInventory(
+            idInventario = product.idInventario,
+            idProducto = product.idProducto,
+            precio = price,
+            stock = stock
+        )
+    )
 
     private fun product(idInventario: Int, idProducto: Int, nombre: String) = InventoryProduct(
         idInventario = idInventario,

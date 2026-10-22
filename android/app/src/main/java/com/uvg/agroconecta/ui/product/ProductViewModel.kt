@@ -91,7 +91,8 @@ class ProductViewModel @Inject constructor(
     private val _followPriceMessage = MutableLiveData<String?>()
     val followPriceMessage: LiveData<String?> = _followPriceMessage
 
-    fun loadProduct(id: Int) {
+    fun loadProduct(id: Int, requireOfferSelection: Boolean = false) {
+        if (requireOfferSelection) _selectedOffer.value = null
         _isLoading.value = true
         viewModelScope.launch {
             try {
@@ -99,7 +100,7 @@ class ProductViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     val product = response.body()!!
                     _productDetail.value = product
-                    _selectedOffer.value = product.ofertas.minByOrNull { it.precio }
+                    _selectedOffer.value = if (requireOfferSelection) null else product.ofertas.minByOrNull { it.precio }
                 } else {
                     _error.value = "Error al cargar el producto (${response.code()})"
                 }
@@ -223,7 +224,14 @@ class ProductViewModel @Inject constructor(
     // La cantidad llega desde el selector del detalle; por defecto 1 para no
     // romper a quien llame sin elegirla.
     fun addToCart(idAgricultor: Int, cantidad: Int = 1) {
-        val offer = _selectedOffer.value ?: return
+        if (_isAddingToCart.value == true) return
+        val offer = _selectedOffer.value
+        if (offer == null || offer.idInventario <= 0 || offer.stock < 1 || idAgricultor <= 0) {
+            _error.value = "Selecciona un distribuidor con existencias e inicia sesión como agricultor."
+            return
+        }
+        _error.value = null
+        _cartSuccess.value = null
         _isAddingToCart.value = true
         viewModelScope.launch {
             try {
@@ -231,7 +239,7 @@ class ProductViewModel @Inject constructor(
                     idAgricultor = idAgricultor,
                     request = AddItemRequest(
                         idInventario = offer.idInventario,
-                        cantidad = cantidad.coerceAtLeast(1)
+                        cantidad = cantidad.coerceIn(1, offer.stock)
                     )
                 )
                 if (response.isSuccessful) {

@@ -1,6 +1,10 @@
 package com.uvg.agroconecta.di
 
 import android.content.Context
+import com.uvg.agroconecta.data.local.MIGRATION_3_4
+import com.uvg.agroconecta.data.repository.PlantingCalendarRepository
+import java.time.Clock
+import java.time.ZoneId
 import androidx.room.Room
 import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.api.dataStore
@@ -10,6 +14,7 @@ import com.uvg.agroconecta.data.images.ContentResolverProductImageReader
 import com.uvg.agroconecta.data.images.ProductImageReader
 import com.uvg.agroconecta.data.local.AgroConectaDatabase
 import com.uvg.agroconecta.data.local.MIGRATION_1_2
+import com.uvg.agroconecta.data.local.MIGRATION_2_3
 import com.uvg.agroconecta.data.local.DataStoreFavoriteLocalDataSource
 import com.uvg.agroconecta.data.local.FavoriteLocalDataSource
 import com.uvg.agroconecta.data.local.ProductCacheDao
@@ -38,13 +43,18 @@ object StorageModule {
 
     @Provides
     @Singleton
+    fun provideWeatherRepository(api: ApiService): com.uvg.agroconecta.data.repository.WeatherRepository =
+        com.uvg.agroconecta.data.repository.RemoteWeatherRepository(api)
+
+    @Provides
+    @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AgroConectaDatabase =
         Room.databaseBuilder(
             context,
             AgroConectaDatabase::class.java,
             "agroconecta.db"
         )
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
 
     @Provides
@@ -77,8 +87,17 @@ object StorageModule {
 
     @Provides
     @Singleton
-    fun provideCropCycleRepository(apiService: ApiService): CropCycleRepository =
-        RemoteCropCycleRepository(apiService)
+    fun provideRemoteCropCycleRepository(apiService: ApiService, database: AgroConectaDatabase): RemoteCropCycleRepository =
+        RemoteCropCycleRepository(apiService, database.plantingCacheDao())
+
+    @Provides
+    fun provideCropCycleRepository(repository: RemoteCropCycleRepository): CropCycleRepository = repository
+
+    @Provides
+    fun providePlantingCalendarRepository(repository: RemoteCropCycleRepository): PlantingCalendarRepository = repository
+
+    @Provides
+    fun provideCalendarClock(): Clock = Clock.system(ZoneId.of("America/Guatemala"))
 
     @Provides
     @Singleton

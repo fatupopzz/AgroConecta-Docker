@@ -15,6 +15,27 @@ import com.uvg.agroconecta.ui.profile.DistributorProfile
  * cabecera cuando no hay token.
  */
 interface ApiService {
+    @GET("weather/farm")
+    suspend fun getFarmWeather(): Response<WeatherReport>
+
+    @GET("weather")
+    suspend fun getWeather(
+        @Query("lat") latitude: Double,
+        @Query("lng") longitude: Double
+    ): Response<WeatherReport>
+
+    @GET("plantings/templates")
+    suspend fun getPlantingTemplates(): Response<List<PlantingTemplate>>
+
+    @GET("plantings/mine")
+    suspend fun getMyPlantings(): Response<List<Planting>>
+
+    @POST("plantings")
+    suspend fun createPlanting(@Body request: CreatePlantingRequest): Response<Planting>
+
+    @PATCH("plantings/tasks/{id}")
+    suspend fun updatePlantingTask(@Path("id") id: Int, @Body request: UpdatePlantingTaskRequest): Response<PlantingTaskStatus>
+
 
     // ── Auth ──────────────────────────────────────────────────────────────
     @POST("auth/login")
@@ -245,6 +266,12 @@ interface ApiService {
     suspend fun createInventory(
         @Body request: CreateInventoryRequest
     ): Response<Map<String, Any>>
+
+    @PUT("inventory/{id}")
+    suspend fun updateInventory(
+        @Path("id") inventoryId: Int,
+        @Body request: UpdateInventoryRequest
+    ): Response<UpdateInventoryResponse>
 
     // ── Products (distribuidor) ───────────────────────────────────────────────
     @POST("products")

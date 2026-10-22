@@ -27,7 +27,11 @@ const uploadProductImage = async (req, res) => {
 
   return res.json({
     message: "Imagen del producto actualizada",
-    producto: { id_producto: producto.id_producto, imagen_url: producto.imagen_url },
+    producto: {
+      id_producto: producto.id_producto,
+      imagen_url: producto.imagen_url,
+      imagen_thumb_url: producto.imagen_thumb_url,
+    },
   });
 };
 

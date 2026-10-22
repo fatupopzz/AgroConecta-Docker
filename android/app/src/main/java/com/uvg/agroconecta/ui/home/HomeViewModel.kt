@@ -421,8 +421,8 @@ class HomeViewModel @Inject constructor(
             val matchesQuery = query.isBlank() ||
                 product.nombre.contains(query, ignoreCase = true) ||
                 product.descripcion.orEmpty().contains(query, ignoreCase = true)
-            val matchesCategory = categoryName == null ||
-                product.categoria.equals(categoryName, ignoreCase = true)
+            val matchesCategory = state.categoriaSeleccionadaId == null ||
+                (categoryName != null && product.categoria.equals(categoryName, ignoreCase = true))
             val matchesMinimum = state.filtroPrecioMin == null ||
                 (product.precioDesde ?: Double.NEGATIVE_INFINITY) >= state.filtroPrecioMin.toDouble()
             val matchesMaximum = state.filtroPrecioMax == null ||

@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
@@ -31,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,6 +56,7 @@ import com.uvg.agroconecta.ui.components.AgroTextField
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.CategoryChip
 import com.uvg.agroconecta.ui.components.EmptyState
+import com.uvg.agroconecta.ui.components.InlineError
 import com.uvg.agroconecta.ui.components.ProductCard
 import com.uvg.agroconecta.ui.components.ProductCardSkeleton
 import com.uvg.agroconecta.ui.theme.AgroSpacing
@@ -72,6 +75,7 @@ fun CatalogScreen(
     onBack: () -> Unit,
     onProductClick: (Int) -> Unit,
     initialCategoryId: Int? = null,
+    calendarContext: Boolean = false,
     showFavoriteAction: Boolean = false,
     favoriteIds: Set<Int> = emptySet(),
     pendingFavoriteIds: Set<Int> = emptySet(),
@@ -91,15 +95,6 @@ fun CatalogScreen(
 
     LaunchedEffect(Unit) {
         if (uiState.categorias.isEmpty()) viewModel.loadCategorias()
-    }
-
-    // Antes el catálogo ignoraba los errores de carga y solo se veía la lista
-    // vacía, como si no existieran productos.
-    LaunchedEffect(uiState.errorMessage) {
-        uiState.errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearError()
-        }
     }
 
     LaunchedEffect(favoriteErrorMessage) {
@@ -253,6 +248,26 @@ fun CatalogScreen(
                 }
             }
 
+            // Viniendo del calendario de cultivo solo se conoce la categoría
+            // sugerida, no un producto concreto; se explica el siguiente paso.
+            if (calendarContext) {
+                fullWidthItem("calendar-context") {
+                    CalendarContextNotice()
+                }
+            }
+
+            // El error queda a la vista con su botón, en vez de un aviso que
+            // desaparece antes de que alguien con poca práctica lo lea.
+            uiState.errorMessage?.let { message ->
+                fullWidthItem("error") {
+                    InlineError(
+                        message = message,
+                        onRetry = viewModel::onSearchSubmit,
+                        retryLabel = "Reintentar"
+                    )
+                }
+            }
+
             fullWidthItem("title") {
                 ResultsTitle(
                     query = uiState.searchQuery,
@@ -323,6 +338,26 @@ fun CatalogScreen(
 }
 
 private const val LOAD_MORE_THRESHOLD = 4
+
+@Composable
+private fun CalendarContextNotice() {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier.padding(AgroSpacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+        ) {
+            Icon(Icons.Default.CalendarMonth, contentDescription = null)
+            Text(
+                text = "Te sugerimos esta categoría según tu calendario. Elige un producto y luego a qué distribuidor comprarle.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
 
 private fun LazyGridScope.fullWidthItem(key: String, content: @Composable () -> Unit) {
     item(key = key, span = { GridItemSpan(maxLineSpan) }) { content() }

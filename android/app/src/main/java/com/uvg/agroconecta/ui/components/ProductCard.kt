@@ -67,6 +67,7 @@ fun ProductCard(
             // Sin descripción propia: el resumen de la tarjeta ya nombra el producto.
             ProductImage(
                 imagenUrl = producto.imagenUrl,
+                imagenThumbUrl = producto.imagenThumbUrl,
                 contentDescription = null,
                 categoria = producto.categoria,
                 modifier = Modifier.matchParentSize()

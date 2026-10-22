@@ -24,6 +24,10 @@ const cropCycleRoutes = require("./src/routes/cropCycleRoutes");
 const pestAlertRoutes = require("./src/routes/pestAlertRoutes");
 const favoriteRoutes = require("./src/routes/favoriteRoutes");
 
+const weatherRoutes = require("./src/routes/weatherRoutes");
+const plantingRoutes = require("./src/routes/plantingRoutes");
+const diagnosisRoutes = require("./src/routes/diagnosisRoutes");
+
 const app = express();
 
 app.use(express.json());
@@ -46,6 +50,8 @@ app.use(
 );
 
 app.use("/api/auth", authRoutes);
+app.use("/api/diagnoses", diagnosisRoutes);
+app.use("/api/weather", weatherRoutes);
 
 app.get("/api/protected", verifyToken, (req, res) => {
     res.json({
@@ -74,6 +80,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/distribuidoresReview", distribuidorReviewRoutes);
 app.use("/api/alerts/pests", verifyToken, pestAlertRoutes);
 app.use("/api/favorites", verifyToken, favoriteRoutes);
+app.use("/api/plantings", verifyToken, plantingRoutes);
 
 app.get("/", (req, res) => {
     res.json({

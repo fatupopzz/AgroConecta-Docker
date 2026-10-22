@@ -101,4 +101,11 @@ const notifyNearbyInstallations = async (
   return { sent, failed: deliveries.length - sent };
 };
 
-module.exports = { notifyNearbyInstallations };
+// firebaseConfig, getAccessToken y sendMessage también los usa el
+// recordatorio de tareas del calendario de cultivo (KAN-113).
+module.exports = {
+  notifyNearbyInstallations,
+  firebaseConfig,
+  getAccessToken,
+  sendMessage,
+};
