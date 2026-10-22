@@ -35,6 +35,11 @@ val supportWhatsAppNumber = providers.gradleProperty("AGROCONECTA_SUPPORT_WHATSA
     .get()
     .filter(Char::isDigit)
 
+val pestMapStyleUrl = providers.gradleProperty("AGROCONECTA_PEST_MAP_STYLE_URL")
+    .orElse(providers.environmentVariable("AGROCONECTA_PEST_MAP_STYLE_URL"))
+    .orElse("https://demotiles.maplibre.org/style.json")
+    .get()
+
 android {
     namespace = "com.uvg.agroconecta"
     compileSdk = 34
@@ -49,6 +54,11 @@ android {
             "String",
             "SUPPORT_WHATSAPP_NUMBER",
             "\"$supportWhatsAppNumber\""
+        )
+        buildConfigField(
+            "String",
+            "PEST_MAP_STYLE_URL",
+            "\"$pestMapStyleUrl\""
         )
     }
 
@@ -143,6 +153,9 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation(libs.androidx.work.runtime.ktx)
+
+    // Mapa geográfico de alertas de plagas
+    implementation(libs.maplibre.android)
 
     // Diagnóstico de plagas sin conexión (KAN-110)
     implementation(libs.litert)
