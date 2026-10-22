@@ -33,7 +33,7 @@ describe("GET /api/products con búsqueda", () => {
     const response = await request(app)
       .get("/api/products")
       .query({
-        nombre: "abono foliar",
+        nombre: "  abono foliar  ",
         id_categoria: 4,
         page: 2,
         limit: 10,
@@ -61,5 +61,15 @@ describe("GET /api/products con búsqueda", () => {
     );
     expect(productsSql).not.toMatch(/ORDER BY RANDOM\(\)/);
     expect(productsParams).toEqual(["%abono foliar%", 4, 10, 10]);
+  });
+
+  test("rechaza nombres compuestos que no sean texto", async () => {
+    const response = await request(app).get(
+      "/api/products?nombre=abono&nombre=foliar",
+    );
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toEqual({ error: "nombre debe ser texto" });
+    expect(pool.query).not.toHaveBeenCalled();
   });
 });

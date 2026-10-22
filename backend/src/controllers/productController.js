@@ -141,15 +141,20 @@ const getProducts = async (req, res) => {
       .json({ error: "Parámetros de paginación inválidos" });
   }
 
+  if (nombre !== undefined && typeof nombre !== "string") {
+    return res.status(400).json({ error: "nombre debe ser texto" });
+  }
+
   const offset = (pageNumber - 1) * limitNumber;
   const params = [];
   let whereClause = " WHERE p.activo = true";
-  const orderClause = nombre
+  const normalizedName = nombre?.trim() || "";
+  const orderClause = normalizedName
     ? "ORDER BY LOWER(p.nombre) ASC, p.id_producto ASC"
     : "ORDER BY RANDOM()";
 
-  if (nombre) {
-    params.push(`%${nombre}%`);
+  if (normalizedName) {
+    params.push(`%${normalizedName}%`);
     whereClause += ` AND p.nombre ILIKE $${params.length}`;
   }
 
