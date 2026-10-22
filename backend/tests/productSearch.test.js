@@ -56,6 +56,10 @@ describe("GET /api/products con búsqueda", () => {
     const [productsSql, productsParams] = pool.query.mock.calls[1];
     expect(productsSql).toMatch(/p\.nombre ILIKE \$1/);
     expect(productsSql).toMatch(/p\.id_categoria = \$2/);
+    expect(productsSql).toMatch(
+      /ORDER BY LOWER\(p\.nombre\) ASC, p\.id_producto ASC/,
+    );
+    expect(productsSql).not.toMatch(/ORDER BY RANDOM\(\)/);
     expect(productsParams).toEqual(["%abono foliar%", 4, 10, 10]);
   });
 });

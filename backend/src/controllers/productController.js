@@ -144,6 +144,9 @@ const getProducts = async (req, res) => {
   const offset = (pageNumber - 1) * limitNumber;
   const params = [];
   let whereClause = " WHERE p.activo = true";
+  const orderClause = nombre
+    ? "ORDER BY LOWER(p.nombre) ASC, p.id_producto ASC"
+    : "ORDER BY RANDOM()";
 
   if (nombre) {
     params.push(`%${nombre}%`);
@@ -179,7 +182,7 @@ const getProducts = async (req, res) => {
      ${whereClause}
      GROUP BY p.id_producto, p.nombre, p.marca, p.descripcion,
               p.calificacion_promedio, p.imagen_url, p.imagen_thumb_url, c.nombre
-     ORDER BY RANDOM()
+      ${orderClause}
      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
     queryParams,
   );
