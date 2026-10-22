@@ -77,7 +77,14 @@ internal class VoiceSearchRecognizerManager(
         session ?: createSession().also { session = it }
 
     fun startListening() {
-        getOrCreate().startListening()
+        val activeSession = getOrCreate()
+        try {
+            activeSession.startListening()
+        } catch (error: RuntimeException) {
+            session = null
+            runCatching(activeSession::destroy)
+            throw error
+        }
     }
 
     fun destroy() {

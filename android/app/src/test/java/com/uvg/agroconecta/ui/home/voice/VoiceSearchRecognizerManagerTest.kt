@@ -3,6 +3,7 @@ package com.uvg.agroconecta.ui.home.voice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class VoiceSearchRecognizerManagerTest {
@@ -73,12 +74,36 @@ class VoiceSearchRecognizerManagerTest {
         assertNotSame(firstSession, secondSession)
     }
 
-    private class FakeVoiceSearchRecognizerSession : VoiceSearchRecognizerSession {
+    @Test
+    fun `libera una sesion defectuosa y permite reintentar con otra`() {
+        val firstSession = FakeVoiceSearchRecognizerSession(
+            startFailure = IllegalStateException("Reconocedor inválido")
+        )
+        val secondSession = FakeVoiceSearchRecognizerSession()
+        var creations = 0
+        val manager = VoiceSearchRecognizerManager {
+            if (creations++ == 0) firstSession else secondSession
+        }
+
+        assertThrows(IllegalStateException::class.java) {
+            manager.startListening()
+        }
+        manager.startListening()
+
+        assertEquals(1, firstSession.destroyCalls)
+        assertEquals(1, secondSession.startCalls)
+        assertEquals(2, creations)
+    }
+
+    private class FakeVoiceSearchRecognizerSession(
+        private val startFailure: RuntimeException? = null
+    ) : VoiceSearchRecognizerSession {
         var startCalls = 0
         var destroyCalls = 0
 
         override fun startListening() {
             startCalls += 1
+            startFailure?.let { throw it }
         }
 
         override fun destroy() {
