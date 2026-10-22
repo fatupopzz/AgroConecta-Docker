@@ -144,6 +144,9 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation(libs.androidx.work.runtime.ktx)
 
+    // Diagnóstico de plagas sin conexión (KAN-110)
+    implementation(libs.litert)
+
     // Dependency injection
     implementation(libs.hilt.android)
     implementation(libs.androidx.hilt.navigation.compose)
