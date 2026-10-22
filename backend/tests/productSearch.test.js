@@ -72,4 +72,25 @@ describe("GET /api/products con búsqueda", () => {
     expect(response.body).toEqual({ error: "nombre debe ser texto" });
     expect(pool.query).not.toHaveBeenCalled();
   });
+
+  test("busca porcentajes y guiones bajos como caracteres literales", async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ total: "0" }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const response = await request(app)
+      .get("/api/products")
+      .query({ nombre: "50%_mezcla!" });
+
+    expect(response.statusCode).toBe(200);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+
+    const [countSql, countParams] = pool.query.mock.calls[0];
+    expect(countSql).toMatch(/p\.nombre ILIKE \$1 ESCAPE '!'/);
+    expect(countParams).toEqual(["%50!%!_mezcla!!%"]);
+
+    const [productsSql, productsParams] = pool.query.mock.calls[1];
+    expect(productsSql).toMatch(/p\.nombre ILIKE \$1 ESCAPE '!'/);
+    expect(productsParams).toEqual(["%50!%!_mezcla!!%", 10, 0]);
+  });
 });

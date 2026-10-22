@@ -11,6 +11,8 @@ const normalizeOptionalText = (value) => {
   return trimmed.length === 0 ? null : trimmed;
 };
 
+const escapeLikePattern = (value) => value.replace(/[!%_]/g, "!$&");
+
 const parseRating = (value) => {
   if (value === undefined) return { valid: true, parsed: undefined };
 
@@ -154,8 +156,8 @@ const getProducts = async (req, res) => {
     : "ORDER BY RANDOM()";
 
   if (normalizedName) {
-    params.push(`%${normalizedName}%`);
-    whereClause += ` AND p.nombre ILIKE $${params.length}`;
+    params.push(`%${escapeLikePattern(normalizedName)}%`);
+    whereClause += ` AND p.nombre ILIKE $${params.length} ESCAPE '!'`;
   }
 
   if (id_categoria) {
