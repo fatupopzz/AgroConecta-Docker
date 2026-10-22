@@ -33,6 +33,7 @@ fun PestAlertRoute(
     favoriteErrorMessage: String? = null,
     onFavoriteClick: (Int) -> Unit = {},
     onFavoriteErrorShown: () -> Unit = {},
+    onDiagnoseLeafClick: (() -> Unit)? = null,
     viewModel: PestAlertViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -107,7 +108,8 @@ fun PestAlertRoute(
         pendingFavoriteIds = pendingFavoriteIds,
         favoriteErrorMessage = favoriteErrorMessage,
         onFavoriteClick = onFavoriteClick,
-        onFavoriteErrorShown = onFavoriteErrorShown
+        onFavoriteErrorShown = onFavoriteErrorShown,
+        onDiagnoseLeafClick = onDiagnoseLeafClick
     )
 }
 

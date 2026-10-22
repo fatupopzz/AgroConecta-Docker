@@ -17,3 +17,9 @@ android/local.properties
 android/app/google-services.json
 android/*.iml
 android/.idea/
+
+# Entrenamiento del modelo de diagnóstico (KAN-110): el entorno y el dataset
+# se regeneran con ml/README.md; solo se versionan el script y el .tflite.
+ml/.venv/
+ml/.data/
+ml/__pycache__/

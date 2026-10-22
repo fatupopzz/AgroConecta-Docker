@@ -2,6 +2,7 @@ package com.uvg.agroconecta.di
 
 import android.content.Context
 import com.uvg.agroconecta.data.local.MIGRATION_3_4
+import com.uvg.agroconecta.data.local.MIGRATION_4_5
 import com.uvg.agroconecta.data.repository.PlantingCalendarRepository
 import java.time.Clock
 import java.time.ZoneId
@@ -54,7 +55,7 @@ object StorageModule {
             AgroConectaDatabase::class.java,
             "agroconecta.db"
         )
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
     @Provides

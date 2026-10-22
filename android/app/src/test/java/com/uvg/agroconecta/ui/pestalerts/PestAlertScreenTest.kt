@@ -99,6 +99,8 @@ class PestAlertScreenTest {
     fun `formats backend values for the alert card`() {
         assertEquals("Mosca blanca", pestTypeDisplayName("mosca_blanca"))
         assertEquals("Plaga desconocida", pestTypeDisplayName("plaga_desconocida"))
+        // Alertas publicadas desde un diagnóstico de KAN-110.
+        assertEquals("Tizón tardío", pestTypeDisplayName("Tomato___Late_blight"))
         assertEquals("750 m", formatDistance(0.75))
         assertEquals("12.5 km", formatDistance(12.45))
         assertEquals("21/09/2026", formatAlertDate("2026-09-21T15:30:00Z"))

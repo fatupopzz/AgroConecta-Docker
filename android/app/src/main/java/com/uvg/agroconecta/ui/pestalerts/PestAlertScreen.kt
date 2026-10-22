@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -48,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.uvg.agroconecta.data.diagnosis.PlantDiseaseLabels
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestType
 import com.uvg.agroconecta.ui.theme.ErrorRed
@@ -81,7 +84,8 @@ fun PestAlertScreen(
     pendingFavoriteIds: Set<Int> = emptySet(),
     favoriteErrorMessage: String? = null,
     onFavoriteClick: (Int) -> Unit = {},
-    onFavoriteErrorShown: () -> Unit = {}
+    onFavoriteErrorShown: () -> Unit = {},
+    onDiagnoseLeafClick: (() -> Unit)? = null
 ) {
     val isLoadingLocationOrAlerts = uiState.isLocating || uiState.isLoadingAlerts
     val primaryErrorMessage = uiState.locationErrorMessage ?: uiState.alertsErrorMessage
@@ -105,6 +109,17 @@ fun PestAlertScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Regresar"
                         )
+                    }
+                },
+                actions = {
+                    // Junto al reporte manual: quien ve una hoja enferma pero no
+                    // sabe qué plaga es puede diagnosticarla con una foto.
+                    onDiagnoseLeafClick?.let { onClick ->
+                        TextButton(onClick = onClick, modifier = Modifier.testTag("diagnose-leaf")) {
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color.White)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Diagnosticar", color = Color.White)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -547,7 +562,10 @@ private fun EmptyAlertsState() {
 }
 
 internal fun pestTypeDisplayName(apiValue: String): String =
-    PestType.entries.firstOrNull { it.apiValue.equals(apiValue, ignoreCase = true) }
+    // Las alertas publicadas desde un diagnóstico (KAN-110) traen la etiqueta
+    // del modelo, por ejemplo "Tomato___Late_blight", en lugar de un PestType.
+    if (apiValue.contains("___")) PlantDiseaseLabels.describe(apiValue).disease
+    else PestType.entries.firstOrNull { it.apiValue.equals(apiValue, ignoreCase = true) }
         ?.displayName
         ?: apiValue
             .replace('_', ' ')
