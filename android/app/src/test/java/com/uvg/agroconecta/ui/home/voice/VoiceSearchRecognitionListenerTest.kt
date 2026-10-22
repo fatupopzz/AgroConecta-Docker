@@ -36,7 +36,7 @@ class VoiceSearchRecognitionListenerTest {
     }
 
     @Test
-    fun `actualiza el estado de escucha y lo limpia al finalizar`() {
+    fun `mantiene el estado activo hasta recibir el resultado final`() {
         var isListening = false
         val listener = VoiceSearchRecognitionListener(
             onListeningChanged = { isListening = it }
@@ -46,6 +46,9 @@ class VoiceSearchRecognitionListenerTest {
         assertTrue(isListening)
 
         listener.onEndOfSpeech()
+        assertTrue(isListening)
+
+        listener.onResults(Bundle())
         assertFalse(isListening)
     }
 

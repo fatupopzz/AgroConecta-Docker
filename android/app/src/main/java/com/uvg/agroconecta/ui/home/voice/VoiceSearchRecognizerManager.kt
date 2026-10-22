@@ -41,7 +41,7 @@ internal class VoiceSearchRecognitionListener(
     override fun onBeginningOfSpeech() = onListeningChanged(true)
     override fun onRmsChanged(rmsdB: Float) = Unit
     override fun onBufferReceived(buffer: ByteArray?) = Unit
-    override fun onEndOfSpeech() = onListeningChanged(false)
+    override fun onEndOfSpeech() = Unit
     override fun onError(error: Int) {
         onListeningChanged(false)
         onRecognitionError(error)
