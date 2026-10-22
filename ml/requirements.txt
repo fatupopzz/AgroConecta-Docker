@@ -1,0 +1,7 @@
+# Versiones con las que se entrenó el modelo incluido en la app.
+tensorflow==2.21.0
+tensorflow-datasets==4.9.10
+keras==3.15.1
+numpy==2.5.4
+# tensorflow-datasets lo usa pero no lo declara como dependencia.
+importlib_resources==7.1.0

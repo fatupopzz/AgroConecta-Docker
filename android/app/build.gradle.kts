@@ -89,6 +89,12 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    // TFLite abre el modelo con un mmap directo sobre el APK; si el archivo va
+    // comprimido no se puede mapear y el clasificador falla al cargar.
+    androidResources {
+        noCompress += "tflite"
+    }
 }
 
 
