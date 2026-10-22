@@ -55,6 +55,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchAvailability
 import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchRecognizerSession
 import com.uvg.agroconecta.ui.home.voice.VOICE_NO_MATCH_MESSAGE
@@ -138,6 +140,11 @@ fun CatalogScreen(
 
     DisposableEffect(voiceRecognizerManager) {
         onDispose(voiceRecognizerManager::destroy)
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        voiceRecognizerManager.destroy()
+        isVoiceListening = false
     }
 
     LaunchedEffect(initialQuery, initialCategoryId) {

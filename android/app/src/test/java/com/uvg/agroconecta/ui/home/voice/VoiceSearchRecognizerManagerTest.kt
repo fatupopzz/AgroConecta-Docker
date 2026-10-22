@@ -1,6 +1,7 @@
 package com.uvg.agroconecta.ui.home.voice
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Test
 
@@ -54,6 +55,22 @@ class VoiceSearchRecognizerManagerTest {
         manager.startListening()
 
         assertEquals(2, session.startCalls)
+    }
+
+    @Test
+    fun `crea una sesion nueva despues de liberar la anterior`() {
+        val sessions = mutableListOf<FakeVoiceSearchRecognizerSession>()
+        val manager = VoiceSearchRecognizerManager {
+            FakeVoiceSearchRecognizerSession().also(sessions::add)
+        }
+
+        val firstSession = manager.getOrCreate()
+        manager.destroy()
+        val secondSession = manager.getOrCreate()
+
+        assertEquals(2, sessions.size)
+        assertEquals(1, sessions.first().destroyCalls)
+        assertNotSame(firstSession, secondSession)
     }
 
     private class FakeVoiceSearchRecognizerSession : VoiceSearchRecognizerSession {
