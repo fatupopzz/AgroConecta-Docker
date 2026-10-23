@@ -123,9 +123,45 @@ class ProductCacheMigrationTest {
         } finally { reopened.close() }
     }
 
+    @Test
+    fun `migra v4 sin perder siembras y agrega la cola de diagnosticos pendientes`() = runTest {
+        val file = context.getDatabasePath(databaseName)
+        file.parentFile?.mkdirs()
+        SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
+            db.execSQL("CREATE TABLE producto_cache (id INTEGER NOT NULL PRIMARY KEY, nombre TEXT NOT NULL, categoria TEXT, precio REAL, descripcion TEXT, timestamp INTEGER NOT NULL, imagenUrl TEXT, imagenThumbUrl TEXT)")
+            db.execSQL("CREATE TABLE planting_cache (userId INTEGER NOT NULL PRIMARY KEY, payload TEXT NOT NULL)")
+            db.execSQL("INSERT INTO planting_cache VALUES (7, '[{siembra:1}]')")
+            db.version = 4
+        }
+
+        val database = openWithMigrations()
+        try {
+            assertEquals("[{siembra:1}]", database.plantingCacheDao().get(7)?.payload)
+            val dao = database.pendingDiagnosisDao()
+            dao.insert(
+                PendingDiagnosisEntity(
+                    localId = "abc",
+                    userId = 7,
+                    crop = "Tomate",
+                    diseaseLabel = "Tomato___Late_blight",
+                    confidence = 0.9f,
+                    latitude = null,
+                    longitude = null,
+                    createdAt = 1000L
+                )
+            )
+            assertEquals(listOf("abc"), dao.unsent(7).map { it.localId })
+            dao.markSent("abc", 42)
+            assertEquals(emptyList<PendingDiagnosisEntity>(), dao.unsent(7))
+            assertEquals(42, dao.get("abc")?.remoteId)
+        } finally {
+            database.close()
+        }
+    }
+
     private fun openWithMigrations(): AgroConectaDatabase =
         Room.databaseBuilder(context, AgroConectaDatabase::class.java, databaseName)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .allowMainThreadQueries()
             .build()
 }

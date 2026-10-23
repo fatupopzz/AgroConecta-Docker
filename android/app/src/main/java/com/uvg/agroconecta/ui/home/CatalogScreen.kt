@@ -1,5 +1,10 @@
 package com.uvg.agroconecta.ui.home
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.speech.SpeechRecognizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,6 +25,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Tune
@@ -35,13 +42,17 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -50,7 +61,10 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
 import com.uvg.agroconecta.ui.components.AgroTextField
@@ -60,6 +74,16 @@ import com.uvg.agroconecta.ui.components.EmptyState
 import com.uvg.agroconecta.ui.components.InlineError
 import com.uvg.agroconecta.ui.components.ProductCard
 import com.uvg.agroconecta.ui.components.ProductCardSkeleton
+import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchAvailability
+import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchRecognizerSession
+import com.uvg.agroconecta.ui.home.voice.VOICE_NO_MATCH_MESSAGE
+import com.uvg.agroconecta.ui.home.voice.VOICE_PERMISSION_DENIED_MESSAGE
+import com.uvg.agroconecta.ui.home.voice.VOICE_SEARCH_START_ERROR_MESSAGE
+import com.uvg.agroconecta.ui.home.voice.VoiceSearchPermissionAction
+import com.uvg.agroconecta.ui.home.voice.VoiceSearchRecognitionListener
+import com.uvg.agroconecta.ui.home.voice.VoiceSearchRecognizerManager
+import com.uvg.agroconecta.ui.home.voice.voiceSearchErrorMessage
+import com.uvg.agroconecta.ui.home.voice.voiceSearchPermissionAction
 import com.uvg.agroconecta.ui.theme.AgroSpacing
 
 /**
@@ -83,12 +107,87 @@ fun CatalogScreen(
     favoriteErrorMessage: String? = null,
     onFavoriteClick: (Int) -> Unit = {},
     onFavoriteErrorShown: () -> Unit = {},
+    voiceSearchAvailable: Boolean = rememberVoiceSearchAvailable(),
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
     val gridState = rememberLazyGridState()
+    var isVoiceListening by remember { mutableStateOf(false) }
+    var voiceFeedbackMessage by remember { mutableStateOf<String?>(null) }
+    val voiceRecognitionListener = remember(viewModel) {
+        VoiceSearchRecognitionListener(
+            onFinalResults = { results ->
+                if (results.any { it.isNotBlank() }) {
+                    viewModel.onVoiceSearchResults(results)
+                } else {
+                    voiceFeedbackMessage = VOICE_NO_MATCH_MESSAGE
+                }
+            },
+            onRecognitionError = { error ->
+                voiceFeedbackMessage = voiceSearchErrorMessage(error)
+            },
+            onListeningChanged = { listening ->
+                isVoiceListening = listening
+            }
+        )
+    }
+    val voiceRecognizerManager = remember(context, voiceRecognitionListener) {
+        VoiceSearchRecognizerManager {
+            AndroidVoiceSearchRecognizerSession(
+                recognizer = SpeechRecognizer.createSpeechRecognizer(context.applicationContext),
+                recognitionListener = voiceRecognitionListener
+            )
+        }
+    }
+    val startVoiceRecognition = {
+        isVoiceListening = true
+        runCatching {
+            voiceRecognizerManager.startListening()
+        }.onFailure {
+            isVoiceListening = false
+            voiceFeedbackMessage = VOICE_SEARCH_START_ERROR_MESSAGE
+        }
+    }
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startVoiceRecognition()
+        } else {
+            voiceFeedbackMessage = VOICE_PERMISSION_DENIED_MESSAGE
+        }
+    }
+    val onVoiceSearchClick: () -> Unit = {
+        keyboardController?.hide()
+        val permissionGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+        when (voiceSearchPermissionAction(permissionGranted)) {
+            VoiceSearchPermissionAction.START_RECOGNITION -> startVoiceRecognition()
+            VoiceSearchPermissionAction.REQUEST_PERMISSION ->
+                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    DisposableEffect(voiceRecognizerManager) {
+        onDispose(voiceRecognizerManager::destroy)
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        voiceRecognizerManager.destroy()
+        isVoiceListening = false
+    }
+
+    LaunchedEffect(voiceFeedbackMessage) {
+        voiceFeedbackMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            voiceFeedbackMessage = null
+        }
+    }
 
     LaunchedEffect(initialQuery, initialCategoryId) {
         viewModel.applyCatalogFilter(initialQuery, initialCategoryId)
@@ -171,19 +270,16 @@ fun CatalogScreen(
                 horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm),
                 verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
+                // El campo usa todo el ancho porque al final lleva hasta tres botones
+                // (borrar, voz y buscar); el de filtros pasa a la fila de categorías.
                 fullWidthItem("search") {
-                    Row(
-                        modifier = Modifier.padding(top = AgroSpacing.sm),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
-                    ) {
-                        AgroTextField(
-                            value = uiState.searchQuery,
-                            onValueChange = viewModel::onSearchChange,
-                            label = "Buscar producto",
-                            leadingIcon = Icons.Default.Search,
-                            trailingIcon = if (uiState.searchQuery.isNotEmpty()) {
-                                {
+                    AgroTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = viewModel::onSearchChange,
+                        label = "Buscar producto",
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (uiState.searchQuery.isNotEmpty()) {
                                     IconButton(onClick = {
                                         viewModel.onSearchChange("")
                                         viewModel.onSearchSubmit()
@@ -191,37 +287,49 @@ fun CatalogScreen(
                                         Icon(Icons.Default.Close, contentDescription = "Borrar búsqueda")
                                     }
                                 }
-                            } else {
-                                null
-                            },
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = { submitSearch() }),
-                            modifier = Modifier.weight(1f)
-                        )
-                        FilterButton(
-                            activeCount = filterLabels.size,
-                            onClick = { viewModel.abrirFiltros() }
-                        )
-                    }
+                                CatalogSearchActions(
+                                    voiceSearchAvailable = voiceSearchAvailable,
+                                    isVoiceListening = isVoiceListening,
+                                    onVoiceSearchClick = onVoiceSearchClick,
+                                    onSearchClick = submitSearch
+                                )
+                            }
+                        },
+                        supportingText = if (isVoiceListening) "Te escuchamos… di el nombre del producto" else null,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { submitSearch() }),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = AgroSpacing.sm)
+                    )
                 }
 
-                if (uiState.categorias.isNotEmpty()) {
-                    fullWidthItem("categories") {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs)) {
-                            item(key = "all") {
-                                CategoryChip(
-                                    label = "Todos",
-                                    selected = uiState.categoriaSeleccionadaId == null,
-                                    onClick = { viewModel.onCategoriaSelect(null) }
-                                )
-                            }
-                            items(uiState.categorias, key = { it.id }) { categoria ->
-                                CategoryChip(
-                                    label = categoria.nombre,
-                                    selected = uiState.categoriaSeleccionadaId == categoria.id,
-                                    onClick = { viewModel.onCategoriaSelect(categoria.id) }
-                                )
-                            }
+                fullWidthItem("categories") {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        item(key = "filters") {
+                            FilterButton(
+                                activeCount = filterLabels.size,
+                                onClick = { viewModel.abrirFiltros() }
+                            )
+                        }
+                        if (uiState.categorias.isNotEmpty()) {
+                                item(key = "all") {
+                                    CategoryChip(
+                                        label = "Todos",
+                                        selected = uiState.categoriaSeleccionadaId == null,
+                                        onClick = { viewModel.onCategoriaSelect(null) }
+                                    )
+                                }
+                                items(uiState.categorias, key = { it.id }) { categoria ->
+                                    CategoryChip(
+                                        label = categoria.nombre,
+                                        selected = uiState.categoriaSeleccionadaId == categoria.id,
+                                        onClick = { viewModel.onCategoriaSelect(categoria.id) }
+                                    )
+                                }
                         }
                     }
                 }
@@ -376,8 +484,7 @@ private fun FilterButton(activeCount: Int, onClick: () -> Unit) {
     AgroSecondaryButton(
         text = if (activeCount > 0) "Filtros ($activeCount)" else "Filtros",
         icon = Icons.Default.Tune,
-        onClick = onClick,
-        modifier = Modifier.padding(top = AgroSpacing.xs)
+        onClick = onClick
     )
 }
 
@@ -401,6 +508,44 @@ private fun ResultsTitle(query: String, count: Int, isLoading: Boolean, hasMore:
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
             )
+        }
+    }
+}
+
+@Composable
+internal fun rememberVoiceSearchAvailable(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        AndroidVoiceSearchAvailability(context).isAvailable()
+    }
+}
+
+/**
+ * Botones al final del buscador. El micrófono solo aparece si el teléfono
+ * tiene reconocimiento de voz; mientras escucha cambia de ícono y se
+ * desactiva para no abrir dos sesiones a la vez.
+ */
+@Composable
+internal fun CatalogSearchActions(
+    voiceSearchAvailable: Boolean,
+    isVoiceListening: Boolean,
+    onVoiceSearchClick: () -> Unit,
+    onSearchClick: () -> Unit
+) {
+    Row {
+        if (voiceSearchAvailable) {
+            IconButton(
+                onClick = onVoiceSearchClick,
+                enabled = !isVoiceListening
+            ) {
+                Icon(
+                    imageVector = if (isVoiceListening) Icons.Default.GraphicEq else Icons.Default.Mic,
+                    contentDescription = if (isVoiceListening) "Escuchando" else "Buscar por voz"
+                )
+            }
+        }
+        IconButton(onClick = onSearchClick) {
+            Icon(Icons.Default.Search, contentDescription = "Buscar")
         }
     }
 }

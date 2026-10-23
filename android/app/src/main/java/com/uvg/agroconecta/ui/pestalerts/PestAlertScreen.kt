@@ -4,20 +4,24 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -31,6 +35,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -43,12 +48,12 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.uvg.agroconecta.data.diagnosis.PlantDiseaseLabels
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestType
-import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroCard
-import com.uvg.agroconecta.ui.components.AgroTextButton
 import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
+import com.uvg.agroconecta.ui.components.AgroTextButton
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.EmptyState
 import com.uvg.agroconecta.ui.components.ErrorState
@@ -57,8 +62,10 @@ import com.uvg.agroconecta.ui.components.RefreshableFullScreen
 import com.uvg.agroconecta.ui.components.SkeletonList
 import com.uvg.agroconecta.ui.components.StatusTag
 import com.uvg.agroconecta.ui.components.TagTone
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.theme.AgroSizes
 import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.agroColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -85,7 +92,8 @@ fun PestAlertScreen(
     pendingFavoriteIds: Set<Int> = emptySet(),
     favoriteErrorMessage: String? = null,
     onFavoriteClick: (Int) -> Unit = {},
-    onFavoriteErrorShown: () -> Unit = {}
+    onFavoriteErrorShown: () -> Unit = {},
+    onDiagnoseLeafClick: (() -> Unit)? = null
 ) {
     val isLoadingLocationOrAlerts = uiState.isLocating || uiState.isLoadingAlerts
     val primaryErrorMessage = uiState.locationErrorMessage ?: uiState.alertsErrorMessage
@@ -106,7 +114,27 @@ fun PestAlertScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = { AgroTopAppBar(title = "Alertas de plagas", onBack = onNavigateBack) },
+        topBar = {
+            AgroTopAppBar(
+                title = "Alertas de plagas",
+                onBack = onNavigateBack,
+                actions = {
+                    // Junto al reporte manual: quien ve una hoja enferma pero no
+                    // sabe qué plaga es puede diagnosticarla con una foto.
+                    onDiagnoseLeafClick?.let { onClick ->
+                        TextButton(
+                            onClick = onClick,
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.agroColors.onTopBar),
+                            modifier = Modifier.testTag("diagnose-leaf")
+                        ) {
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                            Spacer(Modifier.width(AgroSpacing.xs))
+                            Text("Diagnosticar", style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onReportPest,
@@ -459,7 +487,10 @@ internal fun InlineAlertsError(message: String, onRetry: () -> Unit) {
 }
 
 internal fun pestTypeDisplayName(apiValue: String): String =
-    PestType.entries.firstOrNull { it.apiValue.equals(apiValue, ignoreCase = true) }
+    // Las alertas publicadas desde un diagnóstico (KAN-110) traen la etiqueta
+    // del modelo, por ejemplo "Tomato___Late_blight", en lugar de un PestType.
+    if (apiValue.contains("___")) PlantDiseaseLabels.describe(apiValue).disease
+    else PestType.entries.firstOrNull { it.apiValue.equals(apiValue, ignoreCase = true) }
         ?.displayName
         ?: apiValue
             .replace('_', ' ')

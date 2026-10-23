@@ -89,6 +89,23 @@ interface ApiService {
         @Body request: PestAlertPushRegistrationRequest
     ): Response<Unit>
 
+    // ── Diagnóstico de plagas (KAN-109) ──────────────────────────────────────
+    @POST("diagnoses")
+    suspend fun createDiagnosis(
+        @Body request: DiagnosisRequest
+    ): Response<DiagnosisRecord>
+
+    @GET("diagnoses/{id}/products")
+    suspend fun getDiagnosisProducts(
+        @Path("id") diagnosisId: Int
+    ): Response<DiagnosisProductsResponse>
+
+    @POST("diagnoses/{id}/alert")
+    suspend fun publishDiagnosisAlert(
+        @Path("id") diagnosisId: Int,
+        @Body request: DiagnosisAlertRequest
+    ): Response<DiagnosisAlertResponse>
+
     // ── Products ─────────────────────────────────────────────────────────
     @GET("products")
     suspend fun getProducts(

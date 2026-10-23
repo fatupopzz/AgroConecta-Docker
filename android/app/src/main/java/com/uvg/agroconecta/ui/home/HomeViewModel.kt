@@ -326,7 +326,21 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(searchQuery = query) }
     }
 
-    fun onSearchSubmit() { loadProductos(reset = true) }
+    fun onSearchSubmit() {
+        _uiState.update { state ->
+            state.copy(searchQuery = normalizeCatalogQuery(state.searchQuery))
+        }
+        loadProductos(reset = true)
+    }
+
+    fun onVoiceSearchResults(results: List<String>) {
+        val recognizedQuery = results
+            .firstOrNull { it.isNotBlank() }
+            ?.let(::normalizeCatalogQuery)
+            ?: return
+        _uiState.update { state -> state.copy(searchQuery = recognizedQuery) }
+        loadProductos(reset = true)
+    }
 
     fun applyCatalogFilter(query: String, categoryId: Int? = null) {
         _uiState.update {

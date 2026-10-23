@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <external-files-path name="order_exports" path="Download/" />
+    <!-- Foto de la hoja para el diagnóstico de plagas (KAN-110). Va en caché
+         porque no se sube a ningún lado y el sistema puede limpiarla. -->
+    <cache-path name="diagnosis_photos" path="diagnosis/" />
 </paths>

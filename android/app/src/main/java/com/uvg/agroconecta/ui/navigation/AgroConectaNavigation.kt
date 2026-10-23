@@ -1,5 +1,7 @@
 package com.uvg.agroconecta.ui.navigation
 
+import com.uvg.agroconecta.ui.home.normalizeCatalogQuery
+
 sealed class Screen(val route: String) {
 
     data object Login : Screen("login")
@@ -36,6 +38,7 @@ sealed class Screen(val route: String) {
     data object PublishProduct : Screen("publish_product")
     data object DoseCalculator : Screen("dose_calculator")
     data object PestAlerts : Screen("pest_alerts")
+    data object PlantDiagnosis : Screen("plant_diagnosis")
 
     data object ProductDetail : Screen("product_detail/{productoId}?chooseOffer={chooseOffer}") {
         fun createRoute(productoId: Int, chooseOffer: Boolean = false) = "product_detail/$productoId?chooseOffer=$chooseOffer"
@@ -61,3 +64,6 @@ sealed class Screen(val route: String) {
                 "&distributorName=${android.net.Uri.encode(distributorName)}"
     }
 }
+
+internal fun catalogSearchRoute(query: String): String =
+    Screen.Catalog.createRoute(normalizeCatalogQuery(query))

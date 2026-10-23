@@ -59,6 +59,7 @@ import com.uvg.agroconecta.ui.orders.RecurringOrderViewModel
 import com.uvg.agroconecta.ui.orders.RecurringOrderScreen
 import com.uvg.agroconecta.ui.orders.RecurringOrderFormScreen
 import com.uvg.agroconecta.ui.orders.UrgentOrderScreen
+import com.uvg.agroconecta.ui.diagnosis.PlantDiagnosisRoute
 import com.uvg.agroconecta.ui.pestalerts.PestAlertRoute
 import com.uvg.agroconecta.ui.publish.PublishProductScreen
 import com.uvg.agroconecta.ui.profile.ProfileScreen
@@ -330,7 +331,7 @@ fun AgroConectaNavHost(
                             navController.navigate(Screen.Catalog.createRoute())
                         },
                         onSearch = { query ->
-                            navController.navigate(Screen.Catalog.createRoute(query))
+                            navController.navigate(catalogSearchRoute(query))
                         },
                         onCategoryClick = { categoryId ->
                             navController.navigate(Screen.Catalog.createRoute(category = categoryId))
@@ -862,7 +863,23 @@ fun AgroConectaNavHost(
                         pendingFavoriteIds = favoriteUiState.pendingProductIds,
                         favoriteErrorMessage = favoriteUiState.errorMessage,
                         onFavoriteClick = sharedFavoriteViewModel::toggleFavorite,
-                        onFavoriteErrorShown = sharedFavoriteViewModel::clearError
+                        onFavoriteErrorShown = sharedFavoriteViewModel::clearError,
+                        // El diagnóstico termina en productos para el carrito, así
+                        // que solo se ofrece a los agricultores.
+                        onDiagnoseLeafClick = if (tipoUsuario == "agricultor") {
+                            { navController.navigate(Screen.PlantDiagnosis.route) }
+                        } else {
+                            null
+                        }
+                    )
+                }
+
+                composable(Screen.PlantDiagnosis.route) {
+                    PlantDiagnosisRoute(
+                        onNavigateBack = { navController.popBackStack() },
+                        onProductClick = { productId ->
+                            navController.navigate(Screen.ProductDetail.createRoute(productId))
+                        }
                     )
                 }
 
