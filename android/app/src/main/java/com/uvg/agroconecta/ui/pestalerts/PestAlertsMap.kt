@@ -1,5 +1,6 @@
 package com.uvg.agroconecta.ui.pestalerts
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,18 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.PestAlert
-import com.uvg.agroconecta.ui.theme.ErrorRed
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPrimary
-import com.uvg.agroconecta.ui.theme.GreenSurface
+import com.uvg.agroconecta.ui.theme.AgroSpacing
 import kotlin.math.max
 
 internal data class PestMapBounds(
@@ -63,8 +59,8 @@ fun PestAlertsMap(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(start = 16.dp, end = 16.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(start = AgroSpacing.screenHorizontal, end = AgroSpacing.screenHorizontal, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -75,12 +71,12 @@ fun PestAlertsMap(
                 Text(
                     text = "Mapa de alertas",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "${alerts.size} ${if (alerts.size == 1) "marcador" else "marcadores"}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GrayMid
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             MapLegend()
@@ -95,9 +91,8 @@ fun PestAlertsMap(
                 .fillMaxWidth()
                 .weight(1f),
             shape = MaterialTheme.shapes.large,
-            color = Color(0xFFF4F1E8),
-            tonalElevation = 2.dp,
-            shadowElevation = 2.dp
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             PestMapCanvas(
                 alerts = alerts,
@@ -107,9 +102,9 @@ fun PestAlertsMap(
         }
 
         Text(
-            text = "Toca un marcador para consultar la alerta y sus productos sugeridos.",
+            text = "Toca un marcador para ver la alerta y los productos sugeridos.",
             style = MaterialTheme.typography.bodySmall,
-            color = GrayMid
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -123,7 +118,14 @@ private fun PestMapCanvas(
     val bounds = remember(alerts, currentLocation) {
         calculatePestMapBounds(alerts, currentLocation)
     }
-    val markerSize = 42.dp
+    // 48 dp: el mínimo táctil, aunque en un mapa pequeño los marcadores se acerquen.
+    val markerSize = 48.dp
+    val mapBackground = MaterialTheme.colorScheme.surfaceContainerHigh
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val roadColor = MaterialTheme.colorScheme.surfaceContainerLowest
+    val markerBackground = MaterialTheme.colorScheme.surfaceContainerLowest
+    val locationColor = MaterialTheme.colorScheme.tertiary
+    val pestColor = MaterialTheme.colorScheme.error
 
     BoxWithConstraints(
         modifier = Modifier
@@ -131,8 +133,7 @@ private fun PestMapCanvas(
             .testTag("pest-alert-map")
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawRect(Color(0xFFF4F1E8))
-            val gridColor = Color(0xFFD9D4C7)
+            drawRect(mapBackground)
             repeat(6) { index ->
                 val fraction = index / 5f
                 drawLine(
@@ -149,14 +150,14 @@ private fun PestMapCanvas(
                 )
             }
             drawLine(
-                color = Color.White.copy(alpha = 0.9f),
+                color = roadColor,
                 start = androidx.compose.ui.geometry.Offset(0f, size.height * 0.72f),
                 end = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.32f),
                 strokeWidth = 10.dp.toPx(),
                 cap = StrokeCap.Round
             )
             drawLine(
-                color = Color(0xFFE2DFD5),
+                color = gridColor,
                 start = androidx.compose.ui.geometry.Offset(0f, size.height * 0.72f),
                 end = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.32f),
                 strokeWidth = 2.dp.toPx(),
@@ -183,14 +184,14 @@ private fun PestMapCanvas(
                     .testTag("current-location-marker")
                     .semantics { contentDescription = "Tu ubicación" }
                     .clip(CircleShape)
-                    .background(Color.White)
-                    .border(3.dp, Color(0xFF1565C0), CircleShape),
+                    .background(markerBackground)
+                    .border(3.dp, locationColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.MyLocation,
                     contentDescription = null,
-                    tint = Color(0xFF1565C0),
+                    tint = locationColor,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -215,15 +216,15 @@ private fun PestMapCanvas(
                         contentDescription = "Alerta de ${pestTypeDisplayName(alert.pestType)} en ${alert.cultivo}"
                     },
                 shape = CircleShape,
-                color = Color.White,
+                color = markerBackground,
                 shadowElevation = 4.dp,
-                border = androidx.compose.foundation.BorderStroke(3.dp, ErrorRed)
+                border = BorderStroke(3.dp, pestColor)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.BugReport,
                         contentDescription = null,
-                        tint = ErrorRed,
+                        tint = pestColor,
                         modifier = Modifier.size(23.dp)
                     )
                 }
@@ -234,22 +235,25 @@ private fun PestMapCanvas(
 
 @Composable
 private fun MapLegend() {
-    Surface(color = GreenSurface, shape = MaterialTheme.shapes.small) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shape = MaterialTheme.shapes.small
+    ) {
         Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = AgroSpacing.xs, vertical = AgroSpacing.xxs),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(9.dp)
-                    .clip(CircleShape)
-                    .background(ErrorRed)
+            Icon(
+                imageVector = Icons.Default.BugReport,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(16.dp)
             )
             Text(
                 text = "Plaga activa",
-                style = MaterialTheme.typography.labelSmall,
-                color = GreenPrimary
+                style = MaterialTheme.typography.labelMedium
             )
         }
     }

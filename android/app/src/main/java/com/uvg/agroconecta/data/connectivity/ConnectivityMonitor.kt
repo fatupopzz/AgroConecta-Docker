@@ -30,8 +30,12 @@ class AndroidConnectivityMonitor @Inject constructor(
                 trySend(isOnline())
             }
 
+            // Al perderse la red por defecto, activeNetwork todavía devuelve la
+            // red caída durante unos instantes y isOnline() respondía "true"; el
+            // cambio se perdía y la app no se enteraba de que estaba sin señal.
+            // Si otra red toma su lugar, onAvailable vuelve a avisar.
             override fun onLost(network: Network) {
-                trySend(isOnline())
+                trySend(false)
             }
 
             override fun onCapabilitiesChanged(

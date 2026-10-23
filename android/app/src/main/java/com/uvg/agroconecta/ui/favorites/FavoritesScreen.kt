@@ -1,50 +1,51 @@
 package com.uvg.agroconecta.ui.favorites
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.uvg.agroconecta.ui.home.ProductCard
+import com.uvg.agroconecta.data.models.Product
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.components.EmptyState
+import com.uvg.agroconecta.ui.components.ErrorState
+import com.uvg.agroconecta.ui.components.ProductCard
+import com.uvg.agroconecta.ui.components.ProductGridSkeleton
+import com.uvg.agroconecta.ui.components.RefreshableFullScreen
+import com.uvg.agroconecta.ui.components.friendlyErrorMessage
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import kotlinx.coroutines.launch
 
-private val FavoritesGreen = Color(0xFF2D6A1F)
-private val FavoritesBackground = Color(0xFFF5F5F5)
-
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Productos guardados con el corazón.
+ *
+ * Quitar uno se puede deshacer desde el aviso. Basta con volver a marcarlo,
+ * porque el ViewModel guarda la lista completa y el producto reaparece en su
+ * lugar.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FavoritesScreen(
     uiState: FavoriteUiState,
@@ -55,168 +56,106 @@ fun FavoritesScreen(
     onErrorShown: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
+    // Con productos en pantalla el error va en un aviso breve; sin productos
+    // se muestra a pantalla completa con su botón de reintentar.
     LaunchedEffect(uiState.errorMessage, uiState.favoriteProducts.isNotEmpty()) {
         val message = uiState.errorMessage
         if (message != null && uiState.favoriteProducts.isNotEmpty()) {
-            snackbarHostState.showSnackbar(message)
+            snackbarHostState.showSnackbar(friendlyErrorMessage(message))
             onErrorShown()
+        }
+    }
+
+    fun removeWithUndo(product: Product) {
+        onToggleFavorite(product.id)
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = "Quitaste ${product.nombre} de favoritos",
+                actionLabel = "Deshacer",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) onToggleFavorite(product.id)
         }
     }
 
     Scaffold(
         modifier = Modifier.testTag("favorites-screen"),
-        containerColor = FavoritesBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Mis favoritos", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Regresar"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = FavoritesGreen,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                )
-            )
-        }
+        topBar = { AgroTopAppBar(title = "Mis favoritos", onBack = onNavigateBack) }
     ) { padding ->
-        when {
-            uiState.isLoading && uiState.favoriteProducts.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = FavoritesGreen)
+        AgroPullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = onRetry,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when {
+                uiState.isLoading && uiState.favoriteProducts.isEmpty() -> {
+                    ProductGridSkeleton(
+                        rows = 2,
+                        modifier = Modifier.padding(AgroSpacing.screenHorizontal)
+                    )
                 }
-            }
 
-            uiState.errorMessage != null && uiState.favoriteProducts.isEmpty() -> {
-                FavoritesErrorState(
-                    message = uiState.errorMessage,
-                    onRetry = onRetry,
-                    modifier = Modifier.padding(padding)
-                )
-            }
-
-            uiState.favoriteProducts.isEmpty() -> {
-                EmptyFavoritesState(modifier = Modifier.padding(padding))
-            }
-
-            else -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                ) {
-                    if (uiState.isLoading) {
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = FavoritesGreen
+                uiState.errorMessage != null && uiState.favoriteProducts.isEmpty() -> {
+                    RefreshableFullScreen {
+                        ErrorState(
+                            title = "No pudimos cargar tus favoritos",
+                            message = uiState.errorMessage,
+                            onRetry = onRetry,
+                            modifier = Modifier.testTag("favorites-error-state")
                         )
                     }
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(
-                            items = uiState.favoriteProducts.chunked(2),
-                            key = { row -> row.joinToString(separator = "-") { it.id.toString() } }
-                        ) { products ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                products.forEach { product ->
-                                    ProductCard(
-                                        producto = product,
-                                        onClick = { onProductClick(product.id) },
-                                        showFavoriteAction = true,
-                                        isFavorite = product.id in uiState.favoriteIds,
-                                        isUpdatingFavorite = product.id in uiState.pendingProductIds,
-                                        onFavoriteClick = { onToggleFavorite(product.id) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                if (products.size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
+                }
+
+                uiState.favoriteProducts.isEmpty() -> {
+                    RefreshableFullScreen {
+                        EmptyState(
+                            icon = Icons.Default.FavoriteBorder,
+                            title = "Todavía no tienes favoritos",
+                            message = "Toca el corazón de un producto para guardarlo aquí.",
+                            modifier = Modifier.testTag("favorites-empty-state")
+                        )
+                    }
+                }
+
+                else -> {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (uiState.isLoading) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                        // Igual que el catálogo: dos columnas en teléfonos y más en
+                        // pantallas anchas, sin filas a medio llenar que salten al quitar uno.
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 156.dp),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
+                            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm),
+                            verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+                        ) {
+                            items(uiState.favoriteProducts, key = { it.id }) { product ->
+                                val isFavorite = product.id in uiState.favoriteIds
+                                ProductCard(
+                                    producto = product,
+                                    onClick = { onProductClick(product.id) },
+                                    showFavoriteAction = true,
+                                    isFavorite = isFavorite,
+                                    isUpdatingFavorite = product.id in uiState.pendingProductIds,
+                                    onFavoriteClick = {
+                                        if (isFavorite) removeWithUndo(product) else onToggleFavorite(product.id)
+                                    },
+                                    modifier = Modifier.animateItemPlacement()
+                                )
                             }
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun EmptyFavoritesState(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp)
-            .testTag("favorites-empty-state"),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.FavoriteBorder,
-            contentDescription = null,
-            tint = Color(0xFF9E9E9E),
-            modifier = Modifier.size(72.dp)
-        )
-        Text(
-            text = "Todavía no tienes favoritos",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 16.dp)
-        )
-        Text(
-            text = "Toca el corazón de un producto para guardarlo aquí.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF757575),
-            modifier = Modifier.padding(top = 6.dp)
-        )
-    }
-}
-
-@Composable
-private fun FavoritesErrorState(
-    message: String,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp)
-            .testTag("favorites-error-state"),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.error
-        )
-        Button(
-            onClick = onRetry,
-            modifier = Modifier.padding(top = 16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = FavoritesGreen)
-        ) {
-            Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
-            Text("Reintentar", modifier = Modifier.padding(start = 8.dp))
         }
     }
 }

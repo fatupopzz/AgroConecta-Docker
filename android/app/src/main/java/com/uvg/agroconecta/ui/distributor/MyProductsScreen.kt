@@ -12,39 +12,26 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HourglassTop
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -53,25 +40,33 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.models.InventoryProduct
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.AgroTextButton
+import com.uvg.agroconecta.ui.components.AgroTextField
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.components.EmptyState
+import com.uvg.agroconecta.ui.components.ErrorState
+import com.uvg.agroconecta.ui.components.InlineError
 import com.uvg.agroconecta.ui.components.ProductImage
-import com.uvg.agroconecta.ui.theme.GrayLight
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPrimary
-import com.uvg.agroconecta.ui.theme.GreenSurface
-import com.uvg.agroconecta.ui.theme.OrangeAccent
-import com.uvg.agroconecta.ui.theme.OrangeLight
+import com.uvg.agroconecta.ui.components.RefreshableFullScreen
+import com.uvg.agroconecta.ui.components.SkeletonList
+import com.uvg.agroconecta.ui.components.categoryBackground
+import com.uvg.agroconecta.ui.components.formatQuetzales
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.agroColors
+import com.uvg.agroconecta.ui.theme.tabularNumbers
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyProductsScreen(
     onNavigateBack: () -> Unit,
@@ -92,56 +87,45 @@ fun MyProductsScreen(
     }
 
     Scaffold(
-        containerColor = GrayLight,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Mis productos", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = GreenPrimary,
-                    titleContentColor = Color.White
-                )
-            )
-        }
+        topBar = { AgroTopAppBar(title = "Mis productos", onBack = onNavigateBack) }
     ) { padding ->
-        Box(
+        AgroPullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = viewModel::loadProducts,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
             when {
-                uiState.isLoading && uiState.products.isEmpty() -> CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
-                    color = GreenPrimary
+                uiState.isLoading && uiState.products.isEmpty() -> SkeletonList(
+                    description = "Cargando tus productos",
+                    modifier = Modifier.padding(AgroSpacing.screenHorizontal)
                 )
 
-                uiState.loadError != null && uiState.products.isEmpty() -> CenteredMessage(
-                    message = uiState.loadError.orEmpty(),
-                    onRetry = viewModel::loadProducts,
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                uiState.loadError != null && uiState.products.isEmpty() -> RefreshableFullScreen {
+                    ErrorState(
+                        title = "No pudimos cargar tus productos",
+                        message = uiState.loadError.orEmpty(),
+                        onRetry = viewModel::loadProducts
+                    )
+                }
 
-                uiState.products.isEmpty() -> CenteredMessage(
-                    message = "Todavía no tienes productos publicados.",
-                    onRetry = null,
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                uiState.products.isEmpty() -> RefreshableFullScreen {
+                    EmptyState(
+                        icon = Icons.Default.Inventory2,
+                        title = "Todavía no tienes productos publicados.",
+                        message = "Usa la pestaña Publicar para subir tu primer producto."
+                    )
+                }
 
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
+                    verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
                 ) {
                     if (!uiState.isVerified) {
-                        item { UnverifiedBanner() }
+                        item(key = "unverified") { UnverifiedBanner() }
                     }
                     items(uiState.products, key = { it.idInventario }) { product ->
                         MyProductCard(
@@ -184,14 +168,9 @@ private fun MyProductCard(
     onChangePhoto: () -> Unit,
     onEdit: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+    AgroCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(AgroSpacing.sm)) {
+            Row(verticalAlignment = Alignment.Top) {
                 Box(contentAlignment = Alignment.Center) {
                     ProductImage(
                         imagenUrl = product.imagenUrl,
@@ -199,87 +178,79 @@ private fun MyProductCard(
                         categoria = product.categoria,
                         iconSize = 32.dp,
                         modifier = Modifier
-                            .size(76.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(GreenSurface)
+                            .size(80.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(categoryBackground(product.categoria))
                     )
                     if (isUploading) {
                         CircularProgressIndicator(
-                            color = GreenPrimary,
                             strokeWidth = 3.dp,
                             modifier = Modifier.size(32.dp)
                         )
                     }
                 }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
+                Spacer(Modifier.width(AgroSpacing.sm))
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics(mergeDescendants = true) {}
+                ) {
                     Text(
                         text = product.producto,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     listOfNotNull(product.marca, product.categoria)
                         .takeIf { it.isNotEmpty() }
-                        ?.let { Text(it.joinToString(" · "), fontSize = 12.sp, color = GrayMid) }
+                        ?.let {
+                            Text(
+                                text = it.joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     Text(
-                        text = "Q${"%.2f".format(product.precio)} · ${product.stock} en stock",
-                        fontSize = 12.sp,
-                        color = GrayMid
+                        text = formatQuetzales(product.precio),
+                        style = MaterialTheme.typography.titleMedium.tabularNumbers,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "${product.stock} disponibles",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-            Spacer(Modifier.height(8.dp))
             // Van debajo y no junto a la foto porque en pantallas de 360 dp los dos
             // botones no caben al lado de la imagen sin partir el texto.
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CardActionButton(
+            Row(
+                modifier = Modifier.padding(top = AgroSpacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
+            ) {
+                AgroSecondaryButton(
                     text = if (product.imagenUrl == null) "Agregar foto" else "Cambiar foto",
+                    loadingText = "Subiendo…",
                     icon = Icons.Default.AddPhotoAlternate,
-                    enabled = enabled,
                     onClick = onChangePhoto,
-                    modifier = Modifier.weight(1f)
+                    enabled = enabled,
+                    loading = isUploading,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = "Cambiar foto de ${product.producto}" }
                 )
-                CardActionButton(
+                AgroSecondaryButton(
                     text = "Precio y stock",
                     icon = Icons.Default.Edit,
-                    enabled = enabled,
                     onClick = onEdit,
-                    modifier = Modifier.weight(1f)
+                    enabled = enabled,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = "Editar precio y stock de ${product.producto}" }
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun CardActionButton(
-    text: String,
-    icon: ImageVector,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (enabled) GreenPrimary else GrayMid,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            text = text,
-            color = if (enabled) GreenPrimary else GrayMid,
-            fontSize = 13.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
 
@@ -292,104 +263,69 @@ private fun EditInventoryDialog(
     onDismiss: () -> Unit
 ) {
     AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Edit, contentDescription = null, tint = GreenPrimary) },
+        onDismissRequest = { if (!editor.isSaving) onDismiss() },
+        icon = { Icon(Icons.Default.Edit, contentDescription = null) },
         title = { Text("Precio y stock") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)) {
                 Text(
                     text = editor.productName,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                OutlinedTextField(
+                AgroTextField(
                     value = editor.price,
                     onValueChange = onPriceChange,
-                    label = { Text("Precio (Q)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    enabled = !editor.isSaving,
-                    modifier = Modifier.fillMaxWidth()
+                    label = "Precio en quetzales",
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next
+                    ),
+                    enabled = !editor.isSaving
                 )
-                OutlinedTextField(
+                AgroTextField(
                     value = editor.stock,
                     onValueChange = onStockChange,
-                    label = { Text("Stock") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    enabled = !editor.isSaving,
-                    modifier = Modifier.fillMaxWidth()
+                    label = "Cantidad disponible",
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    enabled = !editor.isSaving
                 )
-                editor.error?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-                }
+                editor.error?.let { InlineError(message = it) }
             }
         },
         confirmButton = {
-            Button(
+            AgroPrimaryButton(
+                text = "Guardar",
+                loadingText = "Guardando…",
                 onClick = onSave,
-                enabled = !editor.isSaving,
-                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-            ) {
-                if (editor.isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text("Guardar")
-                }
-            }
+                loading = editor.isSaving
+            )
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !editor.isSaving) { Text("Cancelar") }
+            AgroTextButton(text = "Cancelar", onClick = onDismiss, enabled = !editor.isSaving)
         }
     )
 }
 
 @Composable
 private fun UnverifiedBanner() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(OrangeLight)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        color = MaterialTheme.agroColors.warningContainer,
+        contentColor = MaterialTheme.agroColors.onWarningContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Icon(
-            imageVector = Icons.Default.HourglassTop,
-            contentDescription = null,
-            tint = OrangeAccent
-        )
-        Spacer(Modifier.width(10.dp))
-        Text(text = UNVERIFIED_ACCOUNT_MESSAGE, fontSize = 13.sp)
-    }
-}
-
-@Composable
-private fun CenteredMessage(
-    message: String,
-    onRetry: (() -> Unit)?,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(text = message, color = GrayMid, textAlign = TextAlign.Center)
-        if (onRetry != null) {
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("Reintentar")
-            }
+        Row(
+            modifier = Modifier.padding(AgroSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(imageVector = Icons.Default.HourglassTop, contentDescription = null)
+            Spacer(Modifier.width(AgroSpacing.sm))
+            Text(text = UNVERIFIED_ACCOUNT_MESSAGE, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

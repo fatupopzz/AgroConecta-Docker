@@ -4,31 +4,25 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.outlined.Eco
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,50 +30,56 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.uvg.agroconecta.ui.theme.GrayDark
-import com.uvg.agroconecta.ui.theme.GrayLight
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPale
-import com.uvg.agroconecta.ui.theme.GreenPrimary
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPasswordField
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.AgroTextField
+import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.agroColors
+import com.uvg.agroconecta.validation.LoginFieldErrors
 import com.uvg.agroconecta.validation.LoginFormValidator
-import kotlinx.coroutines.launch
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    viewModel: AuthViewModel = hiltViewModel()
+    viewModel: AuthViewModel = hiltViewModel(),
+    notice: String? = null
 ) {
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
 
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    // Los errores aparecen hasta que la persona intenta entrar; mostrarlos
+    // mientras todavía está escribiendo se siente como un regaño.
+    var fieldErrors by remember { mutableStateOf(LoginFieldErrors()) }
 
     val loginState by viewModel.loginState.observeAsState(AuthState.Idle)
 
-    // Reaccionar a cambios de estado del ViewModel
+    // Evita navegar dos veces si el estado Success se vuelve a emitir al
+    // recomponer (por ejemplo, al rotar la pantalla).
     var navigated by remember { mutableStateOf(false) }
+    val haptics = rememberAgroHaptics()
 
     LaunchedEffect(loginState) {
-        when (val state = loginState) {
+        when (loginState) {
             is AuthState.Success -> {
                 if (!navigated) {
                     navigated = true
@@ -88,187 +88,189 @@ fun LoginScreen(
             }
             is AuthState.Error -> {
                 navigated = false
-                scope.launch { snackbarHostState.showSnackbar(state.message) }
+                haptics.reject()
             }
             is AuthState.Idle -> navigated = false
             else -> Unit
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    val submit: () -> Unit = {
+        fieldErrors = LoginFormValidator.fieldErrors(email, password)
+        if (fieldErrors.hasErrors) {
+            haptics.reject()
+        } else {
+            focusManager.clearFocus()
+            viewModel.login(email.trim(), password, context)
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        BrandHeader()
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = AgroSpacing.screenHorizontal),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── Header verde ──
-            Column(
+            BrandTitle(modifier = Modifier.padding(top = AgroSpacing.xxl))
+
+            // La tarjeta se monta sobre la franja verde: el formulario queda a la
+            // vista sin desplazarse y la marca no ocupa media pantalla.
+            AgroCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp)
-                    .background(GreenPrimary),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .padding(top = AgroSpacing.lg)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Eco,
-                    contentDescription = "AgroConecta logo",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(120.dp)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "AgroConecta",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Insumos agrícolas a tu alcance",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = GreenPale
-                )
-            }
+                Column(
+                    modifier = Modifier.padding(AgroSpacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+                ) {
+                    Text(
+                        text = "Inicia sesión",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.semantics { heading() }
+                    )
+                    Text(
+                        text = "Entra para comprar y seguir tus pedidos.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-            // ── Formulario ──
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp, vertical = 24.dp)
-            ) {
-                Text(
-                    text = "Correo electrónico",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = GrayDark
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    placeholder = { Text("tu@correo.com", color = GrayMid) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = outlinedFieldColors()
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Contraseña",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = GrayDark
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    placeholder = { Text("Ingresar contraseña", color = GrayMid) },
-                    visualTransformation = if (passwordVisible) {
-                        VisualTransformation.None
-                    } else {
-                        PasswordVisualTransformation()
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    singleLine = true,
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) {
-                                    Icons.Default.VisibilityOff
-                                } else {
-                                    Icons.Default.Visibility
-                                },
-                                contentDescription = if (passwordVisible) {
-                                    "Ocultar contraseña"
-                                } else {
-                                    "Mostrar contraseña"
-                                }
+                    notice?.let {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(AgroSpacing.sm)
                             )
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = outlinedFieldColors()
-                )
-
-                Spacer(modifier = Modifier.height(28.dp))
-
-                Button(
-                    onClick = {
-                        val validationError = LoginFormValidator.errorFor(email, password)
-                        if (validationError != null) {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(validationError)
-                            }
-                            return@Button
-                        }
-                        viewModel.login(email.trim(), password, context)
-                    },
-                    enabled = loginState !is AuthState.Loading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-                ) {
-                    if (loginState is AuthState.Loading) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text = "Iniciar sesión",
-                            style = MaterialTheme.typography.titleMedium
-                        )
                     }
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
-                HorizontalDivider(color = GrayLight)
-                Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(Modifier.height(AgroSpacing.xxs))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "¿No tienes cuenta? ",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = GrayMid
+                    AgroTextField(
+                        value = email,
+                        onValueChange = {
+                            email = it
+                            fieldErrors = fieldErrors.copy(email = null)
+                        },
+                        label = "Correo electrónico",
+                        placeholder = "tu@correo.com",
+                        errorMessage = fieldErrors.email,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        )
                     )
-                    Text(
-                        text = "Regístrate",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                        color = GreenPrimary,
-                        modifier = Modifier.clickableNoRipple(onNavigateToRegister)
+
+                    AgroPasswordField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            fieldErrors = fieldErrors.copy(password = null)
+                        },
+                        label = "Contraseña",
+                        errorMessage = fieldErrors.password,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { submit() })
+                    )
+
+                    (loginState as? AuthState.Error)?.let { InlineError(message = it.message) }
+
+                    AgroPrimaryButton(
+                        text = "Entrar",
+                        loadingText = "Entrando…",
+                        icon = Icons.AutoMirrored.Filled.Login,
+                        onClick = submit,
+                        loading = loginState is AuthState.Loading,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = AgroSpacing.xs)
                     )
                 }
             }
-        }
 
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = AgroSpacing.lg),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
+            ) {
+                Text(
+                    text = "¿Es tu primera vez en AgroConecta?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                AgroSecondaryButton(
+                    text = "Crear una cuenta",
+                    onClick = onNavigateToRegister,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
     }
 }
 
+/** Franja de color detrás del título; la tarjeta del formulario la monta a la mitad. */
 @Composable
-private fun outlinedFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = GreenPrimary,
-    unfocusedBorderColor = GrayLight,
-    cursorColor = GreenPrimary
-)
-
-
-@Composable
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier {
-    val interactionSource = remember { MutableInteractionSource() }
-    return this.clickable(
-        interactionSource = interactionSource,
-        indication = null,
-        onClick = onClick
+private fun BrandHeader() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(260.dp)
+            .background(
+                color = MaterialTheme.agroColors.topBarContainer,
+                shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
+            )
     )
+}
+
+@Composable
+private fun BrandTitle(modifier: Modifier = Modifier) {
+    val onBrand = MaterialTheme.agroColors.onTopBar
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = onBrand.copy(alpha = 0.15f),
+            contentColor = onBrand,
+            modifier = Modifier.size(72.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Outlined.Eco,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(AgroSpacing.sm))
+        Text(
+            text = "AgroConecta",
+            style = MaterialTheme.typography.headlineMedium,
+            color = onBrand
+        )
+        Text(
+            text = "Insumos agrícolas a tu alcance",
+            style = MaterialTheme.typography.bodyMedium,
+            color = onBrand
+        )
+    }
 }

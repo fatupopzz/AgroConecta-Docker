@@ -1,49 +1,93 @@
 package com.uvg.agroconecta.ui.profile
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Agriculture
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Grass
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Landscape
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.location.BusinessLocationState
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.AgroTextButton
+import com.uvg.agroconecta.ui.components.AgroTextField
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.AppBottomBar
 import com.uvg.agroconecta.ui.components.BottomNavTab
-import com.uvg.agroconecta.ui.theme.ErrorRed
-import com.uvg.agroconecta.ui.theme.GrayBorder
-import com.uvg.agroconecta.ui.theme.GrayLight
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPale
-import com.uvg.agroconecta.ui.theme.GreenPrimary
-import com.uvg.agroconecta.ui.theme.GreenPrimaryDark
-import com.uvg.agroconecta.ui.theme.GreenSurface
-import com.uvg.agroconecta.ui.theme.OrangeAccent
-import com.uvg.agroconecta.ui.theme.OrangeLight
-import com.uvg.agroconecta.ui.theme.VerifiedBlue
+import com.uvg.agroconecta.ui.components.ErrorState
+import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.components.SkeletonList
+import com.uvg.agroconecta.ui.components.StatusTag
+import com.uvg.agroconecta.ui.components.TagTone
+import com.uvg.agroconecta.ui.theme.AgroSizes
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.agroColors
 import com.uvg.agroconecta.validation.ProfileFormValidator
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onNavigateBack: () -> Unit,
@@ -109,16 +153,8 @@ fun ProfileScreen(
     }
 
     Scaffold(
-        containerColor = GrayLight,
-        topBar = {
-            TopAppBar(
-                title = { Text("Mi Perfil", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = GreenPrimary,
-                    titleContentColor = Color.White
-                )
-            )
-        },
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { AgroTopAppBar(title = "Mi perfil") },
         bottomBar = {
             AppBottomBar(
                 selectedTab = BottomNavTab.PERFIL,
@@ -136,19 +172,16 @@ fun ProfileScreen(
                 .padding(padding)
         ) {
             when (val state = uiState) {
-                is ProfileUiState.Loading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = GreenPrimary
-                    )
-                }
+                is ProfileUiState.Loading -> SkeletonList(
+                    count = 3,
+                    description = "Cargando tu perfil",
+                    modifier = Modifier.padding(AgroSpacing.screenHorizontal)
+                )
 
-                is ProfileUiState.Error -> {
-                    ErrorView(
-                        message = state.message,
-                        onRetry = { viewModel.loadProfile() }
-                    )
-                }
+                is ProfileUiState.Error -> ErrorView(
+                    message = state.message,
+                    onRetry = { viewModel.loadProfile() }
+                )
 
                 is ProfileUiState.Success -> {
                     when (val data = state.data) {
@@ -176,10 +209,10 @@ fun ProfileScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.4f)),
+                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = Color.White)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.inverseOnSurface)
                 }
             }
         }
@@ -199,85 +232,28 @@ fun FarmerProfileContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(bottom = AgroSpacing.lg),
+        verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(GreenPrimary)
-                .padding(bottom = 32.dp),
-            contentAlignment = Alignment.Center
+        ProfileHeader(
+            initial = profile.nombre?.firstOrNull()?.uppercaseChar()?.toString() ?: "A",
+            title = listOfNotNull(profile.nombre, profile.apellido).joinToString(" ").ifBlank { "Agricultor" },
+            subtitle = profile.email
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(Modifier.height(24.dp))
-                Box(
-                    modifier = Modifier
-                        .size(88.dp)
-                        .clip(CircleShape)
-                        .background(GreenPale),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = profile.nombre?.firstOrNull()?.uppercaseChar()?.toString() ?: "A",
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = GreenPrimaryDark
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = listOfNotNull(profile.nombre, profile.apellido)
-                        .joinToString(" ").ifBlank { "Agricultor" },
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                if (!profile.email.isNullOrBlank()) {
-                    Text(
-                        text = profile.email,
-                        fontSize = 13.sp,
-                        color = Color.White.copy(alpha = 0.85f)
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                if (profile.tieneMembresia == true) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = OrangeLight
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Star,
-                                contentDescription = null,
-                                tint = OrangeAccent,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                "Miembro Premium",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = OrangeAccent
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
+            if (profile.tieneMembresia == true) {
+                StatusTag(text = "Miembro Premium", tone = TagTone.Warning, icon = Icons.Default.Star)
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        ProfileShortcuts {
+            FarmerDashboardButton(onClick = onDashboardClick)
+            FavoriteProductsButton(onClick = onFavoritesClick)
+        }
 
-        ProfileSection(title = "Información de contacto") {
+        ProfileSection(title = "Contacto") {
             ProfileInfoRow(Icons.Default.Phone, "Teléfono", profile.telefono ?: "—")
             ProfileInfoRow(Icons.Default.Email, "Correo electrónico", profile.email ?: "—")
         }
-
-        Spacer(Modifier.height(12.dp))
 
         ProfileSection(title = "Ubicación") {
             ProfileInfoRow(
@@ -292,23 +268,21 @@ fun FarmerProfileContent(
             )
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        ProfileSection(title = "Datos agrícolas") {
+        ProfileSection(title = "Tu finca") {
             ProfileInfoRow(
                 Icons.Default.Agriculture,
                 "Tipo de agricultor",
                 when (profile.tipoAgricultor) {
                     "pequena_escala" -> "Pequeña escala"
                     "mediana_escala" -> "Mediana escala"
-                    "industrial"     -> "Industrial"
-                    else             -> "—"
+                    "industrial" -> "Industrial"
+                    else -> "—"
                 }
             )
             ProfileInfoRow(
                 Icons.Default.Landscape,
                 "Tamaño del terreno",
-                profile.tamanoTerrenoHa?.let { "$it ha" } ?: "—"
+                profile.tamanoTerrenoHa?.let { "$it hectáreas" } ?: "—"
             )
             ProfileInfoRow(
                 Icons.Default.Grass,
@@ -317,16 +291,10 @@ fun FarmerProfileContent(
             )
         }
 
-        Spacer(Modifier.height(16.dp))
-        FarmerDashboardButton(onClick = onDashboardClick)
-        Spacer(Modifier.height(12.dp))
-        FavoriteProductsButton(onClick = onFavoritesClick)
-        Spacer(Modifier.height(12.dp))
-        HelpButton(onClick = onHelpClick)
-        Spacer(Modifier.height(12.dp))
-        EditProfileButton(onClick = onEditClick)
-        Spacer(Modifier.height(12.dp))
-        LogoutButton(onClick = onLogoutClick)
+        ProfileShortcuts {
+            HelpButton(onClick = onHelpClick)
+        }
+        ProfileAccountActions(onEditClick = onEditClick, onLogoutClick = onLogoutClick)
     }
 }
 
@@ -343,75 +311,27 @@ fun DistributorProfileContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(bottom = AgroSpacing.lg),
+        verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(GreenPrimary)
-                .padding(bottom = 32.dp),
-            contentAlignment = Alignment.Center
+        ProfileHeader(
+            initial = profile.nombreNegocio.firstOrNull()?.uppercaseChar()?.toString() ?: "D",
+            title = profile.nombreNegocio,
+            subtitle = profile.email
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(Modifier.height(24.dp))
-                Box(
-                    modifier = Modifier
-                        .size(88.dp)
-                        .clip(CircleShape)
-                        .background(GreenPale),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = profile.nombreNegocio.firstOrNull()?.uppercaseChar()?.toString() ?: "D",
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = GreenPrimaryDark
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    profile.nombreNegocio,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                profile.email?.let {
-                    Text(it, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
-                }
-                Spacer(Modifier.height(8.dp))
-                if (profile.estadoVerificacion == "verificado") {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFFE3F2FD)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Verified,
-                                null,
-                                tint = VerifiedBlue,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                "Distribuidor Verificado",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = VerifiedBlue
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
+            if (profile.estadoVerificacion == "verificado") {
+                StatusTag(text = "Distribuidor verificado", tone = TagTone.Info, icon = Icons.Default.Verified)
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        // Mis productos es la única forma de cambiar la foto de algo ya
+        // publicado; publicar solo permite elegirla para productos nuevos.
+        ProfileShortcuts {
+            ProfileShortcut(icon = Icons.Default.Inventory2, label = "Mis productos", onClick = onMyProductsClick)
+            ProfileShortcut(icon = Icons.Default.Analytics, label = "Mis ventas", onClick = onStatsClick)
+        }
 
-        ProfileSection("Información de contacto") {
+        ProfileSection("Contacto") {
             ProfileInfoRow(
                 Icons.Default.Person,
                 "Responsable",
@@ -421,9 +341,7 @@ fun DistributorProfileContent(
             ProfileInfoRow(Icons.Default.Email, "Correo electrónico", profile.email ?: "—")
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        ProfileSection("Datos del negocio") {
+        ProfileSection("Tu negocio") {
             ProfileInfoRow(
                 Icons.Default.LocationOn,
                 "Departamento",
@@ -432,60 +350,65 @@ fun DistributorProfileContent(
             ProfileInfoRow(Icons.Default.Receipt, "NIT", profile.nit ?: "—")
             ProfileInfoRow(Icons.Default.Place, "Dirección", profile.direccion ?: "—")
             profile.calificacionPromedio?.let {
-                ProfileInfoRow(Icons.Default.Star, "Calificación promedio", "%.1f / 5.0".format(it))
+                ProfileInfoRow(
+                    Icons.Default.Star,
+                    "Calificación promedio",
+                    String.format(Locale.US, "%.1f de 5", it)
+                )
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        // Es la única forma de cambiar la foto de algo ya publicado; publicar
-        // solo permite elegirla para productos nuevos.
-        Button(
-            onClick = onMyProductsClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-        ) {
-            Icon(Icons.Default.Inventory2, contentDescription = null)
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = "Mis productos",
-                modifier = Modifier.weight(1f),
-                fontWeight = FontWeight.SemiBold
-            )
-            Icon(Icons.Default.ChevronRight, contentDescription = null)
+        ProfileShortcuts {
+            HelpButton(onClick = onHelpClick)
         }
+        ProfileAccountActions(onEditClick = onEditClick, onLogoutClick = onLogoutClick)
+    }
+}
 
-        Spacer(Modifier.height(12.dp))
-
-        Button(
-            onClick = onStatsClick,
+@Composable
+private fun ProfileHeader(
+    initial: String,
+    title: String,
+    subtitle: String?,
+    badge: @Composable () -> Unit
+) {
+    val onHeader = MaterialTheme.agroColors.onTopBar
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.agroColors.topBarContainer)
+            .padding(vertical = AgroSpacing.lg, horizontal = AgroSpacing.screenHorizontal),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+                .size(88.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Analytics, contentDescription = null)
-            Spacer(Modifier.width(10.dp))
             Text(
-                text = "Ver estadísticas de ventas",
-                modifier = Modifier.weight(1f),
-                fontWeight = FontWeight.SemiBold
+                text = initial,
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            Icon(Icons.Default.ChevronRight, contentDescription = null)
         }
-
-        Spacer(Modifier.height(16.dp))
-        HelpButton(onClick = onHelpClick)
-        Spacer(Modifier.height(12.dp))
-        EditProfileButton(onClick = onEditClick)
-        Spacer(Modifier.height(12.dp))
-        LogoutButton(onClick = onLogoutClick)
+        Spacer(Modifier.height(AgroSpacing.xs))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = onHeader,
+            textAlign = TextAlign.Center
+        )
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = onHeader
+            )
+        }
+        badge()
     }
 }
 
@@ -494,23 +417,19 @@ fun ProfileSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Card(
+    AgroCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .padding(horizontal = AgroSpacing.screenHorizontal)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(AgroSpacing.md)) {
             Text(
                 text = title,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = GrayMid,
-                letterSpacing = 0.5.sp
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(AgroSpacing.xs))
             content()
         }
     }
@@ -525,147 +444,131 @@ fun ProfileInfoRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = AgroSpacing.xs)
+            .semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(40.dp)
                 .clip(CircleShape)
-                .background(GreenSurface),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = GreenPrimary,
-                modifier = Modifier.size(18.dp)
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(AgroSizes.iconSmall)
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(AgroSpacing.sm))
         Column {
-            Text(label, fontSize = 11.sp, color = GrayMid)
-            Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color(0xFF212121))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
-    if (value != "—") HorizontalDivider(color = GrayBorder.copy(alpha = 0.5f))
+}
+
+/** Grupo de accesos en una sola tarjeta, separados por líneas finas. */
+@Composable
+private fun ProfileShortcuts(content: @Composable ColumnScope.() -> Unit) {
+    AgroCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = AgroSpacing.screenHorizontal)
+    ) {
+        Column(content = content)
+    }
+}
+
+/**
+ * Fila de acceso a otra sección. Es un elemento de lista y no un botón con
+ * borde porque varios botones apilados competían entre sí y no se sabía cuál
+ * era el importante.
+ */
+@Composable
+private fun ProfileShortcut(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    iconTint: Color = MaterialTheme.colorScheme.primary
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(onClickLabel = "Abrir $label", role = Role.Button, onClick = onClick)
+            .padding(horizontal = AgroSpacing.md),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = iconTint)
+        Spacer(Modifier.width(AgroSpacing.md))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
 
 @Composable
 fun FavoriteProductsButton(onClick: () -> Unit) {
-    OutlinedButton(
+    ProfileShortcut(
+        icon = Icons.Default.Favorite,
+        label = "Mis favoritos",
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(48.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
-            contentColor = GreenPrimary
-        )
-    ) {
-        Icon(
-            imageVector = Icons.Default.Favorite,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = ErrorRed
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = "Mis favoritos",
-            modifier = Modifier.weight(1f),
-            fontWeight = FontWeight.SemiBold
-        )
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
-    }
+        iconTint = MaterialTheme.colorScheme.error
+    )
 }
 
 @Composable
 fun FarmerDashboardButton(onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(48.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
-            contentColor = GreenPrimary
-        )
-    ) {
-        Icon(
-            imageVector = Icons.Default.Analytics,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = "Mi resumen",
-            modifier = Modifier.weight(1f),
-            fontWeight = FontWeight.SemiBold
-        )
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
-    }
+    ProfileShortcut(icon = Icons.Default.Analytics, label = "Mi resumen", onClick = onClick)
 }
 
 @Composable
 fun HelpButton(onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(48.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
-            contentColor = GreenPrimary
-        )
+    ProfileShortcut(
+        icon = Icons.AutoMirrored.Filled.HelpOutline,
+        label = "Ayuda y preguntas frecuentes",
+        onClick = onClick
+    )
+}
+
+@Composable
+private fun ProfileAccountActions(onEditClick: () -> Unit, onLogoutClick: () -> Unit) {
+    Column(
+        modifier = Modifier.padding(horizontal = AgroSpacing.screenHorizontal),
+        verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
     ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.HelpOutline,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = "Ayuda y preguntas frecuentes",
-            modifier = Modifier.weight(1f),
-            fontWeight = FontWeight.SemiBold
-        )
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
+        EditProfileButton(onClick = onEditClick)
+        LogoutButton(onClick = onLogoutClick)
     }
 }
 
 @Composable
 fun EditProfileButton(onClick: () -> Unit) {
-    OutlinedButton(
+    AgroSecondaryButton(
+        text = "Editar mis datos",
+        icon = Icons.Default.Edit,
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(48.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenPrimary)
-    ) {
-        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Editar perfil", fontWeight = FontWeight.SemiBold)
-    }
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable
@@ -753,172 +656,114 @@ fun EditProfileDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
-        icon = { Icon(Icons.Default.Edit, contentDescription = null, tint = GreenPrimary) },
-        title = { Text("Editar perfil") },
+        icon = { Icon(Icons.Default.Edit, contentDescription = null) },
+        title = { Text("Editar mis datos") },
         text = {
             Column(
                 modifier = Modifier
                     .heightIn(max = 480.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
             ) {
-                ProfileTextField("Nombre", draft.nombre) { draft = draft.copy(nombre = it) }
-                ProfileTextField("Apellido", draft.apellido) { draft = draft.copy(apellido = it) }
-                ProfileTextField("Teléfono", draft.telefono) { draft = draft.copy(telefono = it) }
-                ProfileTextField("Correo electrónico", draft.email) { draft = draft.copy(email = it) }
-                ProfileTextField("Departamento", draft.departamento) { draft = draft.copy(departamento = it) }
+                AgroTextField(draft.nombre, { draft = draft.copy(nombre = it) }, label = "Nombre")
+                AgroTextField(draft.apellido, { draft = draft.copy(apellido = it) }, label = "Apellido")
+                AgroTextField(draft.telefono, { draft = draft.copy(telefono = it) }, label = "Teléfono")
+                AgroTextField(draft.email, { draft = draft.copy(email = it) }, label = "Correo electrónico")
+                AgroTextField(draft.departamento, { draft = draft.copy(departamento = it) }, label = "Departamento")
                 if (isDistributor) {
-                    ProfileTextField("Nombre del negocio", draft.nombreNegocio) {
-                        draft = draft.copy(nombreNegocio = it)
-                    }
-                    ProfileTextField("NIT", draft.nit) { draft = draft.copy(nit = it) }
-                    ProfileTextField("Dirección", draft.direccion) { draft = draft.copy(direccion = it) }
-                    OutlinedButton(
-                        onClick = { requestBusinessLocation() },
-                        enabled = businessLocationState !is BusinessLocationState.Loading,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (businessLocationState is BusinessLocationState.Loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp
-                            )
+                    AgroTextField(
+                        draft.nombreNegocio,
+                        { draft = draft.copy(nombreNegocio = it) },
+                        label = "Nombre del negocio"
+                    )
+                    AgroTextField(draft.nit, { draft = draft.copy(nit = it) }, label = "NIT")
+                    AgroTextField(draft.direccion, { draft = draft.copy(direccion = it) }, label = "Dirección")
+                    AgroSecondaryButton(
+                        text = if (draft.latitude != null && draft.longitude != null) {
+                            "Actualizar ubicación del negocio"
                         } else {
-                            Icon(Icons.Default.MyLocation, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                if (draft.latitude != null && draft.longitude != null) {
-                                    "Actualizar ubicación del negocio"
-                                } else {
-                                    "Usar ubicación actual del negocio"
-                                }
-                            )
-                        }
-                    }
+                            "Usar mi ubicación actual"
+                        },
+                        loadingText = "Buscando ubicación…",
+                        icon = Icons.Default.MyLocation,
+                        onClick = { requestBusinessLocation() },
+                        loading = businessLocationState is BusinessLocationState.Loading,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     when (businessLocationState) {
                         is BusinessLocationState.Located -> Text(
-                            "Ubicación del negocio guardada",
-                            color = GreenPrimary,
-                            fontSize = 12.sp
+                            text = "Ubicación del negocio guardada",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
                         )
-                        is BusinessLocationState.Error -> Text(
-                            businessLocationState.message,
-                            color = MaterialTheme.colorScheme.error,
-                            fontSize = 12.sp
-                        )
+                        is BusinessLocationState.Error -> InlineError(message = businessLocationState.message)
                         else -> Unit
                     }
                 } else {
-                    ProfileTextField("Municipio", draft.municipio) { draft = draft.copy(municipio = it) }
+                    AgroTextField(draft.municipio, { draft = draft.copy(municipio = it) }, label = "Municipio")
                 }
                 if (error != null) {
-                    Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    InlineError(message = error)
                 }
             }
         },
         confirmButton = {
-            Button(
+            AgroPrimaryButton(
+                text = "Guardar",
+                loadingText = "Guardando…",
                 onClick = { onSave(draft) },
-                enabled = !isSaving && ProfileFormValidator.isValid(
+                enabled = ProfileFormValidator.isValid(
                     name = draft.nombre,
                     phone = draft.telefono
                 ),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-            ) {
-                if (isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text("Guardar")
-                }
-            }
+                loading = isSaving
+            )
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancelar") }
+            AgroTextButton(text = "Cancelar", onClick = onDismiss, enabled = !isSaving)
         }
-    )
-}
-
-@Composable
-private fun ProfileTextField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true
     )
 }
 
 @Composable
 fun LogoutButton(onClick: () -> Unit) {
-    OutlinedButton(
+    AgroTextButton(
+        text = "Cerrar sesión",
+        icon = Icons.AutoMirrored.Filled.Logout,
+        destructive = true,
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(48.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
-        border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed)
-    ) {
-        Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Cerrar sesión", fontWeight = FontWeight.SemiBold)
-    }
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable
 fun ErrorView(message: String, onRetry: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.Default.CloudOff,
-            contentDescription = null,
-            tint = GrayBorder,
-            modifier = Modifier.size(64.dp)
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(message, color = GrayMid, fontSize = 14.sp)
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = onRetry,
-            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-        ) {
-            Text("Reintentar")
-        }
-    }
+    ErrorState(
+        title = "No pudimos cargar tu perfil",
+        message = message,
+        onRetry = onRetry,
+        modifier = Modifier.fillMaxSize()
+    )
 }
 
 @Composable
 fun LogoutConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Logout, contentDescription = null, tint = ErrorRed) },
+        icon = {
+            Icon(
+                Icons.AutoMirrored.Filled.Logout,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
         title = { Text("¿Cerrar sesión?") },
-        text = { Text("Deberás iniciar sesión nuevamente para acceder a tu cuenta.") },
+        text = { Text("Para volver a entrar necesitarás tu correo y contraseña.") },
         confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                colors = ButtonDefaults.textButtonColors(contentColor = ErrorRed)
-            ) {
-                Text("Cerrar sesión", fontWeight = FontWeight.SemiBold)
-            }
+            AgroTextButton(text = "Cerrar sesión", destructive = true, onClick = onConfirm)
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
+            AgroTextButton(text = "Cancelar", onClick = onDismiss)
         }
     )
 }

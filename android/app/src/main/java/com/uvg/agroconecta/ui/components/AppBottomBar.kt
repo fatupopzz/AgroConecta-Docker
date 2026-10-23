@@ -1,24 +1,35 @@
 package com.uvg.agroconecta.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-
-private val VerdeAgroConecta = Color(0xFF2D6A1F)
-private val VerdeClaro = Color(0xFF4CAF50)
-private val GrisIcono = Color(0xFF757575)
+import androidx.compose.ui.graphics.vector.ImageVector
 
 enum class BottomNavTab { HOME, AGREGAR, PEDIDOS, PERFIL }
 
+/**
+ * Barra de navegación inferior. Lleva siempre la etiqueta debajo del ícono:
+ * con poca experiencia digital un ícono solo es una adivinanza, y la segunda
+ * pestaña además cambia según el tipo de cuenta.
+ *
+ * El ícono relleno marca la pestaña activa junto con el indicador, así no
+ * depende solo del color.
+ */
 @Composable
 fun AppBottomBar(
     selectedTab: BottomNavTab,
@@ -28,82 +39,66 @@ fun AppBottomBar(
     onPedidosClick: () -> Unit,
     onPerfilClick: () -> Unit
 ) {
-    NavigationBar(containerColor = Color.White, tonalElevation = 4.dp) {
+    val esDistribuidor = tipoUsuario == "distribuidor"
 
-        NavigationBarItem(
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        BottomBarItem(
             selected = selectedTab == BottomNavTab.HOME,
-            onClick = onHomeClick,
-            icon = {
-                NavIcon(
-                    selected = selectedTab == BottomNavTab.HOME,
-                    icon = { tint -> Icon(Icons.Default.Home, contentDescription = "Home", tint = tint) }
-                )
-            },
-            label = null,
-            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
+            label = "Inicio",
+            selectedIcon = Icons.Filled.Home,
+            idleIcon = Icons.Outlined.Home,
+            onClick = onHomeClick
         )
-
-        NavigationBarItem(
+        BottomBarItem(
             selected = selectedTab == BottomNavTab.AGREGAR,
-            onClick = onAgregarClick,
-            icon = {
-                NavIcon(
-                    selected = selectedTab == BottomNavTab.AGREGAR,
-                    icon = { tint ->
-                        if (tipoUsuario == "distribuidor") {
-                            Icon(Icons.Default.AddCircleOutline, contentDescription = "Publicar", tint = tint)
-                        } else {
-                            Icon(Icons.Default.Calculate, contentDescription = "Calculadora", tint = tint)
-                        }
-                    }
-                )
-            },
-            label = null,
-            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
+            label = if (esDistribuidor) "Publicar" else "Calcular",
+            selectedIcon = if (esDistribuidor) Icons.Filled.AddCircle else Icons.Filled.Calculate,
+            idleIcon = if (esDistribuidor) Icons.Outlined.AddCircleOutline else Icons.Outlined.Calculate,
+            onClick = onAgregarClick
         )
-
-        NavigationBarItem(
+        BottomBarItem(
             selected = selectedTab == BottomNavTab.PEDIDOS,
-            onClick = onPedidosClick,
-            icon = {
-                NavIcon(
-                    selected = selectedTab == BottomNavTab.PEDIDOS,
-                    icon = { tint -> Icon(Icons.Default.List, contentDescription = "Pedidos", tint = tint) }
-                )
-            },
-            label = null,
-            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
+            label = "Pedidos",
+            selectedIcon = Icons.AutoMirrored.Filled.ReceiptLong,
+            idleIcon = Icons.AutoMirrored.Filled.ReceiptLong,
+            onClick = onPedidosClick
         )
-
-        NavigationBarItem(
+        BottomBarItem(
             selected = selectedTab == BottomNavTab.PERFIL,
-            onClick = onPerfilClick,
-            icon = {
-                NavIcon(
-                    selected = selectedTab == BottomNavTab.PERFIL,
-                    icon = { tint -> Icon(Icons.Default.Person, contentDescription = "Perfil", tint = tint) }
-                )
-            },
-            label = null,
-            colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent)
+            label = "Perfil",
+            selectedIcon = Icons.Filled.Person,
+            idleIcon = Icons.Outlined.Person,
+            onClick = onPerfilClick
         )
     }
 }
 
 @Composable
-private fun NavIcon(
+private fun RowScope.BottomBarItem(
     selected: Boolean,
-    icon: @Composable (tint: Color) -> Unit
+    label: String,
+    selectedIcon: ImageVector,
+    idleIcon: ImageVector,
+    onClick: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .background(
-                color = if (selected) VerdeClaro.copy(alpha = 0.2f) else Color.Transparent,
-                shape = CircleShape
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        icon(if (selected) VerdeAgroConecta else GrisIcono)
-    }
+    NavigationBarItem(
+        selected = selected,
+        // Tocar la pestaña en la que ya se está no debe recargar ni apilar nada.
+        onClick = { if (!selected) onClick() },
+        icon = {
+            Icon(
+                imageVector = if (selected) selectedIcon else idleIcon,
+                contentDescription = null
+            )
+        },
+        label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+        alwaysShowLabel = true,
+        colors = NavigationBarItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    )
 }

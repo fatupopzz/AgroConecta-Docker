@@ -4,8 +4,8 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
@@ -21,13 +21,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         val initialTrackingOrderId = intent.getTrackingOrderId()
         pendingPestAlertId.value = PestAlertNotificationIntents.extractAlertId(intent)
 
         setContent {
-            AgroConectaTheme(darkTheme = false) {
-                Surface(modifier = Modifier.fillMaxSize()) {
+            // El tema sigue la configuración del teléfono: de noche el modo
+            // oscuro cansa menos la vista y gasta menos batería en pantallas OLED.
+            AgroConectaTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     val navController = rememberNavController()
                     AgroConectaNavHost(
                         navController = navController,

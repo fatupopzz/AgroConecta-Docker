@@ -1,11 +1,24 @@
 package com.uvg.agroconecta.validation
 
-object LoginFormValidator {
-    private const val REQUIRED_FIELDS_MESSAGE = "Completa todos los campos"
+data class LoginFieldErrors(
+    val email: String? = null,
+    val password: String? = null
+) {
+    val hasErrors: Boolean get() = email != null || password != null
+}
 
-    fun errorFor(email: String, password: String): String? =
-        FormValidators.firstError(
-            { FormValidators.required(email, REQUIRED_FIELDS_MESSAGE) },
-            { FormValidators.required(password, REQUIRED_FIELDS_MESSAGE) }
+/**
+ * Validación del login campo por campo: cada mensaje se muestra debajo del
+ * campo que hay que corregir, en lugar de un aviso general que no dice cuál.
+ */
+object LoginFormValidator {
+
+    fun fieldErrors(email: String, password: String): LoginFieldErrors =
+        LoginFieldErrors(
+            email = FormValidators.firstError(
+                { FormValidators.required(email, "Escribe tu correo") },
+                { FormValidators.email(email, "Revisa tu correo, le falta la @") }
+            ),
+            password = FormValidators.required(password, "Escribe tu contraseña")
         )
 }
