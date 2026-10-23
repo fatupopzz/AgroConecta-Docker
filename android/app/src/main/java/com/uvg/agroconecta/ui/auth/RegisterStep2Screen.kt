@@ -42,6 +42,7 @@ import androidx.core.content.ContextCompat
 import com.uvg.agroconecta.data.GuatemalaLocations
 import com.uvg.agroconecta.data.location.BusinessLocationState
 import com.uvg.agroconecta.data.models.TipoCuenta
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroDropdownField
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
@@ -81,6 +82,7 @@ fun RegisterStep2Screen(
     var nombreNegocio by rememberSaveable { mutableStateOf(draft.nombreNegocio ?: "") }
     var nit by rememberSaveable { mutableStateOf(draft.nit ?: "") }
     var errors by remember { mutableStateOf(RegisterStep2Errors()) }
+    val haptics = rememberAgroHaptics()
 
     val esDistribuidor = draft.tipoCuenta == TipoCuenta.DISTRIBUIDOR
     val hasBusinessLocation = draft.latitude != null && draft.longitude != null
@@ -268,7 +270,10 @@ fun RegisterStep2Screen(
                         department = departamento,
                         municipality = municipio
                     )
-                    if (errors.first != null) return@AgroPrimaryButton
+                    if (errors.first != null) {
+                        haptics.reject()
+                        return@AgroPrimaryButton
+                    }
 
                     viewModel.updateDraft {
                         it.copy(

@@ -84,7 +84,9 @@ import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
 import com.uvg.agroconecta.ui.components.AgroTextButton
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
 import com.uvg.agroconecta.ui.components.AppBottomBar
+import com.uvg.agroconecta.ui.components.friendlyErrorMessage
 import com.uvg.agroconecta.ui.components.BottomNavTab
 import com.uvg.agroconecta.ui.components.InlineError
 import com.uvg.agroconecta.ui.components.ProductCard
@@ -192,7 +194,7 @@ fun HomeScreen(
 
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(friendlyErrorMessage(it))
             viewModel.clearError()
         }
     }
@@ -205,6 +207,28 @@ fun HomeScreen(
     }
 
     val esAgricultor = tipoUsuario == "agricultor"
+
+    // Deslizar recarga cada sección con las cargas que ya tiene el ViewModel.
+    // Los distribuidores usan la ubicación ya conocida para no volver a pedir
+    // el GPS, que en el campo puede tardar.
+    val refreshHome: () -> Unit = {
+        if (esAgricultor) {
+            viewModel.loadRecommendedProducts()
+            viewModel.loadRelevantCropCycle()
+            onRefreshWeather()
+            onRetryPriceNotifications()
+        }
+        viewModel.loadCategorias()
+        viewModel.loadProductos(reset = true)
+        val location = uiState.location
+        if (location != null) {
+            viewModel.loadDistribuidores(location.latitude, location.longitude)
+        } else {
+            viewModel.loadDistribuidores()
+        }
+    }
+    val isRefreshingHome = uiState.isLoadingProductos || uiState.isLoadingRecomendados ||
+        uiState.isLoadingCategorias || uiState.isLoadingDistribuidores
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -220,146 +244,152 @@ fun HomeScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        AgroPullToRefreshBox(
+            isRefreshing = isRefreshingHome,
+            onRefresh = refreshHome,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(bottom = AgroSpacing.lg),
-            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
+                .padding(innerPadding)
         ) {
-            item(key = "header") {
-                HomeHeader(
-                    nombre = uiState.nombreAgricultor,
-                    tipoUsuario = tipoUsuario,
-                    cartItemCount = cartItemCount,
-                    onSearch = onSearch,
-                    onCarritoClick = onCarritoClick
-                )
-            }
-
-            // El clima va primero para el agricultor: decide si hoy conviene
-            // aplicar un producto antes que cualquier compra.
-            if (esAgricultor) {
-                item(key = "weather-card") {
-                    WeatherCard(
-                        weatherState,
-                        onRefreshWeather,
-                        Modifier.padding(horizontal = AgroSpacing.screenHorizontal)
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = AgroSpacing.lg),
+                verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
+            ) {
+                item(key = "header") {
+                    HomeHeader(
+                        nombre = uiState.nombreAgricultor,
+                        tipoUsuario = tipoUsuario,
+                        cartItemCount = cartItemCount,
+                        onSearch = onSearch,
+                        onCarritoClick = onCarritoClick
                     )
                 }
-            }
 
-            if (esAgricultor) {
-                if (priceNotifications.isLoading) item(key = "price-loading") {
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = AgroSpacing.screenHorizontal)
+                // El clima va primero para el agricultor: decide si hoy conviene
+                // aplicar un producto antes que cualquier compra.
+                if (esAgricultor) {
+                    item(key = "weather-card") {
+                        WeatherCard(
+                            weatherState,
+                            onRefreshWeather,
+                            Modifier.padding(horizontal = AgroSpacing.screenHorizontal)
+                        )
+                    }
+                }
+
+                if (esAgricultor) {
+                    if (priceNotifications.isLoading) item(key = "price-loading") {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = AgroSpacing.screenHorizontal)
+                        )
+                    }
+                    priceNotifications.error?.let { error ->
+                        item(key = "price-error") {
+                            InlineError(
+                                message = error,
+                                onRetry = onRetryPriceNotifications,
+                                modifier = Modifier.padding(horizontal = AgroSpacing.screenHorizontal)
+                            )
+                        }
+                    }
+                    priceNotifications.notifications.forEach { notification ->
+                        item(key = "price-${notification.id}") {
+                            PriceDropNotificationAlert(
+                                notification,
+                                reading = notification.id in priceNotifications.readingIds,
+                                onClick = { onPriceNotificationClick(notification) },
+                                onRead = { onPriceNotificationRead(notification) }
+                            )
+                        }
+                    }
+                }
+
+                if (tipoUsuario == "distribuidor") {
+                    urgentNotification?.let { notification ->
+                        item(key = "urgent-notification-${notification.id}") {
+                            UrgentOrderNotificationAlert(
+                                notification = notification,
+                                onClick = { onUrgentNotificationClick(notification) }
+                            )
+                        }
+                    }
+                }
+
+                item(key = "categories") {
+                    CategoryTilesSection(
+                        categorias = uiState.categorias,
+                        isLoading = uiState.isLoadingCategorias,
+                        onCategoryClick = onCategoryClick,
+                        onVerTodas = onVerTodasCategorias
                     )
                 }
-                priceNotifications.error?.let { error ->
-                    item(key = "price-error") {
-                        InlineError(
-                            message = error,
-                            onRetry = onRetryPriceNotifications,
-                            modifier = Modifier.padding(horizontal = AgroSpacing.screenHorizontal)
+
+                if (shouldShowCropCycleCard(tipoUsuario, uiState.cicloRelevante)) {
+                    uiState.cicloRelevante?.let { cycle ->
+                        item(key = "crop-cycle-${cycle.faseActual?.idCiclo}") {
+                            CropCycleInfoCard(
+                                cycle = cycle,
+                                onRecommendedProductClick = onRecommendedProductClick
+                            )
+                        }
+                    }
+                }
+
+                if (esAgricultor) {
+                    item(key = "recommended") {
+                        RecommendedProductsSection(
+                            productos = uiState.productosRecomendados,
+                            isLoading = uiState.isLoadingRecomendados,
+                            onProductoClick = onProductoClick,
+                            favoriteIds = favoriteIds,
+                            pendingFavoriteIds = pendingFavoriteIds,
+                            onFavoriteClick = onFavoriteClick
                         )
                     }
                 }
-                priceNotifications.notifications.forEach { notification ->
-                    item(key = "price-${notification.id}") {
-                        PriceDropNotificationAlert(
-                            notification,
-                            reading = notification.id in priceNotifications.readingIds,
-                            onClick = { onPriceNotificationClick(notification) },
-                            onRead = { onPriceNotificationRead(notification) }
-                        )
-                    }
-                }
-            }
 
-            if (tipoUsuario == "distribuidor") {
-                urgentNotification?.let { notification ->
-                    item(key = "urgent-notification-${notification.id}") {
-                        UrgentOrderNotificationAlert(
-                            notification = notification,
-                            onClick = { onUrgentNotificationClick(notification) }
-                        )
-                    }
-                }
-            }
-
-            item(key = "categories") {
-                CategoryTilesSection(
-                    categorias = uiState.categorias,
-                    isLoading = uiState.isLoadingCategorias,
-                    onCategoryClick = onCategoryClick,
-                    onVerTodas = onVerTodasCategorias
-                )
-            }
-
-            if (shouldShowCropCycleCard(tipoUsuario, uiState.cicloRelevante)) {
-                uiState.cicloRelevante?.let { cycle ->
-                    item(key = "crop-cycle-${cycle.faseActual?.idCiclo}") {
-                        CropCycleInfoCard(
-                            cycle = cycle,
-                            onRecommendedProductClick = onRecommendedProductClick
-                        )
-                    }
-                }
-            }
-
-            if (esAgricultor) {
-                item(key = "recommended") {
-                    RecommendedProductsSection(
-                        productos = uiState.productosRecomendados,
-                        isLoading = uiState.isLoadingRecomendados,
+                item(key = "featured") {
+                    FeaturedProductsSection(
+                        productos = uiState.productos.take(FEATURED_COUNT),
+                        isLoading = uiState.isLoadingProductos,
                         onProductoClick = onProductoClick,
+                        onVerMas = onVerMasProductos,
+                        showFavoriteAction = esAgricultor,
                         favoriteIds = favoriteIds,
                         pendingFavoriteIds = pendingFavoriteIds,
                         onFavoriteClick = onFavoriteClick
                     )
                 }
-            }
 
-            item(key = "featured") {
-                FeaturedProductsSection(
-                    productos = uiState.productos.take(FEATURED_COUNT),
-                    isLoading = uiState.isLoadingProductos,
-                    onProductoClick = onProductoClick,
-                    onVerMas = onVerMasProductos,
-                    showFavoriteAction = esAgricultor,
-                    favoriteIds = favoriteIds,
-                    pendingFavoriteIds = pendingFavoriteIds,
-                    onFavoriteClick = onFavoriteClick
-                )
-            }
+                if (esAgricultor) {
+                    item(key = "crop-calendar-shortcut") {
+                        ShortcutCard(
+                            icon = Icons.Default.CalendarMonth,
+                            title = "Calendario de cultivo",
+                            subtitle = "Tus siembras y qué toca hacer cada mes",
+                            onClick = onCropCalendarClick,
+                            modifier = Modifier.padding(top = AgroSpacing.xs)
+                        )
+                    }
+                }
 
-            if (esAgricultor) {
-                item(key = "crop-calendar-shortcut") {
-                    ShortcutCard(
-                        icon = Icons.Default.CalendarMonth,
-                        title = "Calendario de cultivo",
-                        subtitle = "Tus siembras y qué toca hacer cada mes",
-                        onClick = onCropCalendarClick,
+                item(key = "pest-alerts-shortcut") {
+                    PestAlertsShortcutCard(
+                        onClick = onPestAlertsClick,
                         modifier = Modifier.padding(top = AgroSpacing.xs)
                     )
                 }
-            }
 
-            item(key = "pest-alerts-shortcut") {
-                PestAlertsShortcutCard(
-                    onClick = onPestAlertsClick,
-                    modifier = Modifier.padding(top = AgroSpacing.xs)
-                )
-            }
-
-            item(key = "distributors") {
-                DistributorsSection(
-                    distribuidores = uiState.distribuidores,
-                    isLoading = uiState.isLoadingDistribuidores,
-                    onDistribuidorClick = onDistribuidorClick
-                )
+                item(key = "distributors") {
+                    DistributorsSection(
+                        distribuidores = uiState.distribuidores,
+                        isLoading = uiState.isLoadingDistribuidores,
+                        onDistribuidorClick = onDistribuidorClick
+                    )
+                }
             }
         }
     }

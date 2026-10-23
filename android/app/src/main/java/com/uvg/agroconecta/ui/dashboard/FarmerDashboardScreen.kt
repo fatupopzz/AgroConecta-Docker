@@ -43,6 +43,8 @@ import com.uvg.agroconecta.data.models.FarmerLastOrder
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.ErrorState
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
+import com.uvg.agroconecta.ui.components.RefreshableFullScreen
 import com.uvg.agroconecta.ui.components.ProductImage
 import com.uvg.agroconecta.ui.components.SkeletonList
 import com.uvg.agroconecta.ui.components.StatusTag
@@ -85,7 +87,11 @@ fun FarmerDashboardBody(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.fillMaxSize()) {
+    AgroPullToRefreshBox(
+        isRefreshing = uiState.isLoading,
+        onRefresh = onRetry,
+        modifier = modifier.fillMaxSize()
+    ) {
         when {
             uiState.isLoading && uiState.dashboard == null -> SkeletonList(
                 count = 3,
@@ -93,13 +99,14 @@ fun FarmerDashboardBody(
                 modifier = Modifier.padding(AgroSpacing.screenHorizontal)
             )
 
-            uiState.errorMessage != null && uiState.dashboard == null -> ErrorState(
-                title = "No pudimos cargar tu resumen",
-                message = uiState.errorMessage,
-                icon = Icons.Default.Analytics,
-                onRetry = onRetry,
-                modifier = Modifier.align(Alignment.Center)
-            )
+            uiState.errorMessage != null && uiState.dashboard == null -> RefreshableFullScreen {
+                ErrorState(
+                    title = "No pudimos cargar tu resumen",
+                    message = uiState.errorMessage,
+                    icon = Icons.Default.Analytics,
+                    onRetry = onRetry
+                )
+            }
 
             uiState.dashboard != null -> DashboardContent(uiState.dashboard)
         }

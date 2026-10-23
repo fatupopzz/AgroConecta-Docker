@@ -1,6 +1,7 @@
 package com.uvg.agroconecta.ui.components
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -36,5 +37,21 @@ class OfflineBannerTest {
         }
 
         compose.onAllNodesWithTag("offline-indicator").assertCountEquals(0)
+    }
+
+    @Test
+    fun `al volver la senal lo confirma unos segundos y luego se oculta`() {
+        val offline = mutableStateOf(true)
+        compose.setContent {
+            MaterialTheme { OfflineBanner(isOffline = offline.value) }
+        }
+
+        offline.value = false
+        compose.waitForIdle()
+        compose.onNodeWithText(BACK_ONLINE_TEXT).assertIsDisplayed()
+
+        compose.mainClock.advanceTimeBy(4_000)
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("back-online-indicator").assertCountEquals(0)
     }
 }

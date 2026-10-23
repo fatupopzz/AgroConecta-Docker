@@ -16,10 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
+import coil.request.ImageRequest
 import java.text.Normalizer
 
 /**
@@ -54,8 +56,17 @@ fun ProductImage(
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         if (url != null) {
+            // Un fundido corto evita que la foto "salte" encima del ícono al llegar,
+            // algo que en conexiones lentas pasa con cada tarjeta al desplazarse.
+            val context = LocalContext.current
+            val request = remember(url) {
+                ImageRequest.Builder(context)
+                    .data(url)
+                    .crossfade(CROSSFADE_MS)
+                    .build()
+            }
             AsyncImage(
-                model = url,
+                model = request,
                 contentDescription = contentDescription,
                 contentScale = ContentScale.Crop,
                 onState = { painterState = it },
@@ -98,3 +109,5 @@ fun categoryBackground(categoria: String?): Color {
         else -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
 }
+
+private const val CROSSFADE_MS = 200

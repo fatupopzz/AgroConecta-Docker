@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.models.DistributorReview
 import com.uvg.agroconecta.data.models.Product
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
 import com.uvg.agroconecta.ui.components.AgroTextButton
@@ -88,8 +89,10 @@ fun DistributorProfileScreen(
         viewModel.loadAll(distributorId)
     }
 
+    val haptics = rememberAgroHaptics()
     LaunchedEffect(uiState.reviewSubmitSuccess) {
         if (uiState.reviewSubmitSuccess) {
+            haptics.confirm()
             snackbarHostState.showSnackbar("¡Gracias! Tu reseña se publicó.")
             viewModel.clearReviewMessages()
         }
@@ -214,7 +217,7 @@ fun DistributorProfileScreen(
                     )
                 }
             } else {
-                items(uiState.reviews) { review ->
+                items(uiState.reviews, key = { it.idResena }) { review ->
                     ReviewCard(review = review)
                 }
             }

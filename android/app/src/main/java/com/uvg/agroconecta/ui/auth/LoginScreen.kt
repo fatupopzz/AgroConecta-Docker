@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroPasswordField
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
@@ -75,6 +76,7 @@ fun LoginScreen(
     // Evita navegar dos veces si el estado Success se vuelve a emitir al
     // recomponer (por ejemplo, al rotar la pantalla).
     var navigated by remember { mutableStateOf(false) }
+    val haptics = rememberAgroHaptics()
 
     LaunchedEffect(loginState) {
         when (loginState) {
@@ -84,14 +86,20 @@ fun LoginScreen(
                     onLoginSuccess()
                 }
             }
-            is AuthState.Error, is AuthState.Idle -> navigated = false
+            is AuthState.Error -> {
+                navigated = false
+                haptics.reject()
+            }
+            is AuthState.Idle -> navigated = false
             else -> Unit
         }
     }
 
     val submit: () -> Unit = {
         fieldErrors = LoginFormValidator.fieldErrors(email, password)
-        if (!fieldErrors.hasErrors) {
+        if (fieldErrors.hasErrors) {
+            haptics.reject()
+        } else {
             focusManager.clearFocus()
             viewModel.login(email.trim(), password, context)
         }

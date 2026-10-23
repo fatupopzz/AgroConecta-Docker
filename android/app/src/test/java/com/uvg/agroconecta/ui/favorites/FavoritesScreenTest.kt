@@ -125,6 +125,34 @@ class FavoritesScreenTest {
         assertEquals(1, clicks)
     }
 
+    @Test
+    fun `quitar un favorito se puede deshacer desde el aviso`() {
+        val product = product(9)
+        val toggled = mutableListOf<Int>()
+        compose.setContent {
+            MaterialTheme {
+                FavoritesScreen(
+                    uiState = FavoriteUiState(
+                        favoriteProducts = listOf(product),
+                        favoriteIds = setOf(product.id)
+                    ),
+                    onNavigateBack = {},
+                    onProductClick = {},
+                    onToggleFavorite = { toggled += it },
+                    onRetry = {},
+                    onErrorShown = {}
+                )
+            }
+        }
+
+        compose.onNodeWithTag("favorite-button-9").performClick()
+        compose.onNodeWithText("Quitaste ${product.nombre} de favoritos").assertIsDisplayed()
+        compose.onNodeWithText("Deshacer").performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf(9, 9), toggled)
+    }
+
     private fun product(id: Int) = Product(
         id = id,
         nombre = "Producto $id",

@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.Review
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
 import com.uvg.agroconecta.ui.components.AgroTextField
@@ -67,9 +68,12 @@ fun ReviewsSection(
     var selectedStars by remember { mutableIntStateOf(0) }
     var comentario by remember { mutableStateOf("") }
 
+    val haptics = rememberAgroHaptics()
+
     // Al enviar con éxito se limpia el formulario para no reenviar lo mismo.
     LaunchedEffect(submitState) {
         if (submitState is ReviewSubmitState.Success) {
+            haptics.confirm()
             selectedStars = 0
             comentario = ""
         }

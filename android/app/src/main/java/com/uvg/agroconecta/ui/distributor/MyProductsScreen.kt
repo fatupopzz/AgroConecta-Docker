@@ -50,6 +50,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.models.InventoryProduct
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
 import com.uvg.agroconecta.ui.components.AgroTextButton
 import com.uvg.agroconecta.ui.components.AgroTextField
@@ -58,6 +59,7 @@ import com.uvg.agroconecta.ui.components.EmptyState
 import com.uvg.agroconecta.ui.components.ErrorState
 import com.uvg.agroconecta.ui.components.InlineError
 import com.uvg.agroconecta.ui.components.ProductImage
+import com.uvg.agroconecta.ui.components.RefreshableFullScreen
 import com.uvg.agroconecta.ui.components.SkeletonList
 import com.uvg.agroconecta.ui.components.categoryBackground
 import com.uvg.agroconecta.ui.components.formatQuetzales
@@ -89,7 +91,9 @@ fun MyProductsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = { AgroTopAppBar(title = "Mis productos", onBack = onNavigateBack) }
     ) { padding ->
-        Box(
+        AgroPullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = viewModel::loadProducts,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -100,19 +104,21 @@ fun MyProductsScreen(
                     modifier = Modifier.padding(AgroSpacing.screenHorizontal)
                 )
 
-                uiState.loadError != null && uiState.products.isEmpty() -> ErrorState(
-                    title = "No pudimos cargar tus productos",
-                    message = uiState.loadError.orEmpty(),
-                    onRetry = viewModel::loadProducts,
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                uiState.loadError != null && uiState.products.isEmpty() -> RefreshableFullScreen {
+                    ErrorState(
+                        title = "No pudimos cargar tus productos",
+                        message = uiState.loadError.orEmpty(),
+                        onRetry = viewModel::loadProducts
+                    )
+                }
 
-                uiState.products.isEmpty() -> EmptyState(
-                    icon = Icons.Default.Inventory2,
-                    title = "Todavía no tienes productos publicados.",
-                    message = "Usa la pestaña Publicar para subir tu primer producto.",
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                uiState.products.isEmpty() -> RefreshableFullScreen {
+                    EmptyState(
+                        icon = Icons.Default.Inventory2,
+                        title = "Todavía no tienes productos publicados.",
+                        message = "Usa la pestaña Publicar para subir tu primer producto."
+                    )
+                }
 
                 else -> LazyColumn(
                     contentPadding = PaddingValues(AgroSpacing.screenHorizontal),

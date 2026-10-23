@@ -45,12 +45,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestType
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroTextButton
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.EmptyState
 import com.uvg.agroconecta.ui.components.ErrorState
 import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.components.RefreshableFullScreen
 import com.uvg.agroconecta.ui.components.SkeletonList
 import com.uvg.agroconecta.ui.components.StatusTag
 import com.uvg.agroconecta.ui.components.TagTone
@@ -87,6 +90,11 @@ fun PestAlertScreen(
     val isLoadingLocationOrAlerts = uiState.isLocating || uiState.isLoadingAlerts
     val primaryErrorMessage = uiState.locationErrorMessage ?: uiState.alertsErrorMessage
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val haptics = rememberAgroHaptics()
+    LaunchedEffect(uiState.reportSuccessMessage) {
+        if (uiState.reportSuccessMessage != null) haptics.confirm()
+    }
 
     LaunchedEffect(favoriteErrorMessage) {
         favoriteErrorMessage?.let {
@@ -128,50 +136,63 @@ fun PestAlertScreen(
                 onModeSelected = onViewModeChanged
             )
 
-            when {
-                isLoadingLocationOrAlerts && uiState.alerts.isEmpty() -> {
-                    SkeletonList(
-                        count = 3,
-                        description = "Buscando alertas cercanas",
-                        modifier = Modifier.padding(AgroSpacing.screenHorizontal)
-                    )
-                }
+            // En el mapa el gesto se apaga: arrastrar hacia abajo debe mover el
+            // mapa, no recargar.
+            AgroPullToRefreshBox(
+                isRefreshing = isLoadingLocationOrAlerts,
+                onRefresh = onRetry,
+                enabled = uiState.viewMode != PestAlertViewMode.MAP,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                when {
+                    isLoadingLocationOrAlerts && uiState.alerts.isEmpty() -> {
+                        SkeletonList(
+                            count = 3,
+                            description = "Buscando alertas cercanas",
+                            modifier = Modifier.padding(AgroSpacing.screenHorizontal)
+                        )
+                    }
 
-                primaryErrorMessage != null && uiState.alerts.isEmpty() -> {
-                    ErrorState(
-                        title = "No pudimos ver las alertas",
-                        message = primaryErrorMessage,
-                        onRetry = onRetry,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                    primaryErrorMessage != null && uiState.alerts.isEmpty() -> {
+                        RefreshableFullScreen {
+                            ErrorState(
+                                title = "No pudimos ver las alertas",
+                                message = primaryErrorMessage,
+                                onRetry = onRetry
+                            )
+                        }
+                    }
 
-                uiState.alerts.isEmpty() -> {
-                    EmptyState(
-                        icon = Icons.Default.CheckCircle,
-                        title = "No hay alertas activas cerca",
-                        message = "Tu zona no tiene reportes recientes de plagas.",
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                    uiState.alerts.isEmpty() -> {
+                        RefreshableFullScreen {
+                            EmptyState(
+                                icon = Icons.Default.CheckCircle,
+                                title = "No hay alertas activas cerca",
+                                message = "Tu zona no tiene reportes recientes de plagas."
+                            )
+                        }
+                    }
 
-                uiState.viewMode == PestAlertViewMode.MAP -> {
-                    PestAlertsMap(
-                        alerts = uiState.alerts,
-                        currentLocation = uiState.location,
-                        errorMessage = primaryErrorMessage,
-                        onRetry = onRetry,
-                        onAlertClick = onAlertClick
-                    )
-                }
+                    uiState.viewMode == PestAlertViewMode.MAP -> {
+                        PestAlertsMap(
+                            alerts = uiState.alerts,
+                            currentLocation = uiState.location,
+                            errorMessage = primaryErrorMessage,
+                            onRetry = onRetry,
+                            onAlertClick = onAlertClick
+                        )
+                    }
 
-                else -> {
-                    AlertsList(
-                        alerts = uiState.alerts,
-                        errorMessage = primaryErrorMessage,
-                        onRetry = onRetry,
-                        onAlertClick = onAlertClick
-                    )
+                    else -> {
+                        AlertsList(
+                            alerts = uiState.alerts,
+                            errorMessage = primaryErrorMessage,
+                            onRetry = onRetry,
+                            onAlertClick = onAlertClick
+                        )
+                    }
                 }
             }
         }

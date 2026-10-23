@@ -34,10 +34,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.api.SessionManager
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.ErrorState
 import com.uvg.agroconecta.ui.components.ListItemSkeleton
 import com.uvg.agroconecta.ui.components.SkeletonBox
 import com.uvg.agroconecta.ui.components.formatQuetzales
+import com.uvg.agroconecta.ui.components.friendlyErrorMessage
 import com.uvg.agroconecta.ui.theme.AgroSpacing
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -91,6 +93,7 @@ fun ProductDetailScreen(
     // Se reinicia al cambiar de distribuidor porque cada uno tiene su propio stock.
     var quantity by rememberSaveable(selectedOffer?.idInventario) { mutableIntStateOf(1) }
     var lastAddedQuantity by remember { mutableIntStateOf(1) }
+    val haptics = rememberAgroHaptics()
 
     LaunchedEffect(productId) {
         isFarmer = SessionManager.getTipoUsuario(context).first() == "agricultor"
@@ -112,6 +115,7 @@ fun ProductDetailScreen(
     LaunchedEffect(cartSuccess) {
         if (cartSuccess != null) {
             viewModel.clearMessages()
+            haptics.confirm()
             onAddedToCart()
             val message = if (lastAddedQuantity == 1) {
                 "Listo, se agregó al carrito"
@@ -134,7 +138,7 @@ fun ProductDetailScreen(
     }
     LaunchedEffect(error) {
         error?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(friendlyErrorMessage(it))
             viewModel.clearMessages()
         }
     }

@@ -1,6 +1,7 @@
 package com.uvg.agroconecta.ui.orders
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -41,6 +42,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.OrderSummary
 import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
 import com.uvg.agroconecta.ui.components.AgroTextButton
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
@@ -63,6 +65,7 @@ import com.uvg.agroconecta.ui.theme.tabularNumbers
  * más se busca aquí; los filtros separan lo que todavía está en camino de lo
  * que ya llegó, para no tener que revisar pedido por pedido.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OrderHistoryScreen(
     orders: List<OrderSummary>,
@@ -100,95 +103,102 @@ fun OrderHistoryScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        AgroPullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = onRetry,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
-            verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+                .padding(padding)
         ) {
-            if (tipoUsuario == "agricultor") {
-                item(key = "farmer-actions") {
-                    FarmerOrderActions(
-                        exportState = exportState,
-                        exportNotice = exportNotice,
-                        onExportPdf = onExportPdf,
-                        onRecurringOrders = onRecurringOrders
-                    )
-                }
-            }
-
-            if (orders.isNotEmpty()) {
-                item(key = "filters") {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs)) {
-                        items(OrderFilter.entries) { option ->
-                            val count = orders.count { option.matches(it.estado) }
-                            CategoryChip(
-                                label = "${option.label} ($count)",
-                                selected = filter == option,
-                                onClick = { filter = option }
-                            )
-                        }
-                    }
-                }
-            }
-
-            when {
-                isLoading && orders.isEmpty() -> item(key = "loading") {
-                    SkeletonList(description = "Cargando pedidos")
-                }
-
-                // Si falló la carga no se dice "no tienes pedidos": sería falso
-                // y asustaría a quien sí tiene pedidos en camino.
-                errorMessage != null && orders.isEmpty() -> item(key = "error") {
-                    ErrorState(
-                        title = "No pudimos cargar tus pedidos",
-                        message = errorMessage,
-                        onRetry = onRetry
-                    )
-                }
-
-                orders.isEmpty() -> item(key = "empty") {
-                    EmptyState(
-                        icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                        title = if (isDistributor) "Aún no recibes pedidos" else "Aún no tienes pedidos",
-                        message = if (isDistributor) {
-                            "Cuando un agricultor te compre, su pedido aparecerá aquí."
-                        } else {
-                            "Cuando hagas tu primera compra, aquí podrás seguir su entrega."
-                        }
-                    )
-                }
-
-                else -> {
-                    errorMessage?.let { message ->
-                        item(key = "inline-error") { InlineError(message = message, onRetry = onRetry) }
-                    }
-                    if (isLoading) {
-                        item(key = "refreshing") { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                    }
-                    if (visibleOrders.isEmpty()) {
-                        item(key = "filter-empty") {
-                            Text(
-                                text = when (filter) {
-                                    OrderFilter.ACTIVE -> "No tienes pedidos en camino."
-                                    OrderFilter.DELIVERED -> "Todavía no te han entregado pedidos."
-                                    OrderFilter.ALL -> ""
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = AgroSpacing.md)
-                            )
-                        }
-                    }
-                    items(visibleOrders, key = { it.id }) { order ->
-                        OrderCard(
-                            order = order,
-                            isDistributor = isDistributor,
-                            onTrackOrder = { onTrackOrder(order.id) },
-                            onOpenAdvice = { onOpenAdvice(order.id) },
-                            onMakeRecurring = { onMakeRecurring(order.id) }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
+                verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+            ) {
+                if (tipoUsuario == "agricultor") {
+                    item(key = "farmer-actions") {
+                        FarmerOrderActions(
+                            exportState = exportState,
+                            exportNotice = exportNotice,
+                            onExportPdf = onExportPdf,
+                            onRecurringOrders = onRecurringOrders
                         )
+                    }
+                }
+
+                if (orders.isNotEmpty()) {
+                    item(key = "filters") {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs)) {
+                            items(OrderFilter.entries) { option ->
+                                val count = orders.count { option.matches(it.estado) }
+                                CategoryChip(
+                                    label = "${option.label} ($count)",
+                                    selected = filter == option,
+                                    onClick = { filter = option }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                when {
+                    isLoading && orders.isEmpty() -> item(key = "loading") {
+                        SkeletonList(description = "Cargando pedidos")
+                    }
+
+                    // Si falló la carga no se dice "no tienes pedidos": sería falso
+                    // y asustaría a quien sí tiene pedidos en camino.
+                    errorMessage != null && orders.isEmpty() -> item(key = "error") {
+                        ErrorState(
+                            title = "No pudimos cargar tus pedidos",
+                            message = errorMessage,
+                            onRetry = onRetry
+                        )
+                    }
+
+                    orders.isEmpty() -> item(key = "empty") {
+                        EmptyState(
+                            icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                            title = if (isDistributor) "Aún no recibes pedidos" else "Aún no tienes pedidos",
+                            message = if (isDistributor) {
+                                "Cuando un agricultor te compre, su pedido aparecerá aquí."
+                            } else {
+                                "Cuando hagas tu primera compra, aquí podrás seguir su entrega."
+                            }
+                        )
+                    }
+
+                    else -> {
+                        errorMessage?.let { message ->
+                            item(key = "inline-error") { InlineError(message = message, onRetry = onRetry) }
+                        }
+                        if (isLoading) {
+                            item(key = "refreshing") { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                        }
+                        if (visibleOrders.isEmpty()) {
+                            item(key = "filter-empty") {
+                                Text(
+                                    text = when (filter) {
+                                        OrderFilter.ACTIVE -> "No tienes pedidos en camino."
+                                        OrderFilter.DELIVERED -> "Todavía no te han entregado pedidos."
+                                        OrderFilter.ALL -> ""
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(vertical = AgroSpacing.md)
+                                )
+                            }
+                        }
+                        items(visibleOrders, key = { it.id }) { order ->
+                            OrderCard(
+                                order = order,
+                                isDistributor = isDistributor,
+                                onTrackOrder = { onTrackOrder(order.id) },
+                                onOpenAdvice = { onOpenAdvice(order.id) },
+                                onMakeRecurring = { onMakeRecurring(order.id) },
+                                modifier = Modifier.animateItemPlacement()
+                            )
+                        }
                     }
                 }
             }
@@ -240,13 +250,14 @@ private fun OrderCard(
     isDistributor: Boolean,
     onTrackOrder: () -> Unit,
     onOpenAdvice: () -> Unit,
-    onMakeRecurring: () -> Unit
+    onMakeRecurring: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isCanceled = order.estado == "cancelado"
 
     AgroCard(
         onClick = onTrackOrder,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .semantics {
                 contentDescription = "Pedido ${order.id}, ${orderStatusLabel(order.estado)}, " +

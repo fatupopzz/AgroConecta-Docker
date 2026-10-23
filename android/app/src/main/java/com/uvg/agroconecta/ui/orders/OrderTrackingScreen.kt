@@ -31,6 +31,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -41,7 +46,9 @@ import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.OrderTrackingChange
 import com.uvg.agroconecta.data.models.OrderTrackingResponse
 import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.RefreshableFullScreen
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.ErrorState
 import com.uvg.agroconecta.ui.components.InlineError
@@ -69,38 +76,50 @@ fun OrderTrackingScreen(
     onRetry: () -> Unit,
     onOpenAdvice: (Int) -> Unit
 ) {
+    // El ViewModel limpia el seguimiento al recargar. Se sigue mostrando el
+    // anterior mientras llega el nuevo para que la pantalla no salte a siluetas
+    // cada vez que alguien desliza para ver si ya cambió el estado.
+    var lastTracking by remember { mutableStateOf<OrderTrackingResponse?>(null) }
+    LaunchedEffect(tracking) {
+        if (tracking != null) lastTracking = tracking
+    }
+    val shownTracking = tracking ?: lastTracking.takeIf { isLoading }
+
     Scaffold(
         topBar = { AgroTopAppBar(title = "Seguimiento del pedido", onBack = onBack) },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Box(
+        AgroPullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = onRetry,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
             when {
-                isLoading -> SkeletonList(
+                isLoading && shownTracking == null -> SkeletonList(
                     count = 3,
                     description = "Cargando seguimiento",
                     modifier = Modifier.padding(AgroSpacing.screenHorizontal)
                 )
 
-                errorMessage != null -> ErrorState(
-                    title = "No pudimos ver tu pedido",
-                    message = errorMessage,
-                    onRetry = onRetry,
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                errorMessage != null -> RefreshableFullScreen {
+                    ErrorState(
+                        title = "No pudimos ver tu pedido",
+                        message = errorMessage,
+                        onRetry = onRetry
+                    )
+                }
 
-                tracking != null -> {
+                shownTracking != null -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
                         verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
                     ) {
-                        item(key = "header") { TrackingHeader(tracking = tracking) }
-                        item(key = "stepper") { TrackingStepper(currentEstado = tracking.estadoActual) }
-                        if (tracking.cambios.isNotEmpty()) {
+                        item(key = "header") { TrackingHeader(tracking = shownTracking) }
+                        item(key = "stepper") { TrackingStepper(currentEstado = shownTracking.estadoActual) }
+                        if (shownTracking.cambios.isNotEmpty()) {
                             item(key = "history-title") {
                                 Text(
                                     text = "Historial",
@@ -111,7 +130,7 @@ fun OrderTrackingScreen(
                                         .semantics { heading() }
                                 )
                             }
-                            items(tracking.cambios) { change ->
+                            items(shownTracking.cambios) { change ->
                                 TimelineItem(change = change)
                             }
                         }
@@ -119,7 +138,7 @@ fun OrderTrackingScreen(
                             AgroSecondaryButton(
                                 text = "Pedir asesoría técnica",
                                 icon = Icons.AutoMirrored.Filled.Chat,
-                                onClick = { onOpenAdvice(tracking.idPedido) },
+                                onClick = { onOpenAdvice(shownTracking.idPedido) },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }

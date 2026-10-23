@@ -44,10 +44,15 @@ fun QuantityStepper(
     enabled: Boolean = true
 ) {
     val suffix = itemName?.let { " de $it" }.orEmpty()
+    // Un toque leve por cada cambio deja contar las unidades sin mirar el número.
+    val haptics = rememberAgroHaptics()
 
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         OutlinedIconButton(
-            onClick = onDecrease,
+            onClick = {
+                haptics.tick()
+                onDecrease()
+            },
             enabled = enabled && quantity > minQuantity,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
             modifier = Modifier.semantics { contentDescription = "Quitar uno$suffix" }
@@ -67,7 +72,10 @@ fun QuantityStepper(
                 }
         )
         FilledTonalIconButton(
-            onClick = onIncrease,
+            onClick = {
+                haptics.tick()
+                onIncrease()
+            },
             enabled = enabled && quantity < maxQuantity,
             colors = IconButtonDefaults.filledTonalIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.primary,

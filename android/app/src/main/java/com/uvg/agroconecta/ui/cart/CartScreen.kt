@@ -1,6 +1,21 @@
 package com.uvg.agroconecta.ui.cart
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -72,7 +87,13 @@ data class CartItemUI(
  * Carrito agrupado por distribuidor. Agrupar deja ver de un vistazo a quién
  * se le compra cada cosa, y explica por qué no se puede pedir todo junto
  * cuando hay más de un distribuidor (cada pedido sale de uno solo).
+ *
+ * Quitar un producto se puede deshacer. El producto se esconde enseguida y
+ * solo se borra en el servidor cuando el aviso se va, cuando se sale del
+ * carrito o cuando se sigue con el pedido. Así un toque por error no obliga
+ * a buscarlo otra vez en el catálogo.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CartScreen(
     items: List<CartItemUI>,
@@ -85,89 +106,169 @@ fun CartScreen(
     onUrgentOrder: () -> Unit,
     onGoToCatalog: () -> Unit,
     onNavigateBack: () -> Unit,
-    isLoading: Boolean = false
+    isLoading: Boolean = false,
+    onRefresh: () -> Unit = {}
 ) {
-    val groups = remember(items) { items.groupBy { it.idDistribuidor } }
-    val mixedDistributors = remember(items) { CheckoutValidation.hasMultipleDistributors(items) }
-    val unitCount = items.sumOf { it.cantidad }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val haptics = rememberAgroHaptics()
+    val currentOnRemoveItem by rememberUpdatedState(onRemoveItem)
+
+    // Esperando la decisión del aviso "Deshacer".
+    var pendingRemoval by remember { mutableStateOf<CartItemUI?>(null) }
+    // Ya enviados al servidor; se siguen escondiendo hasta que la lista recargada
+    // deje de traerlos, para que no reaparezcan un instante.
+    var removingIds by remember { mutableStateOf(emptySet<Int>()) }
+
+    fun commitRemoval(item: CartItemUI) {
+        removingIds = removingIds + item.id
+        currentOnRemoveItem(item.id)
+    }
+
+    fun commitPendingRemoval() {
+        pendingRemoval?.let(::commitRemoval)
+        pendingRemoval = null
+        snackbarHostState.currentSnackbarData?.dismiss()
+    }
+
+    fun requestRemoval(item: CartItemUI) {
+        haptics.tick()
+        pendingRemoval?.let(::commitRemoval)
+        pendingRemoval = item
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = "Quitaste ${item.nombre}",
+                actionLabel = "Deshacer",
+                duration = SnackbarDuration.Long
+            )
+            // Si mientras tanto se quitó otro producto, este ya se confirmó allá.
+            if (pendingRemoval?.id != item.id) return@launch
+            if (result != SnackbarResult.ActionPerformed) commitRemoval(item)
+            pendingRemoval = null
+        }
+    }
+
+    LaunchedEffect(items) {
+        val currentIds = items.mapTo(mutableSetOf()) { it.id }
+        removingIds = removingIds intersect currentIds
+    }
+    // Si el servidor no pudo borrarlo, el producto vuelve a verse junto al error.
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) removingIds = emptySet()
+    }
+    // Salir del carrito con el aviso abierto cuenta como "no deshacer".
+    DisposableEffect(Unit) {
+        onDispose { pendingRemoval?.let { currentOnRemoveItem(it.id) } }
+    }
+
+    val hiddenIds = removingIds + listOfNotNull(pendingRemoval?.id)
+    val visibleItems = remember(items, hiddenIds) { items.filterNot { it.id in hiddenIds } }
+    val visibleTotal = total - items.filter { it.id in hiddenIds }.sumOf { it.subtotal }
+    val groups = remember(visibleItems) { visibleItems.groupBy { it.idDistribuidor } }
+    val mixedDistributors = remember(visibleItems) { CheckoutValidation.hasMultipleDistributors(visibleItems) }
+    val unitCount = visibleItems.sumOf { it.cantidad }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             AgroTopAppBar(
                 title = "Mi carrito",
                 subtitle = when {
-                    items.isEmpty() -> null
+                    visibleItems.isEmpty() -> null
                     unitCount == 1 -> "1 producto"
                     else -> "$unitCount productos"
                 },
-                onBack = onNavigateBack
+                onBack = {
+                    commitPendingRemoval()
+                    onNavigateBack()
+                }
             )
         },
         bottomBar = {
-            if (items.isNotEmpty()) {
+            if (visibleItems.isNotEmpty()) {
                 CartSummaryBar(
-                    total = total,
+                    total = visibleTotal,
                     canCheckout = !mixedDistributors,
-                    onCheckout = onCheckout,
-                    onUrgentOrder = onUrgentOrder
+                    onCheckout = {
+                        commitPendingRemoval()
+                        onCheckout()
+                    },
+                    onUrgentOrder = {
+                        commitPendingRemoval()
+                        onUrgentOrder()
+                    }
                 )
             }
         }
     ) { padding ->
-        when {
-            isLoading && items.isEmpty() -> SkeletonList(
-                count = 3,
-                description = "Cargando tu carrito",
-                modifier = Modifier
-                    .padding(padding)
-                    .padding(AgroSpacing.screenHorizontal)
-            )
-
-            items.isEmpty() -> Column(Modifier.padding(padding)) {
-                errorMessage?.let {
-                    InlineError(
-                        message = it,
-                        modifier = Modifier.padding(AgroSpacing.screenHorizontal)
-                    )
-                }
-                EmptyState(
-                    icon = Icons.Outlined.ShoppingCart,
-                    title = "Tu carrito está vacío",
-                    message = "Agrega productos desde el catálogo para hacer tu pedido.",
-                    actionLabel = "Ver productos",
-                    onAction = onGoToCatalog,
-                    modifier = Modifier.fillMaxSize()
+        AgroPullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = onRefresh,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when {
+                // Se mira la lista completa y no la visible: al quitar el último
+                // producto la recarga no debe mostrar siluetas.
+                isLoading && items.isEmpty() -> SkeletonList(
+                    count = 3,
+                    description = "Cargando tu carrito",
+                    modifier = Modifier.padding(AgroSpacing.screenHorizontal)
                 )
-            }
 
-            else -> LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
-                verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
-            ) {
-                errorMessage?.let { message ->
-                    item(key = "error") { InlineError(message = message) }
-                }
-                if (mixedDistributors) {
-                    item(key = "mixed-warning") { MixedDistributorsNotice(groups.size) }
-                }
-                groups.forEach { (distributorId, groupItems) ->
-                    item(key = "distributor-$distributorId") {
-                        DistributorHeader(
-                            name = groupItems.first().distribuidor,
-                            subtotal = groupItems.sumOf { it.subtotal }
+                visibleItems.isEmpty() -> LazyColumn(Modifier.fillMaxSize()) {
+                    errorMessage?.let { message ->
+                        item(key = "error") {
+                            InlineError(
+                                message = message,
+                                onRetry = onRefresh,
+                                modifier = Modifier.padding(AgroSpacing.screenHorizontal)
+                            )
+                        }
+                    }
+                    item(key = "empty") {
+                        EmptyState(
+                            icon = Icons.Outlined.ShoppingCart,
+                            title = "Tu carrito está vacío",
+                            message = "Agrega productos desde el catálogo para hacer tu pedido.",
+                            actionLabel = "Ver productos",
+                            onAction = onGoToCatalog,
+                            modifier = Modifier.fillParentMaxSize()
                         )
                     }
-                    items(groupItems, key = { it.id }) { item ->
-                        CartItemCard(
-                            item = item,
-                            onIncrease = { onIncreaseQuantity(item.id) },
-                            onDecrease = { onDecreaseQuantity(item.id) },
-                            onRemove = { onRemoveItem(item.id) }
-                        )
+                }
+
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
+                    verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+                ) {
+                    errorMessage?.let { message ->
+                        item(key = "error") { InlineError(message = message, onRetry = onRefresh) }
+                    }
+                    if (mixedDistributors) {
+                        item(key = "mixed-warning") { MixedDistributorsNotice(groups.size) }
+                    }
+                    groups.forEach { (distributorId, groupItems) ->
+                        item(key = "distributor-$distributorId") {
+                            DistributorHeader(
+                                name = groupItems.first().distribuidor,
+                                subtotal = groupItems.sumOf { it.subtotal },
+                                modifier = Modifier.animateItemPlacement()
+                            )
+                        }
+                        items(groupItems, key = { it.id }) { item ->
+                            CartItemCard(
+                                item = item,
+                                onIncrease = { onIncreaseQuantity(item.id) },
+                                onDecrease = { onDecreaseQuantity(item.id) },
+                                onRemove = { requestRemoval(item) },
+                                modifier = Modifier.animateItemPlacement()
+                            )
+                        }
                     }
                 }
             }
@@ -202,9 +303,9 @@ private fun MixedDistributorsNotice(distributorCount: Int) {
 }
 
 @Composable
-private fun DistributorHeader(name: String, subtotal: Double) {
+private fun DistributorHeader(name: String, subtotal: Double, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(top = AgroSpacing.xs)
             .semantics(mergeDescendants = true) { heading() },
@@ -238,9 +339,10 @@ private fun CartItemCard(
     item: CartItemUI,
     onIncrease: () -> Unit,
     onDecrease: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    AgroCard(modifier = Modifier.fillMaxWidth()) {
+    AgroCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(start = AgroSpacing.md, end = AgroSpacing.md, top = AgroSpacing.md)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

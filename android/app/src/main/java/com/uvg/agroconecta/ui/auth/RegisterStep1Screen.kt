@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.TipoCuenta
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroPasswordField
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
 import com.uvg.agroconecta.ui.components.AgroTextField
@@ -68,6 +69,7 @@ fun RegisterStep1Screen(
     var password by rememberSaveable { mutableStateOf(draft.password) }
     var confirmPassword by rememberSaveable { mutableStateOf("") }
     var errors by remember { mutableStateOf(RegisterStep1Errors()) }
+    val haptics = rememberAgroHaptics()
 
     Scaffold(
         topBar = { AgroTopAppBar(title = "Crear cuenta", onBack = onNavigateBack) }
@@ -191,7 +193,10 @@ fun RegisterStep1Screen(
                         password = password,
                         passwordConfirmation = confirmPassword
                     )
-                    if (errors.first != null) return@AgroPrimaryButton
+                    if (errors.first != null) {
+                        haptics.reject()
+                        return@AgroPrimaryButton
+                    }
 
                     viewModel.updateDraft {
                         it.copy(

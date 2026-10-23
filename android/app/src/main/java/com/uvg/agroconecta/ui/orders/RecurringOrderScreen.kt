@@ -51,6 +51,7 @@ import com.uvg.agroconecta.data.models.RecurringStatus
 import com.uvg.agroconecta.notifications.canPostRecurringNotifications
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
 import com.uvg.agroconecta.ui.components.AgroTextButton
 import com.uvg.agroconecta.ui.components.AgroTextField
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
@@ -106,79 +107,85 @@ fun RecurringOrderScreen(
     }
 
     Scaffold(topBar = { AgroTopAppBar(title = "Pedidos recurrentes", onBack = onBack) }) { padding ->
-        LazyColumn(
+        AgroPullToRefreshBox(
+            isRefreshing = state.loading,
+            onRefresh = onRetry,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
-            verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+                .padding(padding)
         ) {
-            item(key = "create") {
-                AgroPrimaryButton(
-                    text = "Crear desde mi carrito",
-                    icon = Icons.Default.Add,
-                    onClick = onCreateNew,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permissionGranted) {
-                item(key = "reminders") {
-                    Surface(
-                        color = MaterialTheme.agroColors.warningContainer,
-                        contentColor = MaterialTheme.agroColors.onWarningContainer,
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Column(Modifier.padding(start = AgroSpacing.md, end = AgroSpacing.xs, top = AgroSpacing.sm)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.NotificationsOff, contentDescription = null)
-                                Text(
-                                    text = "Los recordatorios están desactivados. Puedes gestionar tus pedidos igualmente.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.padding(start = AgroSpacing.sm)
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
+                verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+            ) {
+                item(key = "create") {
+                    AgroPrimaryButton(
+                        text = "Crear desde mi carrito",
+                        icon = Icons.Default.Add,
+                        onClick = onCreateNew,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permissionGranted) {
+                    item(key = "reminders") {
+                        Surface(
+                            color = MaterialTheme.agroColors.warningContainer,
+                            contentColor = MaterialTheme.agroColors.onWarningContainer,
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Column(Modifier.padding(start = AgroSpacing.md, end = AgroSpacing.xs, top = AgroSpacing.sm)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.NotificationsOff, contentDescription = null)
+                                    Text(
+                                        text = "Los recordatorios están desactivados. Puedes gestionar tus pedidos igualmente.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.padding(start = AgroSpacing.sm)
+                                    )
+                                }
+                                AgroTextButton(
+                                    text = "Activar recordatorios",
+                                    onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
                                 )
                             }
-                            AgroTextButton(
-                                text = "Activar recordatorios",
-                                onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
-                            )
                         }
                     }
                 }
-            }
 
-            when {
-                state.loading && state.orders.isEmpty() -> item(key = "loading") {
-                    SkeletonList(count = 2, description = "Cargando pedidos recurrentes")
-                }
-
-                state.error != null && state.orders.isEmpty() -> item(key = "error") {
-                    ErrorState(message = state.error, onRetry = onRetry)
-                }
-
-                state.orders.isEmpty() -> item(key = "empty") {
-                    EmptyState(
-                        icon = Icons.Default.Autorenew,
-                        title = "Aún no tienes pedidos recurrentes.",
-                        message = "Si compras lo mismo cada cierto tiempo, crea uno y se pedirá solo."
-                    )
-                }
-
-                else -> {
-                    if (state.loading) {
-                        item(key = "refreshing") { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                when {
+                    state.loading && state.orders.isEmpty() -> item(key = "loading") {
+                        SkeletonList(count = 2, description = "Cargando pedidos recurrentes")
                     }
-                    state.error?.let { error ->
-                        item(key = "inline-error") { InlineError(message = error, onRetry = onRetry) }
+
+                    state.error != null && state.orders.isEmpty() -> item(key = "error") {
+                        ErrorState(message = state.error, onRetry = onRetry)
                     }
-                    items(state.orders, key = { it.id }) { order ->
-                        RecurringOrderCard(
-                            order = order,
-                            actionsEnabled = state.pendingId == null,
-                            isPending = state.pendingId == order.id,
-                            onAction = { action -> onAction(order, action) },
-                            onEdit = { onEdit(order.id) },
-                            onCancel = { toCancel = order }
+
+                    state.orders.isEmpty() -> item(key = "empty") {
+                        EmptyState(
+                            icon = Icons.Default.Autorenew,
+                            title = "Aún no tienes pedidos recurrentes.",
+                            message = "Si compras lo mismo cada cierto tiempo, crea uno y se pedirá solo."
                         )
+                    }
+
+                    else -> {
+                        if (state.loading) {
+                            item(key = "refreshing") { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                        }
+                        state.error?.let { error ->
+                            item(key = "inline-error") { InlineError(message = error, onRetry = onRetry) }
+                        }
+                        items(state.orders, key = { it.id }) { order ->
+                            RecurringOrderCard(
+                                order = order,
+                                actionsEnabled = state.pendingId == null,
+                                isPending = state.pendingId == order.id,
+                                onAction = { action -> onAction(order, action) },
+                                onEdit = { onEdit(order.id) },
+                                onCancel = { toCancel = order }
+                            )
+                        }
                     }
                 }
             }

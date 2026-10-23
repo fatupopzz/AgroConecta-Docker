@@ -48,6 +48,8 @@ import com.uvg.agroconecta.data.models.TopSellingProduct
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.ErrorState
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
+import com.uvg.agroconecta.ui.components.RefreshableFullScreen
 import com.uvg.agroconecta.ui.components.SkeletonList
 import com.uvg.agroconecta.ui.components.StatusTag
 import com.uvg.agroconecta.ui.components.formatQuetzales
@@ -75,7 +77,9 @@ fun DistributorStatsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { AgroTopAppBar(title = "Mis ventas", onBack = onNavigateBack) }
     ) { padding ->
-        Box(
+        AgroPullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = { viewModel.loadStats(distributorId) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -88,13 +92,14 @@ fun DistributorStatsScreen(
                     modifier = Modifier.padding(AgroSpacing.screenHorizontal)
                 )
 
-                uiState.errorMessage != null && stats == null -> ErrorState(
-                    title = "No pudimos cargar tus ventas",
-                    message = uiState.errorMessage.orEmpty(),
-                    icon = Icons.Default.Analytics,
-                    onRetry = { viewModel.loadStats(distributorId) },
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                uiState.errorMessage != null && stats == null -> RefreshableFullScreen {
+                    ErrorState(
+                        title = "No pudimos cargar tus ventas",
+                        message = uiState.errorMessage.orEmpty(),
+                        icon = Icons.Default.Analytics,
+                        onRetry = { viewModel.loadStats(distributorId) }
+                    )
+                }
 
                 stats != null -> StatsContent(stats = stats)
             }

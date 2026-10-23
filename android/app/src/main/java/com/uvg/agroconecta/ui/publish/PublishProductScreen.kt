@@ -52,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.uvg.agroconecta.data.images.SelectedProductImage
 import com.uvg.agroconecta.data.models.Category
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroDropdownField
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
@@ -96,9 +97,11 @@ fun PublishProductScreen(
         pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
+    val haptics = rememberAgroHaptics()
     LaunchedEffect(uiState.publishState) {
         when (val state = uiState.publishState) {
             is PublishState.Success -> {
+                haptics.confirm()
                 snackbarHostState.showSnackbar("¡Listo! Tu producto ya está publicado.")
                 viewModel.resetState()
                 onNavigateBack()
@@ -111,6 +114,7 @@ fun PublishProductScreen(
                 onNavigateBack()
             }
             is PublishState.Error -> {
+                haptics.reject()
                 snackbarHostState.showSnackbar(state.message)
                 viewModel.resetState()
             }

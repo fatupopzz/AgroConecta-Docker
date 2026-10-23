@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -29,6 +30,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import com.uvg.agroconecta.ui.theme.AgroSizes
 import com.uvg.agroconecta.ui.theme.AgroSpacing
+
+internal const val OFFLINE_RETRY_MESSAGE =
+    "Estás sin señal. Apenas vuelva, lo intentamos de nuevo solos."
 
 /**
  * Pantalla o sección sin contenido. Siempre explica por qué está vacía y,
@@ -66,6 +70,9 @@ fun EmptyState(
  * Error que impide mostrar la pantalla. El mensaje debe decir qué pasó en
  * palabras simples; el botón de reintentar va siempre porque casi todos los
  * errores en campo son de señal y se resuelven solos.
+ *
+ * Sin señal, el texto lo dice claro y avisa que se reintentará solo: en
+ * cuanto vuelve la conexión se llama a [onRetry] sin que nadie toque nada.
  */
 @Composable
 fun ErrorState(
@@ -75,12 +82,15 @@ fun ErrorState(
     title: String = "No pudimos cargar la información",
     icon: ImageVector = Icons.Default.CloudOff
 ) {
+    val isOffline = LocalIsOffline.current
+    RetryWhenBackOnline(onRetry)
+
     StateLayout(
-        icon = icon,
+        icon = if (isOffline) Icons.Default.WifiOff else icon,
         iconContainer = MaterialTheme.colorScheme.errorContainer,
         iconTint = MaterialTheme.colorScheme.onErrorContainer,
         title = title,
-        message = message,
+        message = if (isOffline) OFFLINE_RETRY_MESSAGE else friendlyErrorMessage(message),
         modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite }
     ) {
         AgroPrimaryButton(
@@ -95,6 +105,7 @@ fun ErrorState(
 /**
  * Error dentro de una pantalla que sí tiene contenido (por ejemplo, una
  * sección de Home que falló). Ocupa poco para no tapar lo que sí cargó.
+ * Igual que [ErrorState], si trae [onRetry] se reintenta solo al volver la señal.
  */
 @Composable
 fun InlineError(
@@ -103,6 +114,8 @@ fun InlineError(
     onRetry: (() -> Unit)? = null,
     retryLabel: String = "Reintentar"
 ) {
+    if (onRetry != null) RetryWhenBackOnline(onRetry)
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -122,7 +135,7 @@ fun InlineError(
             )
             Spacer(Modifier.size(AgroSpacing.sm))
             Text(
-                text = message,
+                text = friendlyErrorMessage(message),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier
                     .weight(1f)
