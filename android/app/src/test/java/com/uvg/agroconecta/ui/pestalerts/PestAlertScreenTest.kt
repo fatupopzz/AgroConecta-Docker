@@ -5,6 +5,9 @@ import android.os.Bundle
 import android.view.View
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -19,9 +22,11 @@ import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.PestType
 import com.uvg.agroconecta.ui.pestalerts.map.LocalPestMapHostFactory
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapCameraState
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapCoordinate
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapHost
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapHostFactory
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapLoadState
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -177,10 +182,13 @@ class PestAlertScreenTest {
     }
 
     @Test
-    fun `map mode shows the geographic map container`() {
+    fun `map mode forwards location and centers from my location button`() {
         val alert = alert()
+        lateinit var mapHost: FakePestMapHost
         compose.setContent {
-            CompositionLocalProvider(LocalPestMapHostFactory provides fakeMapHostFactory()) {
+            CompositionLocalProvider(
+                LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
+            ) {
                 MaterialTheme {
                     PestAlertScreen(
                         uiState = PestAlertUiState(
@@ -199,6 +207,76 @@ class PestAlertScreenTest {
 
         compose.onNodeWithText("Mapa de alertas").assertIsDisplayed()
         compose.onNodeWithTag("pest-alert-map").assertIsDisplayed()
+        compose.onNodeWithTag("pest-map-my-location")
+            .assertIsDisplayed()
+            .performClick()
+
+        assertEquals(
+            listOf(PestMapCoordinate(14.6349, -90.5069) to true),
+            mapHost.locationUpdates
+        )
+        assertEquals(1, mapHost.centerRequests)
+    }
+
+    @Test
+    fun `my location button is disabled without coordinates`() {
+        compose.setContent {
+            CompositionLocalProvider(LocalPestMapHostFactory provides fakeMapHostFactory()) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = PestAlertUiState(
+                            alerts = listOf(alert()),
+                            location = null,
+                            viewMode = PestAlertViewMode.MAP
+                        ),
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = {},
+                        onReportPest = {}
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("pest-map-my-location")
+            .assertIsDisplayed()
+            .assertIsNotEnabled()
+    }
+
+    @Test
+    fun `manual exploration prevents recentering on the next location`() {
+        lateinit var mapHost: FakePestMapHost
+        var location by mutableStateOf(PestAlertLocation(14.6349, -90.5069))
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
+            ) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = PestAlertUiState(
+                            alerts = listOf(alert()),
+                            location = location,
+                            viewMode = PestAlertViewMode.MAP
+                        ),
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = {},
+                        onReportPest = {}
+                    )
+                }
+            }
+        }
+
+        compose.runOnIdle { mapHost.simulateManualExploration() }
+        compose.runOnIdle {
+            location = PestAlertLocation(14.6355, -90.5075)
+        }
+        compose.waitForIdle()
+
+        assertEquals(
+            PestMapCoordinate(14.6355, -90.5075) to false,
+            mapHost.locationUpdates.last()
+        )
     }
 
     @Test
@@ -284,21 +362,50 @@ class PestAlertScreenTest {
     )
 }
 
-private fun fakeMapHostFactory() = PestMapHostFactory {
+private fun fakeMapHostFactory(
+    onHostCreated: (FakePestMapHost) -> Unit = {}
+) = PestMapHostFactory {
     context: Context,
     _: Bundle?,
     _: PestMapCameraState,
-    _: (PestMapLoadState) -> Unit,
-    _: (PestMapCameraState) -> Unit ->
-    object : PestMapHost {
-        override val view: View = View(context)
+    onLoadStateChanged: (PestMapLoadState) -> Unit,
+    _: (PestMapCameraState) -> Unit,
+    onTrackingModeChanged: (PestMapTrackingMode) -> Unit ->
+    FakePestMapHost(
+        context = context,
+        onLoadStateChanged = onLoadStateChanged,
+        onTrackingModeChanged = onTrackingModeChanged
+    ).also(onHostCreated)
+}
 
-        override fun attach(lifecycle: Lifecycle) = Unit
+private class FakePestMapHost(
+    context: Context,
+    private val onLoadStateChanged: (PestMapLoadState) -> Unit,
+    private val onTrackingModeChanged: (PestMapTrackingMode) -> Unit
+) : PestMapHost {
+    override val view: View = View(context)
+    val locationUpdates = mutableListOf<Pair<PestMapCoordinate?, Boolean>>()
+    var centerRequests = 0
 
-        override fun saveState(outState: Bundle) = Unit
-
-        override fun retryStyle() = Unit
-
-        override fun dispose() = Unit
+    override fun attach(lifecycle: Lifecycle) {
+        onLoadStateChanged(PestMapLoadState.Ready)
     }
+
+    override fun saveState(outState: Bundle) = Unit
+
+    override fun retryStyle() = Unit
+
+    override fun updateUserLocation(location: PestMapCoordinate?, centerCamera: Boolean) {
+        locationUpdates += location to centerCamera
+    }
+
+    override fun centerOnUser() {
+        centerRequests += 1
+    }
+
+    fun simulateManualExploration() {
+        onTrackingModeChanged(PestMapTrackingMode.FREE_EXPLORATION)
+    }
+
+    override fun dispose() = Unit
 }

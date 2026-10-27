@@ -6,6 +6,23 @@ import androidx.compose.runtime.saveable.listSaver
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 
+enum class PestMapTrackingMode {
+    FOLLOWING_USER,
+    FREE_EXPLORATION
+}
+
+@Immutable
+data class PestMapCoordinate(
+    val latitude: Double,
+    val longitude: Double
+) {
+    val isValid: Boolean
+        get() = latitude.isFinite() &&
+            longitude.isFinite() &&
+            latitude in -90.0..90.0 &&
+            longitude in -180.0..180.0
+}
+
 @Immutable
 data class PestMapCameraState(
     val latitude: Double,

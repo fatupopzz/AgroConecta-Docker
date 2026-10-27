@@ -8,13 +8,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,11 +36,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.uvg.agroconecta.ui.pestalerts.map.LocalPestMapHostFactory
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapCameraState
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapCoordinate
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapLoadState
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import com.uvg.agroconecta.ui.theme.GrayMid
 
 @Composable
 fun PestAlertsMap(
+    currentLocation: PestAlertLocation?,
     errorMessage: String?,
     onRetry: () -> Unit
 ) {
@@ -69,7 +78,7 @@ fun PestAlertsMap(
             tonalElevation = 2.dp,
             shadowElevation = 2.dp
         ) {
-            PestMapView()
+            PestMapView(currentLocation = currentLocation)
         }
 
         Text(
@@ -81,7 +90,7 @@ fun PestAlertsMap(
 }
 
 @Composable
-private fun PestMapView() {
+private fun PestMapView(currentLocation: PestAlertLocation?) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val hostFactory = LocalPestMapHostFactory.current
@@ -90,6 +99,9 @@ private fun PestMapView() {
         mutableStateOf(PestMapCameraState.initial())
     }
     var loadState by remember { mutableStateOf<PestMapLoadState>(PestMapLoadState.Loading) }
+    var trackingMode by rememberSaveable {
+        mutableStateOf(PestMapTrackingMode.FOLLOWING_USER)
+    }
 
     val mapHost = remember(context, hostFactory) {
         hostFactory.create(
@@ -97,7 +109,17 @@ private fun PestMapView() {
             savedState = savedMapViewState,
             cameraState = cameraState,
             onLoadStateChanged = { loadState = it },
-            onCameraChanged = { cameraState = it }
+            onCameraChanged = { cameraState = it },
+            onTrackingModeChanged = { trackingMode = it }
+        )
+    }
+
+    LaunchedEffect(mapHost, currentLocation) {
+        mapHost.updateUserLocation(
+            location = currentLocation?.let {
+                PestMapCoordinate(latitude = it.latitude, longitude = it.longitude)
+            },
+            centerCamera = trackingMode == PestMapTrackingMode.FOLLOWING_USER
         )
     }
 
@@ -118,6 +140,26 @@ private fun PestMapView() {
             factory = { mapHost.view },
             modifier = Modifier.fillMaxSize()
         )
+
+        if (loadState == PestMapLoadState.Ready) {
+            FilledTonalIconButton(
+                onClick = {
+                    trackingMode = PestMapTrackingMode.FOLLOWING_USER
+                    mapHost.centerOnUser()
+                },
+                enabled = currentLocation != null,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .size(48.dp)
+                    .testTag("pest-map-my-location")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MyLocation,
+                    contentDescription = "Mi ubicación"
+                )
+            }
+        }
 
         when (val state = loadState) {
             PestMapLoadState.Loading -> {
