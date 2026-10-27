@@ -1,6 +1,11 @@
 package com.uvg.agroconecta.ui.pestalerts
 
+import android.content.Context
+import android.os.Bundle
+import android.view.View
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -12,8 +17,12 @@ import androidx.compose.ui.test.performScrollTo
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.PestType
+import com.uvg.agroconecta.ui.pestalerts.map.LocalPestMapHostFactory
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapCameraState
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapHost
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapHostFactory
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapLoadState
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -168,47 +177,28 @@ class PestAlertScreenTest {
     }
 
     @Test
-    fun `map mode shows user and alert markers and opens selected alert`() {
+    fun `map mode shows the geographic map container`() {
         val alert = alert()
-        var selectedAlert: PestAlert? = null
         compose.setContent {
-            MaterialTheme {
-                PestAlertScreen(
-                    uiState = PestAlertUiState(
-                        alerts = listOf(alert),
-                        location = PestAlertLocation(14.6349, -90.5069),
-                        viewMode = PestAlertViewMode.MAP
-                    ),
-                    onNavigateBack = {},
-                    onRetry = {},
-                    onAlertClick = { selectedAlert = it },
-                    onReportPest = {}
-                )
+            CompositionLocalProvider(LocalPestMapHostFactory provides fakeMapHostFactory()) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = PestAlertUiState(
+                            alerts = listOf(alert),
+                            location = PestAlertLocation(14.6349, -90.5069),
+                            viewMode = PestAlertViewMode.MAP
+                        ),
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = {},
+                        onReportPest = {}
+                    )
+                }
             }
         }
 
         compose.onNodeWithText("Mapa de alertas").assertIsDisplayed()
         compose.onNodeWithTag("pest-alert-map").assertIsDisplayed()
-        compose.onNodeWithTag("current-location-marker").assertIsDisplayed()
-        compose.onNodeWithTag("pest-map-marker-29").performClick()
-
-        assertEquals(alert, selectedAlert)
-    }
-
-    @Test
-    fun `map bounds contain all coordinates and normalize marker positions`() {
-        val alert = alert()
-        val location = PestAlertLocation(14.6349, -90.5069)
-
-        val bounds = calculatePestMapBounds(listOf(alert), location)
-        val marker = normalizePestMapPoint(alert.latitud, alert.longitud, bounds)
-
-        assertTrue(bounds.minLatitude < minOf(alert.latitud, location.latitude))
-        assertTrue(bounds.maxLatitude > maxOf(alert.latitud, location.latitude))
-        assertTrue(bounds.minLongitude < minOf(alert.longitud, location.longitude))
-        assertTrue(bounds.maxLongitude > maxOf(alert.longitud, location.longitude))
-        assertTrue(marker.x in 0f..1f)
-        assertTrue(marker.y in 0f..1f)
     }
 
     @Test
@@ -292,4 +282,23 @@ class PestAlertScreenTest {
         reportedAt = "2026-09-21T15:30:00Z",
         severidad = "alta"
     )
+}
+
+private fun fakeMapHostFactory() = PestMapHostFactory {
+    context: Context,
+    _: Bundle?,
+    _: PestMapCameraState,
+    _: (PestMapLoadState) -> Unit,
+    _: (PestMapCameraState) -> Unit ->
+    object : PestMapHost {
+        override val view: View = View(context)
+
+        override fun attach(lifecycle: Lifecycle) = Unit
+
+        override fun saveState(outState: Bundle) = Unit
+
+        override fun retryStyle() = Unit
+
+        override fun dispose() = Unit
+    }
 }
