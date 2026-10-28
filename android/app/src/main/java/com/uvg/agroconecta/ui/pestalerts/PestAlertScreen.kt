@@ -186,8 +186,10 @@ fun PestAlertScreen(
                     if (uiState.viewMode == PestAlertViewMode.MAP) {
                         PestAlertsMap(
                             currentLocation = uiState.userLocation ?: uiState.location,
+                            alerts = uiState.alerts,
                             errorMessage = primaryErrorMessage,
-                            onRetry = onRetry
+                            onRetry = onRetry,
+                            onAlertClick = onAlertClick
                         )
                     } else {
                         AlertsList(

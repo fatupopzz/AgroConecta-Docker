@@ -26,6 +26,7 @@ import com.uvg.agroconecta.ui.pestalerts.map.PestMapCoordinate
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapHost
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapHostFactory
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapLoadState
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapMarker
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -244,6 +245,54 @@ class PestAlertScreenTest {
     }
 
     @Test
+    fun `map forwards pest markers and opens selected marker detail`() {
+        val alert = alert()
+        lateinit var mapHost: FakePestMapHost
+        var selectedAlert: PestAlert? = null
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
+            ) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = PestAlertUiState(
+                            alerts = listOf(alert),
+                            location = PestAlertLocation(14.6349, -90.5069),
+                            viewMode = PestAlertViewMode.MAP
+                        ),
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = { selectedAlert = it },
+                        onReportPest = {}
+                    )
+                }
+            }
+        }
+
+        compose.waitForIdle()
+        assertEquals(
+            listOf(
+                PestMapMarker(
+                    alertId = alert.id,
+                    latitude = alert.latitud,
+                    longitude = alert.longitud,
+                    pestType = alert.pestType,
+                    crop = alert.cultivo
+                )
+            ),
+            mapHost.markerUpdates.single()
+        )
+
+        compose.runOnIdle { mapHost.simulateMarkerSelection(alert.id) }
+        compose.onNodeWithTag("pest-map-selected-alert").assertIsDisplayed()
+        compose.onNodeWithText("Pulgón").assertIsDisplayed()
+        compose.onNodeWithText("Cultivo: Frijol").assertIsDisplayed()
+        compose.onNodeWithTag("pest-map-view-details").performClick()
+
+        assertEquals(alert, selectedAlert)
+    }
+
+    @Test
     fun `manual exploration prevents recentering on the next location`() {
         lateinit var mapHost: FakePestMapHost
         var location by mutableStateOf(PestAlertLocation(14.6349, -90.5069))
@@ -385,7 +434,9 @@ private class FakePestMapHost(
 ) : PestMapHost {
     override val view: View = View(context)
     val locationUpdates = mutableListOf<Pair<PestMapCoordinate?, Boolean>>()
+    val markerUpdates = mutableListOf<List<PestMapMarker>>()
     var centerRequests = 0
+    private var onMarkerSelected: (Int) -> Unit = {}
 
     override fun attach(lifecycle: Lifecycle) {
         onLoadStateChanged(PestMapLoadState.Ready)
@@ -399,12 +450,24 @@ private class FakePestMapHost(
         locationUpdates += location to centerCamera
     }
 
+    override fun updatePestMarkers(
+        markers: List<PestMapMarker>,
+        onMarkerSelected: (Int) -> Unit
+    ) {
+        markerUpdates += markers
+        this.onMarkerSelected = onMarkerSelected
+    }
+
     override fun centerOnUser() {
         centerRequests += 1
     }
 
     fun simulateManualExploration() {
         onTrackingModeChanged(PestMapTrackingMode.FREE_EXPLORATION)
+    }
+
+    fun simulateMarkerSelection(alertId: Int) {
+        onMarkerSelected(alertId)
     }
 
     override fun dispose() = Unit

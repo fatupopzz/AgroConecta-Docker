@@ -5,11 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -18,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -34,18 +37,23 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.ui.pestalerts.map.LocalPestMapHostFactory
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapCameraState
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapCoordinate
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapLoadState
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
+import com.uvg.agroconecta.ui.pestalerts.map.toPestMapMarker
+import com.uvg.agroconecta.ui.theme.ErrorRed
 import com.uvg.agroconecta.ui.theme.GrayMid
 
 @Composable
 fun PestAlertsMap(
     currentLocation: PestAlertLocation?,
+    alerts: List<PestAlert>,
     errorMessage: String?,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onAlertClick: (PestAlert) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -78,7 +86,11 @@ fun PestAlertsMap(
             tonalElevation = 2.dp,
             shadowElevation = 2.dp
         ) {
-            PestMapView(currentLocation = currentLocation)
+            PestMapView(
+                currentLocation = currentLocation,
+                alerts = alerts,
+                onAlertClick = onAlertClick
+            )
         }
 
         Text(
@@ -90,7 +102,11 @@ fun PestAlertsMap(
 }
 
 @Composable
-private fun PestMapView(currentLocation: PestAlertLocation?) {
+private fun PestMapView(
+    currentLocation: PestAlertLocation?,
+    alerts: List<PestAlert>,
+    onAlertClick: (PestAlert) -> Unit
+) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val hostFactory = LocalPestMapHostFactory.current
@@ -101,6 +117,11 @@ private fun PestMapView(currentLocation: PestAlertLocation?) {
     var loadState by remember { mutableStateOf<PestMapLoadState>(PestMapLoadState.Loading) }
     var trackingMode by rememberSaveable {
         mutableStateOf(PestMapTrackingMode.FOLLOWING_USER)
+    }
+    var selectedPestAlertId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val alertsById = remember(alerts) { alerts.associateBy(PestAlert::id) }
+    val pestMarkers = remember(alerts) {
+        alerts.mapNotNull(PestAlert::toPestMapMarker)
     }
 
     val mapHost = remember(context, hostFactory) {
@@ -121,6 +142,18 @@ private fun PestMapView(currentLocation: PestAlertLocation?) {
             },
             centerCamera = trackingMode == PestMapTrackingMode.FOLLOWING_USER
         )
+    }
+
+    LaunchedEffect(mapHost, pestMarkers) {
+        mapHost.updatePestMarkers(pestMarkers) { alertId ->
+            selectedPestAlertId = alertId
+        }
+    }
+
+    LaunchedEffect(alertsById, selectedPestAlertId) {
+        if (selectedPestAlertId != null && alertsById[selectedPestAlertId] == null) {
+            selectedPestAlertId = null
+        }
     }
 
     DisposableEffect(mapHost, lifecycle) {
@@ -161,6 +194,17 @@ private fun PestMapView(currentLocation: PestAlertLocation?) {
             }
         }
 
+        selectedPestAlertId?.let(alertsById::get)?.let { selectedAlert ->
+            PestMarkerSummary(
+                alert = selectedAlert,
+                onViewDetails = { onAlertClick(selectedAlert) },
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 72.dp, bottom = 12.dp)
+            )
+        }
+
         when (val state = loadState) {
             PestMapLoadState.Loading -> {
                 CircularProgressIndicator(
@@ -190,6 +234,54 @@ private fun PestMapView(currentLocation: PestAlertLocation?) {
                         Text("Reintentar mapa")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PestMarkerSummary(
+    alert: PestAlert,
+    onViewDetails: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.testTag("pest-map-selected-alert"),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 4.dp,
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.BugReport,
+                contentDescription = null,
+                tint = ErrorRed,
+                modifier = Modifier.size(28.dp)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 10.dp)
+            ) {
+                Text(
+                    text = pestTypeDisplayName(alert.pestType),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = "Cultivo: ${alert.cultivo}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GrayMid
+                )
+            }
+            TextButton(
+                onClick = onViewDetails,
+                modifier = Modifier.testTag("pest-map-view-details")
+            ) {
+                Text("Ver detalles")
             }
         }
     }
