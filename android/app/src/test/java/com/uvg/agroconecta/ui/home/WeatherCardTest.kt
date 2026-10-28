@@ -34,11 +34,11 @@ class WeatherCardTest {
         show(WeatherUiState(report = report, location = WeatherLocation.MAIN_ADDRESS))
         compose.onNodeWithText("Clima de tu finca").assertIsDisplayed()
         compose.onNodeWithText("Dirección de entrega principal").assertIsDisplayed()
-        compose.onNodeWithText("22.0 °C").assertIsDisplayed()
-        compose.onNodeWithText("Lluvia actual: 0.5 mm").assertIsDisplayed()
+        compose.onNodeWithText("22°C").assertIsDisplayed()
+        compose.onNodeWithText("Está lloviendo: 0.5 mm").assertIsDisplayed()
         compose.onAllNodesWithText("Lluvia 60 %").assertCountEquals(3)
         compose.onNodeWithText("No fumigues hoy, hay viento fuerte").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Dato del 21/10 09:00 · Open-Meteo").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Dato del 21/10 a las 09:00 · Open-Meteo").performScrollTo().assertIsDisplayed()
     }
     @Test fun `dato antiguo tiene aviso textual y consejos historicos`() {
         show(WeatherUiState(report = report, stale = true))
@@ -58,6 +58,6 @@ class WeatherCardTest {
         show(WeatherUiState(loading = true))
         compose.onNodeWithText("Consultando el clima…").assertIsDisplayed()
         compose.onNodeWithText("Actualizar").assertIsNotEnabled()
-        compose.onNodeWithText("22.0 °C").assertDoesNotExist()
+        compose.onNodeWithText("22°C").assertDoesNotExist()
     }
 }

@@ -38,6 +38,7 @@ import com.uvg.agroconecta.ui.components.DistributorRatingCard
 import com.uvg.agroconecta.ui.components.SkeletonBox
 import com.uvg.agroconecta.ui.components.StatusTag
 import com.uvg.agroconecta.ui.components.TagTone
+import com.uvg.agroconecta.ui.components.formatQuantityWithUnit
 import com.uvg.agroconecta.ui.components.formatQuetzales
 import com.uvg.agroconecta.ui.theme.AgroSizes
 import com.uvg.agroconecta.ui.theme.AgroSpacing
@@ -202,7 +203,7 @@ private fun DistributorOfferItem(
                     )
                 }
                 Text(
-                    text = "Disponibles: ${offer.stock} ${offer.unidadMedida ?: "unidades"}",
+                    text = "Disponibles: ${formatQuantityWithUnit(offer.stock, offer.unidadMedida)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -261,7 +262,7 @@ private fun DistributorComparisonItem(distributor: DistributorCompare) {
                 StatusTag(text = "Mejor precio", tone = TagTone.Success, modifier = Modifier.padding(vertical = 2.dp))
             }
             Text(
-                text = "Disponibles: ${distributor.stock} ${distributor.unidadMedida ?: "unidades"}",
+                text = "Disponibles: ${formatQuantityWithUnit(distributor.stock, distributor.unidadMedida)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

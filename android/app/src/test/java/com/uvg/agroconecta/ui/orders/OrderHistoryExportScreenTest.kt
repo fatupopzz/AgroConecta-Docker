@@ -12,7 +12,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28])
+// Pantalla de teléfono común: con la de Robolectric por defecto (320x470 px)
+// la tarjeta de pedidos recurrentes empuja las acciones fuera de la vista.
+@Config(sdk = [28], qualifiers = "w411dp-h891dp")
 class OrderHistoryExportScreenTest {
     @get:Rule val compose = createComposeRule()
 

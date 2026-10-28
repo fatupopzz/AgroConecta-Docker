@@ -9,15 +9,15 @@ class CategoryImagesTest {
     @Test
     fun `cada categoria del catalogo apunta a su foto en assets`() {
         assertEquals(
-            "file:///android_asset/categorias/fertilizantes.jpg",
+            "file:///android_asset/categorias/fertilizantes.webp",
             CategoryImages.assetUriFor("Fertilizantes")
         )
         assertEquals(
-            "file:///android_asset/categorias/herramientas.jpg",
+            "file:///android_asset/categorias/herramientas.webp",
             CategoryImages.assetUriFor("Herramientas")
         )
         assertEquals(
-            "file:///android_asset/categorias/fungicidas.jpg",
+            "file:///android_asset/categorias/fungicidas.webp",
             CategoryImages.assetUriFor("Fungicidas")
         )
     }
@@ -25,7 +25,7 @@ class CategoryImagesTest {
     @Test
     fun `ignora mayusculas tildes y espacios`() {
         assertEquals(
-            "file:///android_asset/categorias/semillas.jpg",
+            "file:///android_asset/categorias/semillas.webp",
             CategoryImages.assetUriFor("  SEMÍLLAS ")
         )
     }
