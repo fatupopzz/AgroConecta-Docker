@@ -12,6 +12,7 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
@@ -89,6 +90,7 @@ internal class PestMapController(
 
     private val appContext = context.applicationContext
     private val mapView: MapView
+    private val mapViewState = savedState ?: Bundle()
     private var map: MapLibreMap? = null
     private var style: Style? = null
     private var lifecycle: Lifecycle? = null
@@ -96,11 +98,34 @@ internal class PestMapController(
     private var pestMarkersById: Map<Int, PestMapMarker> = emptyMap()
     private var selectedPestMarkerId: Int? = null
     private var onPestMarkerSelected: (Int) -> Unit = {}
+    private var hasReceivedUserLocation = false
+    private var hasReceivedPestMarkers = false
+    private var hasAdjustedInitialCamera = mapViewState.getBoolean(INITIAL_CAMERA_ADJUSTED_KEY)
+    private var isInitialCameraAdjustmentScheduled = false
     private var shouldCenterOnUser = false
     private var isStarted = false
     private var isResumed = false
     private var isDisposed = false
-    private val mapViewState = savedState ?: Bundle()
+
+    private val initialCameraLayoutListener = object : View.OnLayoutChangeListener {
+        override fun onLayoutChange(
+            view: View,
+            left: Int,
+            top: Int,
+            right: Int,
+            bottom: Int,
+            oldLeft: Int,
+            oldTop: Int,
+            oldRight: Int,
+            oldBottom: Int
+        ) {
+            if (view.width > 0 && view.height > 0) {
+                view.removeOnLayoutChangeListener(this)
+                isInitialCameraAdjustmentScheduled = false
+                adjustInitialCameraIfReady()
+            }
+        }
+    }
 
     private val cameraIdleListener = MapLibreMap.OnCameraIdleListener {
         map?.cameraPosition?.let { position ->
@@ -138,6 +163,9 @@ internal class PestMapController(
         } else {
             selectedPestMarkerId = alertId
             renderSelectedPestMarker()
+            shouldCenterOnUser = false
+            onTrackingModeChanged(PestMapTrackingMode.FREE_EXPLORATION)
+            centerOnPestMarker(pestMarkersById.getValue(alertId))
             onPestMarkerSelected(alertId)
             true
         }
@@ -201,6 +229,7 @@ internal class PestMapController(
     override fun saveState(outState: Bundle) {
         if (!isDisposed) {
             mapView.onSaveInstanceState(outState)
+            outState.putBoolean(INITIAL_CAMERA_ADJUSTED_KEY, hasAdjustedInitialCamera)
         }
     }
 
@@ -211,11 +240,17 @@ internal class PestMapController(
     }
 
     override fun updateUserLocation(location: PestMapCoordinate?, centerCamera: Boolean) {
+        hasReceivedUserLocation = true
         userLocation = location?.takeIf(PestMapCoordinate::isValid)
-        shouldCenterOnUser = centerCamera && userLocation != null
         renderUserLocation()
-        if (shouldCenterOnUser) {
-            centerOnUser()
+        if (hasAdjustedInitialCamera) {
+            shouldCenterOnUser = centerCamera && userLocation != null
+            if (shouldCenterOnUser) {
+                centerOnUser()
+            }
+        } else {
+            shouldCenterOnUser = false
+            adjustInitialCameraIfReady()
         }
     }
 
@@ -224,13 +259,15 @@ internal class PestMapController(
         onMarkerSelected: (Int) -> Unit
     ) {
         onPestMarkerSelected = onMarkerSelected
+        hasReceivedPestMarkers = true
         val updatedMarkers = markers.associateBy(PestMapMarker::alertId)
-        if (updatedMarkers == pestMarkersById) return
-
-        pestMarkersById = updatedMarkers
-        selectedPestMarkerId = selectedPestMarkerId?.takeIf(updatedMarkers::containsKey)
-        renderPestMarkers()
-        renderSelectedPestMarker()
+        if (updatedMarkers != pestMarkersById) {
+            pestMarkersById = updatedMarkers
+            selectedPestMarkerId = selectedPestMarkerId?.takeIf(updatedMarkers::containsKey)
+            renderPestMarkers()
+            renderSelectedPestMarker()
+        }
+        adjustInitialCameraIfReady()
     }
 
     override fun centerOnUser() {
@@ -261,6 +298,7 @@ internal class PestMapController(
         map?.removeOnCameraIdleListener(cameraIdleListener)
         map?.removeOnCameraMoveStartedListener(cameraMoveStartedListener)
         map?.removeOnMapClickListener(mapClickListener)
+        mapView.removeOnLayoutChangeListener(initialCameraLayoutListener)
         map = null
         style = null
         mapView.removeOnDidFailLoadingMapListener(mapLoadFailureListener)
@@ -279,7 +317,8 @@ internal class PestMapController(
                 renderPestMarkers()
                 renderSelectedPestMarker()
                 renderUserLocation()
-                if (shouldCenterOnUser) {
+                adjustInitialCameraIfReady()
+                if (hasAdjustedInitialCamera && shouldCenterOnUser) {
                     centerOnUser()
                 }
                 onLoadStateChanged(PestMapLoadState.Ready)
@@ -396,6 +435,73 @@ internal class PestMapController(
         }
     }
 
+    private fun adjustInitialCameraIfReady() {
+        if (isDisposed ||
+            hasAdjustedInitialCamera ||
+            !hasReceivedUserLocation ||
+            !hasReceivedPestMarkers ||
+            map == null ||
+            style == null
+        ) {
+            return
+        }
+        if (mapView.width == 0 || mapView.height == 0) {
+            if (!isInitialCameraAdjustmentScheduled) {
+                isInitialCameraAdjustmentScheduled = true
+                mapView.addOnLayoutChangeListener(initialCameraLayoutListener)
+            }
+            return
+        }
+
+        val currentMap = map ?: return
+        val update = when (
+            val plan = buildInitialCameraPlan(userLocation, pestMarkersById.values)
+        ) {
+            PestMapInitialCameraPlan.DefaultLocation -> CameraUpdateFactory.newLatLngZoom(
+                LatLng(PestMapConfig.INITIAL_LATITUDE, PestMapConfig.INITIAL_LONGITUDE),
+                PestMapConfig.INITIAL_ZOOM
+            )
+
+            is PestMapInitialCameraPlan.Center -> CameraUpdateFactory.newLatLngZoom(
+                LatLng(plan.coordinate.latitude, plan.coordinate.longitude),
+                PestMapConfig.INITIAL_ZOOM
+            )
+
+            is PestMapInitialCameraPlan.Bounds -> CameraUpdateFactory.newLatLngBounds(
+                LatLngBounds.Builder()
+                    .includes(
+                        plan.coordinates.map { coordinate ->
+                            LatLng(coordinate.latitude, coordinate.longitude)
+                        }
+                    )
+                    .build(),
+                initialCameraPaddingPixels()
+            )
+        }
+
+        currentMap.moveCamera(update)
+        hasAdjustedInitialCamera = true
+        shouldCenterOnUser = false
+        mapViewState.putBoolean(INITIAL_CAMERA_ADJUSTED_KEY, true)
+    }
+
+    private fun centerOnPestMarker(marker: PestMapMarker) {
+        val currentMap = map ?: return
+        val currentPosition = currentMap.cameraPosition
+        val targetPosition = CameraPosition.Builder(currentPosition)
+            .target(LatLng(marker.latitude, marker.longitude))
+            .zoom(max(currentPosition.zoom, PestMapConfig.SELECTED_ALERT_ZOOM))
+            .build()
+        currentMap.animateCamera(
+            CameraUpdateFactory.newCameraPosition(targetPosition),
+            CAMERA_ANIMATION_DURATION_MS
+        )
+    }
+
+    private fun initialCameraPaddingPixels(): Int =
+        (PestMapConfig.INITIAL_CAMERA_PADDING_DP * appContext.resources.displayMetrics.density)
+            .toInt()
+
     private fun startMap() {
         if (!isDisposed && !isStarted) {
             mapView.onStart()
@@ -444,6 +550,7 @@ internal class PestMapController(
         const val PEST_MARKER_COLOR = "#C62828"
         const val PEST_MARKER_STROKE_COLOR = "#FFFFFF"
         const val SELECTED_PEST_MARKER_COLOR = "#FFB300"
+        const val INITIAL_CAMERA_ADJUSTED_KEY = "pest-map-initial-camera-adjusted"
         const val CAMERA_ANIMATION_DURATION_MS = 650
     }
 }

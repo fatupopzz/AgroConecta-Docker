@@ -23,6 +23,31 @@ data class PestMapCoordinate(
             longitude in -180.0..180.0
 }
 
+internal sealed interface PestMapInitialCameraPlan {
+    data object DefaultLocation : PestMapInitialCameraPlan
+    data class Center(val coordinate: PestMapCoordinate) : PestMapInitialCameraPlan
+    data class Bounds(val coordinates: List<PestMapCoordinate>) : PestMapInitialCameraPlan
+}
+
+internal fun buildInitialCameraPlan(
+    userLocation: PestMapCoordinate?,
+    markers: Collection<PestMapMarker>
+): PestMapInitialCameraPlan {
+    val coordinates = buildList {
+        userLocation?.takeIf(PestMapCoordinate::isValid)?.let(::add)
+        markers.mapNotNullTo(this) { marker ->
+            PestMapCoordinate(marker.latitude, marker.longitude)
+                .takeIf(PestMapCoordinate::isValid)
+        }
+    }.distinct()
+
+    return when (coordinates.size) {
+        0 -> PestMapInitialCameraPlan.DefaultLocation
+        1 -> PestMapInitialCameraPlan.Center(coordinates.single())
+        else -> PestMapInitialCameraPlan.Bounds(coordinates)
+    }
+}
+
 @Immutable
 data class PestMapCameraState(
     val latitude: Double,
