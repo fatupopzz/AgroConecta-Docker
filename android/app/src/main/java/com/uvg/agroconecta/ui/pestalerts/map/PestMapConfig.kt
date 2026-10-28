@@ -1,6 +1,7 @@
 package com.uvg.agroconecta.ui.pestalerts.map
 
 import com.uvg.agroconecta.BuildConfig
+import com.uvg.agroconecta.data.location.CurrentLocationProvider
 
 /** Configuración compartida por los componentes del mapa de alertas de plagas. */
 object PestMapConfig {
@@ -12,5 +13,6 @@ object PestMapConfig {
     const val MIN_ZOOM = 3.0
     const val MAX_ZOOM = 19.0
     const val INITIAL_SEARCH_RADIUS_KM = 25.0
-    const val MIN_LOCATION_UPDATE_DISTANCE_METERS = 15f
+    const val MIN_LOCATION_UPDATE_DISTANCE_METERS =
+        CurrentLocationProvider.MIN_LOCATION_UPDATE_DISTANCE_METERS
 }

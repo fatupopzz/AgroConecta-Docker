@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 
 private val locationPermissions = arrayOf(
     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -83,6 +84,15 @@ fun PestAlertRoute(
         }
     }
 
+    LifecycleStartEffect(isLocationPermissionResolved) {
+        if (isLocationPermissionResolved && context.hasLocationPermission()) {
+            viewModel.startLocationTracking()
+        }
+        onStopOrDispose {
+            viewModel.stopLocationTracking()
+        }
+    }
+
     PestAlertScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
@@ -93,7 +103,7 @@ fun PestAlertRoute(
         onViewModeChanged = viewModel::setViewMode,
         onReportPest = {
             viewModel.openReportForm()
-            if (uiState.location == null && !uiState.isLocating) {
+            if (uiState.userLocation == null && uiState.location == null && !uiState.isLocating) {
                 requestOrRefreshLocation()
             }
         },

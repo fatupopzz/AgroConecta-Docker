@@ -185,7 +185,7 @@ fun PestAlertScreen(
                 else -> {
                     if (uiState.viewMode == PestAlertViewMode.MAP) {
                         PestAlertsMap(
-                            currentLocation = uiState.location,
+                            currentLocation = uiState.userLocation ?: uiState.location,
                             errorMessage = primaryErrorMessage,
                             onRetry = onRetry
                         )
@@ -205,7 +205,7 @@ fun PestAlertScreen(
     if (uiState.isReportFormVisible) {
         PestAlertReportDialog(
             formState = uiState.reportForm,
-            location = uiState.location,
+            location = uiState.userLocation ?: uiState.location,
             isSubmitting = uiState.isSubmittingReport,
             errorMessage = uiState.reportErrorMessage ?: uiState.locationErrorMessage,
             onDismiss = onDismissReportForm,

@@ -8,6 +8,9 @@ import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.PestType
 import com.uvg.agroconecta.data.repository.PestAlertRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -228,6 +231,10 @@ class PestAlertViewModelTest {
             PestAlertLocation(14.6349, -90.5069),
             viewModel.uiState.value.location
         )
+        assertEquals(
+            PestAlertLocation(14.6349, -90.5069),
+            viewModel.uiState.value.userLocation
+        )
         assertEquals(listOf(alert), viewModel.uiState.value.alerts)
         assertFalse(viewModel.uiState.value.isLocating)
         assertNull(viewModel.uiState.value.locationErrorMessage)
@@ -289,6 +296,41 @@ class PestAlertViewModelTest {
     }
 
     @Test
+    fun `continuous location moves user marker without replacing search center`() {
+        val locationProvider = FakeCurrentLocationProvider()
+        val viewModel = createViewModel(FakePestAlertRepository(), locationProvider)
+        viewModel.loadNearbyAlerts(14.63, -90.50, 25.0)
+
+        viewModel.startLocationTracking()
+        locationProvider.emitCoordinates(GeoCoordinates(14.6355, -90.5075))
+
+        assertEquals(
+            PestAlertLocation(14.6355, -90.5075, 25.0),
+            viewModel.uiState.value.userLocation
+        )
+        assertEquals(
+            PestAlertLocation(14.63, -90.50, 25.0),
+            viewModel.uiState.value.location
+        )
+    }
+
+    @Test
+    fun `stopping tracking ignores later location updates`() {
+        val locationProvider = FakeCurrentLocationProvider()
+        val viewModel = createViewModel(FakePestAlertRepository(), locationProvider)
+        viewModel.startLocationTracking()
+        locationProvider.emitCoordinates(GeoCoordinates(14.6355, -90.5075))
+        viewModel.stopLocationTracking()
+
+        locationProvider.emitCoordinates(GeoCoordinates(14.6400, -90.5100))
+
+        assertEquals(
+            PestAlertLocation(14.6355, -90.5075),
+            viewModel.uiState.value.userLocation
+        )
+    }
+
+    @Test
     fun `changes between list and map presentation modes`() {
         val viewModel = createViewModel(FakePestAlertRepository())
 
@@ -318,11 +360,19 @@ private class FakeCurrentLocationProvider(
     var error: Throwable? = null
 ) : CurrentLocationProvider {
     var requests = 0
+    private val observedCoordinates = MutableStateFlow<GeoCoordinates?>(null)
 
     override suspend fun getCurrentCoordinates(): GeoCoordinates? {
         requests += 1
         error?.let { throw it }
         return coordinates
+    }
+
+    override fun observeCoordinates(): Flow<GeoCoordinates> =
+        observedCoordinates.filterNotNull()
+
+    fun emitCoordinates(coordinates: GeoCoordinates) {
+        observedCoordinates.value = coordinates
     }
 }
 

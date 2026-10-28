@@ -15,6 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -27,6 +28,7 @@ data class PestAlertLocation(
 
 data class PestAlertUiState(
     val alerts: List<PestAlert> = emptyList(),
+    val userLocation: PestAlertLocation? = null,
     val location: PestAlertLocation? = null,
     val selectedAlert: PestAlert? = null,
     val suggestedProducts: List<PestSuggestedProduct> = emptyList(),
@@ -80,6 +82,7 @@ class PestAlertViewModel @Inject constructor(
     private var alertDetailJob: Job? = null
     private var suggestionsJob: Job? = null
     private var locationJob: Job? = null
+    private var locationTrackingJob: Job? = null
 
     fun refreshLocation() {
         locationJob?.cancel()
@@ -102,11 +105,13 @@ class PestAlertViewModel @Inject constructor(
                     }
                 } else {
                     _uiState.update {
+                        val location = PestAlertLocation(
+                            latitude = coordinates.latitude,
+                            longitude = coordinates.longitude
+                        )
                         it.copy(
-                            location = PestAlertLocation(
-                                latitude = coordinates.latitude,
-                                longitude = coordinates.longitude
-                            ),
+                            userLocation = location,
+                            location = location,
                             isLocating = false,
                             locationErrorMessage = null,
                             reportErrorMessage = null
@@ -140,13 +145,54 @@ class PestAlertViewModel @Inject constructor(
 
     fun onLocationPermissionDenied() {
         locationJob?.cancel()
+        stopLocationTracking()
         _uiState.update {
             it.copy(
+                userLocation = null,
                 location = null,
                 isLocating = false,
                 locationErrorMessage = "Activa el permiso de ubicación para consultar y reportar alertas cercanas"
             )
         }
+    }
+
+    fun startLocationTracking() {
+        if (locationTrackingJob?.isActive == true) return
+        locationTrackingJob = viewModelScope.launch {
+            locationProvider.observeCoordinates()
+                .catch { error ->
+                    if (error is CancellationException) throw error
+                    _uiState.update {
+                        it.copy(
+                            locationErrorMessage = if (error is SecurityException) {
+                                "Se necesita permiso de ubicación para actualizar tu posición"
+                            } else {
+                                error.message ?: "No se pudo actualizar tu ubicación"
+                            }
+                        )
+                    }
+                }
+                .collect { coordinates ->
+                    _uiState.update { current ->
+                        val radius = current.userLocation?.radiusKm
+                            ?: current.location?.radiusKm
+                            ?: PestAlertRepository.DEFAULT_RADIUS_KM
+                        current.copy(
+                            userLocation = PestAlertLocation(
+                                latitude = coordinates.latitude,
+                                longitude = coordinates.longitude,
+                                radiusKm = radius
+                            ),
+                            locationErrorMessage = null
+                        )
+                    }
+                }
+        }
+    }
+
+    fun stopLocationTracking() {
+        locationTrackingJob?.cancel()
+        locationTrackingJob = null
     }
 
     fun loadNearbyAlerts(
@@ -353,7 +399,7 @@ class PestAlertViewModel @Inject constructor(
     fun submitPestReport() {
         if (_uiState.value.isSubmittingReport) return
         val state = _uiState.value
-        val location = state.location
+        val location = state.userLocation ?: state.location
         val form = state.reportForm
         val validationError = PestAlertReportFormValidator.errorFor(
             hasPestType = form.selectedPestType != null,
