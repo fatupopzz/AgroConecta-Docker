@@ -389,6 +389,24 @@ class PestAlertViewModelTest {
         assertFalse(viewModel.uiState.value.shouldShowVisibleAreaSearch)
     }
 
+    @Test
+    fun `failed area search keeps radius on last successful results`() {
+        val repository = FakePestAlertRepository(alerts = listOf(alert()))
+        val viewModel = createViewModel(repository)
+        viewModel.loadNearbyAlerts(14.6349, -90.5069, 25.0)
+        viewModel.updateMapCameraCenter(15.5000, -89.9000)
+        repository.nearbyError = IllegalStateException("Sin conexión")
+
+        viewModel.searchVisibleArea()
+
+        assertEquals(
+            PestMapSearchArea(14.6349, -90.5069, 25.0),
+            viewModel.uiState.value.lastSearchArea
+        )
+        assertTrue(viewModel.uiState.value.shouldShowVisibleAreaSearch)
+        assertEquals("Sin conexión", viewModel.uiState.value.alertsErrorMessage)
+    }
+
     private fun alert() = PestAlert(
         id = 29,
         pestType = "pulgon",

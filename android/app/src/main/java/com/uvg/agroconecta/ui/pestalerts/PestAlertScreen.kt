@@ -189,6 +189,7 @@ fun PestAlertScreen(
                         PestAlertsMap(
                             currentLocation = uiState.userLocation ?: uiState.location,
                             alerts = uiState.alerts,
+                            searchArea = uiState.lastSearchArea,
                             errorMessage = primaryErrorMessage,
                             onRetry = onRetry,
                             onAlertClick = onAlertClick,

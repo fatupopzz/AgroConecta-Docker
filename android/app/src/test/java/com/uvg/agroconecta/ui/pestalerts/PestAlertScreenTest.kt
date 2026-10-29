@@ -27,6 +27,7 @@ import com.uvg.agroconecta.ui.pestalerts.map.PestMapHost
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapHostFactory
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapLoadState
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapMarker
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapSearchRadius
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -380,6 +381,52 @@ class PestAlertScreenTest {
     }
 
     @Test
+    fun `map forwards the last successful search radius`() {
+        lateinit var mapHost: FakePestMapHost
+        var uiState by mutableStateOf(
+            PestAlertUiState(
+                alerts = listOf(alert()),
+                location = PestAlertLocation(14.6349, -90.5069),
+                lastSearchArea = PestMapSearchArea(14.6349, -90.5069, 25.0),
+                viewMode = PestAlertViewMode.MAP
+            )
+        )
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
+            ) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = uiState,
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = {},
+                        onReportPest = {}
+                    )
+                }
+            }
+        }
+
+        compose.waitForIdle()
+        assertEquals(
+            PestMapSearchRadius(PestMapCoordinate(14.6349, -90.5069), 25.0),
+            mapHost.searchRadiusUpdates.single()
+        )
+
+        compose.runOnIdle {
+            uiState = uiState.copy(
+                lastSearchArea = PestMapSearchArea(15.0, -90.0, 12.0)
+            )
+        }
+        compose.waitForIdle()
+
+        assertEquals(
+            PestMapSearchRadius(PestMapCoordinate(15.0, -90.0), 12.0),
+            mapHost.searchRadiusUpdates.last()
+        )
+    }
+
+    @Test
     fun `alert detail shows preventive product information and can be dismissed`() {
         val alert = alert().copy(descripcion = "Presencia en hojas jóvenes")
         val product = PestSuggestedProduct(
@@ -488,6 +535,7 @@ private class FakePestMapHost(
     override val view: View = View(context)
     val locationUpdates = mutableListOf<Pair<PestMapCoordinate?, Boolean>>()
     val markerUpdates = mutableListOf<List<PestMapMarker>>()
+    val searchRadiusUpdates = mutableListOf<PestMapSearchRadius?>()
     var centerRequests = 0
     private var onMarkerSelected: (Int) -> Unit = {}
 
@@ -501,6 +549,10 @@ private class FakePestMapHost(
 
     override fun updateUserLocation(location: PestMapCoordinate?, centerCamera: Boolean) {
         locationUpdates += location to centerCamera
+    }
+
+    override fun updateSearchRadius(searchRadius: PestMapSearchRadius?) {
+        searchRadiusUpdates += searchRadius
     }
 
     override fun updatePestMarkers(

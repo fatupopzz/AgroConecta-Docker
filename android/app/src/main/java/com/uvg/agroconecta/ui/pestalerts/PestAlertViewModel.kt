@@ -234,7 +234,6 @@ class PestAlertViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 location = location,
-                lastSearchArea = searchArea,
                 isLoadingAlerts = true,
                 alertsErrorMessage = null
             )
@@ -249,6 +248,7 @@ class PestAlertViewModel @Inject constructor(
                     } else {
                         current.copy(
                             alerts = alerts,
+                            lastSearchArea = searchArea,
                             isLoadingAlerts = false,
                             alertsErrorMessage = null
                         )

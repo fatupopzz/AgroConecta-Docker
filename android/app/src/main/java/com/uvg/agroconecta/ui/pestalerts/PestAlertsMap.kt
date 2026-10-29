@@ -43,6 +43,7 @@ import com.uvg.agroconecta.ui.pestalerts.map.LocalPestMapHostFactory
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapCameraState
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapCoordinate
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapLoadState
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapSearchRadius
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import com.uvg.agroconecta.ui.pestalerts.map.toPestMapMarker
 import com.uvg.agroconecta.ui.theme.ErrorRed
@@ -52,6 +53,7 @@ import com.uvg.agroconecta.ui.theme.GrayMid
 fun PestAlertsMap(
     currentLocation: PestAlertLocation?,
     alerts: List<PestAlert>,
+    searchArea: PestMapSearchArea?,
     errorMessage: String?,
     onRetry: () -> Unit,
     onAlertClick: (PestAlert) -> Unit,
@@ -94,6 +96,7 @@ fun PestAlertsMap(
             PestMapView(
                 currentLocation = currentLocation,
                 alerts = alerts,
+                searchArea = searchArea,
                 onAlertClick = onAlertClick,
                 showSearchAreaAction = showSearchAreaAction,
                 isSearchingArea = isSearchingArea,
@@ -114,6 +117,7 @@ fun PestAlertsMap(
 private fun PestMapView(
     currentLocation: PestAlertLocation?,
     alerts: List<PestAlert>,
+    searchArea: PestMapSearchArea?,
     onAlertClick: (PestAlert) -> Unit,
     showSearchAreaAction: Boolean,
     isSearchingArea: Boolean,
@@ -158,6 +162,20 @@ private fun PestMapView(
                 PestMapCoordinate(latitude = it.latitude, longitude = it.longitude)
             },
             centerCamera = trackingMode == PestMapTrackingMode.FOLLOWING_USER
+        )
+    }
+
+    LaunchedEffect(mapHost, searchArea) {
+        mapHost.updateSearchRadius(
+            searchArea?.let { area ->
+                PestMapSearchRadius(
+                    center = PestMapCoordinate(
+                        latitude = area.centerLatitude,
+                        longitude = area.centerLongitude
+                    ),
+                    radiusKm = area.radiusKm
+                )
+            }
         )
     }
 

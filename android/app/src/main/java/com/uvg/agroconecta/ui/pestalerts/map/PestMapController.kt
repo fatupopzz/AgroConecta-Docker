@@ -18,20 +18,28 @@ import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.FillLayer
+import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyFactory.circleColor
 import org.maplibre.android.style.layers.PropertyFactory.circleOpacity
 import org.maplibre.android.style.layers.PropertyFactory.circleRadius
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
+import org.maplibre.android.style.layers.PropertyFactory.fillColor
+import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
 import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.iconSize
+import org.maplibre.android.style.layers.PropertyFactory.lineColor
+import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
+import org.maplibre.android.style.layers.PropertyFactory.lineWidth
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
+import org.maplibre.geojson.Polygon
 import kotlin.math.max
 
 sealed interface PestMapLoadState {
@@ -47,6 +55,7 @@ internal interface PestMapHost {
     fun saveState(outState: Bundle)
     fun retryStyle()
     fun updateUserLocation(location: PestMapCoordinate?, centerCamera: Boolean)
+    fun updateSearchRadius(searchRadius: PestMapSearchRadius?)
     fun updatePestMarkers(
         markers: List<PestMapMarker>,
         onMarkerSelected: (Int) -> Unit
@@ -95,6 +104,7 @@ internal class PestMapController(
     private var style: Style? = null
     private var lifecycle: Lifecycle? = null
     private var userLocation: PestMapCoordinate? = null
+    private var searchRadius: PestMapSearchRadius? = null
     private var pestMarkersById: Map<Int, PestMapMarker> = emptyMap()
     private var selectedPestMarkerId: Int? = null
     private var onPestMarkerSelected: (Int) -> Unit = {}
@@ -254,6 +264,13 @@ internal class PestMapController(
         }
     }
 
+    override fun updateSearchRadius(searchRadius: PestMapSearchRadius?) {
+        val validSearchRadius = searchRadius?.takeIf(PestMapSearchRadius::isValid)
+        if (validSearchRadius == this.searchRadius) return
+        this.searchRadius = validSearchRadius
+        renderSearchRadius()
+    }
+
     override fun updatePestMarkers(
         markers: List<PestMapMarker>,
         onMarkerSelected: (Int) -> Unit
@@ -312,10 +329,12 @@ internal class PestMapController(
         readyMap.setStyle(PestMapConfig.styleUrl) { loadedStyle ->
             if (!isDisposed) {
                 style = loadedStyle
+                installSearchRadiusLayers(loadedStyle)
                 installPestMarkerLayers(loadedStyle)
                 installUserLocationLayers(loadedStyle)
                 renderPestMarkers()
                 renderSelectedPestMarker()
+                renderSearchRadius()
                 renderUserLocation()
                 adjustInitialCameraIfReady()
                 if (hasAdjustedInitialCamera && shouldCenterOnUser) {
@@ -407,6 +426,49 @@ internal class PestMapController(
                         iconAllowOverlap(true),
                         iconIgnorePlacement(true)
                     )
+            )
+        }
+    }
+
+    private fun installSearchRadiusLayers(style: Style) {
+        if (style.getSource(SEARCH_RADIUS_SOURCE_ID) == null) {
+            style.addSource(GeoJsonSource(SEARCH_RADIUS_SOURCE_ID))
+        }
+        if (style.getLayer(SEARCH_RADIUS_FILL_LAYER_ID) == null) {
+            style.addLayer(
+                FillLayer(SEARCH_RADIUS_FILL_LAYER_ID, SEARCH_RADIUS_SOURCE_ID)
+                    .withProperties(
+                        fillColor(SEARCH_RADIUS_COLOR),
+                        fillOpacity(SEARCH_RADIUS_FILL_OPACITY)
+                    )
+            )
+        }
+        if (style.getLayer(SEARCH_RADIUS_BORDER_LAYER_ID) == null) {
+            style.addLayer(
+                LineLayer(SEARCH_RADIUS_BORDER_LAYER_ID, SEARCH_RADIUS_SOURCE_ID)
+                    .withProperties(
+                        lineColor(SEARCH_RADIUS_COLOR),
+                        lineOpacity(SEARCH_RADIUS_BORDER_OPACITY),
+                        lineWidth(2.5f)
+                    )
+            )
+        }
+    }
+
+    private fun renderSearchRadius() {
+        val source = style?.getSourceAs<GeoJsonSource>(SEARCH_RADIUS_SOURCE_ID) ?: return
+        val ring = searchRadius?.polygonRing().orEmpty()
+        if (ring.isEmpty()) {
+            source.setGeoJson(FeatureCollection.fromFeatures(emptyList<Feature>()))
+        } else {
+            source.setGeoJson(
+                Polygon.fromLngLats(
+                    listOf(
+                        ring.map { coordinate ->
+                            Point.fromLngLat(coordinate.longitude, coordinate.latitude)
+                        }
+                    )
+                )
             )
         }
     }
@@ -538,6 +600,12 @@ internal class PestMapController(
         const val USER_LOCATION_DOT_LAYER_ID = "pest-map-user-location-dot"
         const val USER_LOCATION_COLOR = "#1565C0"
         const val USER_LOCATION_STROKE_COLOR = "#FFFFFF"
+        const val SEARCH_RADIUS_SOURCE_ID = "pest-map-search-radius-source"
+        const val SEARCH_RADIUS_FILL_LAYER_ID = "pest-map-search-radius-fill"
+        const val SEARCH_RADIUS_BORDER_LAYER_ID = "pest-map-search-radius-border"
+        const val SEARCH_RADIUS_COLOR = "#2E7D32"
+        const val SEARCH_RADIUS_FILL_OPACITY = 0.16f
+        const val SEARCH_RADIUS_BORDER_OPACITY = 0.85f
         const val PEST_MARKER_SOURCE_ID = "pest-map-alert-source"
         const val SELECTED_PEST_MARKER_SOURCE_ID = "pest-map-selected-alert-source"
         const val SELECTED_PEST_MARKER_LAYER_ID = "pest-map-selected-alert"
