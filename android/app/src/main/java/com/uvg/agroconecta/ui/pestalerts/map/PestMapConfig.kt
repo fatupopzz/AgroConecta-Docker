@@ -15,6 +15,7 @@ object PestMapConfig {
     const val MAX_ZOOM = 19.0
     const val INITIAL_CAMERA_PADDING_DP = 56
     const val INITIAL_SEARCH_RADIUS_KM = 25.0
+    const val SEARCH_CENTER_CHANGE_THRESHOLD_METERS = 1_000.0
     const val MIN_LOCATION_UPDATE_DISTANCE_METERS =
         CurrentLocationProvider.MIN_LOCATION_UPDATE_DISTANCE_METERS
 }

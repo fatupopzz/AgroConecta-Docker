@@ -101,6 +101,8 @@ fun PestAlertRoute(
         onDismissAlertDetail = viewModel::dismissAlertDetail,
         onRetryAlertDetail = viewModel::retrySuggestedProducts,
         onViewModeChanged = viewModel::setViewMode,
+        onMapCameraChanged = viewModel::updateMapCameraCenter,
+        onSearchVisibleArea = viewModel::searchVisibleArea,
         onReportPest = {
             viewModel.openReportForm()
             if (uiState.userLocation == null && uiState.location == null && !uiState.isLocating) {

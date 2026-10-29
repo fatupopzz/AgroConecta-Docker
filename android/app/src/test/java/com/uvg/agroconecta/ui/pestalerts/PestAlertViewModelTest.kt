@@ -33,6 +33,10 @@ class PestAlertViewModelTest {
 
         assertEquals(listOf(alert), viewModel.uiState.value.alerts)
         assertEquals(PestAlertLocation(14.63, -90.50, 12.0), viewModel.uiState.value.location)
+        assertEquals(
+            PestMapSearchArea(14.63, -90.50, 12.0),
+            viewModel.uiState.value.lastSearchArea
+        )
         assertFalse(viewModel.uiState.value.isLoadingAlerts)
         assertNull(viewModel.uiState.value.alertsErrorMessage)
         assertEquals(1, repository.nearbyRequests.size)
@@ -337,6 +341,52 @@ class PestAlertViewModelTest {
         viewModel.setViewMode(PestAlertViewMode.MAP)
 
         assertEquals(PestAlertViewMode.MAP, viewModel.uiState.value.viewMode)
+    }
+
+    @Test
+    fun `camera movement only suggests search after a relevant distance`() {
+        val repository = FakePestAlertRepository()
+        val viewModel = createViewModel(repository)
+        viewModel.loadNearbyAlerts(14.6349, -90.5069, 25.0)
+
+        viewModel.updateMapCameraCenter(14.6380, -90.5069)
+
+        assertFalse(viewModel.uiState.value.shouldShowVisibleAreaSearch)
+        assertEquals(1, repository.nearbyRequests.size)
+
+        viewModel.updateMapCameraCenter(14.6600, -90.5069)
+
+        assertTrue(viewModel.uiState.value.shouldShowVisibleAreaSearch)
+        assertEquals(1, repository.nearbyRequests.size)
+    }
+
+    @Test
+    fun `searches visible camera area without replacing user location`() {
+        val repository = FakePestAlertRepository(alerts = listOf(alert()))
+        val viewModel = createViewModel(
+            repository = repository,
+            locationProvider = FakeCurrentLocationProvider(
+                coordinates = GeoCoordinates(14.6349, -90.5069)
+            )
+        )
+        viewModel.refreshLocation()
+        viewModel.updateMapCameraCenter(15.5000, -89.9000)
+
+        viewModel.searchVisibleArea()
+
+        assertEquals(
+            PestAlertLocation(15.5000, -89.9000, PestAlertRepository.DEFAULT_RADIUS_KM),
+            repository.nearbyRequests.last()
+        )
+        assertEquals(
+            PestMapSearchArea(15.5000, -89.9000, PestAlertRepository.DEFAULT_RADIUS_KM),
+            viewModel.uiState.value.lastSearchArea
+        )
+        assertEquals(
+            PestAlertLocation(14.6349, -90.5069),
+            viewModel.uiState.value.userLocation
+        )
+        assertFalse(viewModel.uiState.value.shouldShowVisibleAreaSearch)
     }
 
     private fun alert() = PestAlert(

@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,7 +54,11 @@ fun PestAlertsMap(
     alerts: List<PestAlert>,
     errorMessage: String?,
     onRetry: () -> Unit,
-    onAlertClick: (PestAlert) -> Unit
+    onAlertClick: (PestAlert) -> Unit,
+    showSearchAreaAction: Boolean,
+    isSearchingArea: Boolean,
+    onCameraChanged: (Double, Double) -> Unit,
+    onSearchVisibleArea: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -89,7 +94,11 @@ fun PestAlertsMap(
             PestMapView(
                 currentLocation = currentLocation,
                 alerts = alerts,
-                onAlertClick = onAlertClick
+                onAlertClick = onAlertClick,
+                showSearchAreaAction = showSearchAreaAction,
+                isSearchingArea = isSearchingArea,
+                onCameraChanged = onCameraChanged,
+                onSearchVisibleArea = onSearchVisibleArea
             )
         }
 
@@ -105,11 +114,16 @@ fun PestAlertsMap(
 private fun PestMapView(
     currentLocation: PestAlertLocation?,
     alerts: List<PestAlert>,
-    onAlertClick: (PestAlert) -> Unit
+    onAlertClick: (PestAlert) -> Unit,
+    showSearchAreaAction: Boolean,
+    isSearchingArea: Boolean,
+    onCameraChanged: (Double, Double) -> Unit,
+    onSearchVisibleArea: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val hostFactory = LocalPestMapHostFactory.current
+    val currentOnCameraChanged by rememberUpdatedState(onCameraChanged)
     val savedMapViewState = rememberSaveable { Bundle() }
     var cameraState by rememberSaveable(stateSaver = PestMapCameraState.Saver) {
         mutableStateOf(PestMapCameraState.initial())
@@ -130,7 +144,10 @@ private fun PestMapView(
             savedState = savedMapViewState,
             cameraState = cameraState,
             onLoadStateChanged = { loadState = it },
-            onCameraChanged = { cameraState = it },
+            onCameraChanged = { updatedCamera ->
+                cameraState = updatedCamera
+                currentOnCameraChanged(updatedCamera.latitude, updatedCamera.longitude)
+            },
             onTrackingModeChanged = { trackingMode = it }
         )
     }
@@ -175,6 +192,25 @@ private fun PestMapView(
         )
 
         if (loadState == PestMapLoadState.Ready) {
+            if (
+                trackingMode == PestMapTrackingMode.FREE_EXPLORATION &&
+                showSearchAreaAction
+            ) {
+                Button(
+                    onClick = onSearchVisibleArea,
+                    enabled = !isSearchingArea,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(12.dp)
+                        .testTag("pest-map-search-area")
+                ) {
+                    Text(
+                        if (isSearchingArea) "Buscando…"
+                        else "Buscar plagas en esta zona"
+                    )
+                }
+            }
+
             FilledTonalIconButton(
                 onClick = {
                     trackingMode = PestMapTrackingMode.FOLLOWING_USER

@@ -8,6 +8,7 @@ import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.PestType
 import com.uvg.agroconecta.data.repository.PestAlertRepository
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapConfig
 import com.uvg.agroconecta.validation.PestAlertReportFormValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -18,6 +19,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 import javax.inject.Inject
 
 data class PestAlertLocation(
@@ -26,10 +31,18 @@ data class PestAlertLocation(
     val radiusKm: Double = PestAlertRepository.DEFAULT_RADIUS_KM
 )
 
+data class PestMapSearchArea(
+    val centerLatitude: Double,
+    val centerLongitude: Double,
+    val radiusKm: Double
+)
+
 data class PestAlertUiState(
     val alerts: List<PestAlert> = emptyList(),
     val userLocation: PestAlertLocation? = null,
     val location: PestAlertLocation? = null,
+    val cameraCenter: PestMapSearchArea? = null,
+    val lastSearchArea: PestMapSearchArea? = null,
     val selectedAlert: PestAlert? = null,
     val suggestedProducts: List<PestSuggestedProduct> = emptyList(),
     val isLoadingAlerts: Boolean = false,
@@ -213,9 +226,15 @@ class PestAlertViewModel @Inject constructor(
         }
 
         alertsJob?.cancel()
+        val searchArea = PestMapSearchArea(
+            centerLatitude = latitude,
+            centerLongitude = longitude,
+            radiusKm = radiusKm
+        )
         _uiState.update {
             it.copy(
                 location = location,
+                lastSearchArea = searchArea,
                 isLoadingAlerts = true,
                 alertsErrorMessage = null
             )
@@ -258,6 +277,33 @@ class PestAlertViewModel @Inject constructor(
             latitude = location.latitude,
             longitude = location.longitude,
             radiusKm = location.radiusKm
+        )
+    }
+
+    fun updateMapCameraCenter(latitude: Double, longitude: Double) {
+        if (!latitude.isFinite() || latitude !in -90.0..90.0) return
+        if (!longitude.isFinite() || longitude !in -180.0..180.0) return
+
+        _uiState.update { current ->
+            val radiusKm = current.lastSearchArea?.radiusKm
+                ?: current.location?.radiusKm
+                ?: PestAlertRepository.DEFAULT_RADIUS_KM
+            current.copy(
+                cameraCenter = PestMapSearchArea(
+                    centerLatitude = latitude,
+                    centerLongitude = longitude,
+                    radiusKm = radiusKm
+                )
+            )
+        }
+    }
+
+    fun searchVisibleArea() {
+        val area = _uiState.value.cameraCenter ?: return
+        loadNearbyAlerts(
+            latitude = area.centerLatitude,
+            longitude = area.centerLongitude,
+            radiusKm = area.radiusKm
         )
     }
 
@@ -489,3 +535,26 @@ private fun PestAlertLocation.validationError(): String? = when {
 
     else -> null
 }
+
+internal val PestAlertUiState.shouldShowVisibleAreaSearch: Boolean
+    get() {
+        val camera = cameraCenter ?: return false
+        val previous = lastSearchArea ?: return true
+        return camera.distanceMetersTo(previous) >=
+            PestMapConfig.SEARCH_CENTER_CHANGE_THRESHOLD_METERS
+    }
+
+private fun PestMapSearchArea.distanceMetersTo(other: PestMapSearchArea): Double {
+    val latitudeDelta = Math.toRadians(other.centerLatitude - centerLatitude)
+    val longitudeDelta = Math.toRadians(other.centerLongitude - centerLongitude)
+    val firstLatitude = Math.toRadians(centerLatitude)
+    val secondLatitude = Math.toRadians(other.centerLatitude)
+    val haversine = (sin(latitudeDelta / 2.0).let { it * it } +
+        cos(firstLatitude) * cos(secondLatitude) *
+        sin(longitudeDelta / 2.0).let { it * it })
+        .coerceIn(0.0, 1.0)
+    val angularDistance = 2.0 * atan2(sqrt(haversine), sqrt(1.0 - haversine))
+    return EARTH_RADIUS_METERS * angularDistance
+}
+
+private const val EARTH_RADIUS_METERS = 6_371_000.0

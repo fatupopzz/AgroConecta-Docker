@@ -329,6 +329,57 @@ class PestAlertScreenTest {
     }
 
     @Test
+    fun `manual exploration offers search for the visible camera area`() {
+        lateinit var mapHost: FakePestMapHost
+        var searches = 0
+        var uiState by mutableStateOf(
+            PestAlertUiState(
+                alerts = listOf(alert()),
+                location = PestAlertLocation(14.6349, -90.5069),
+                lastSearchArea = PestMapSearchArea(14.6349, -90.5069, 25.0),
+                viewMode = PestAlertViewMode.MAP
+            )
+        )
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
+            ) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = uiState,
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = {},
+                        onReportPest = {},
+                        onMapCameraChanged = { latitude, longitude ->
+                            uiState = uiState.copy(
+                                cameraCenter = PestMapSearchArea(latitude, longitude, 25.0)
+                            )
+                        },
+                        onSearchVisibleArea = { searches += 1 }
+                    )
+                }
+            }
+        }
+
+        compose.runOnIdle {
+            mapHost.simulateManualExploration(
+                PestMapCameraState(
+                    latitude = 15.5,
+                    longitude = -89.9,
+                    zoom = 12.0
+                )
+            )
+        }
+        compose.onNodeWithTag("pest-map-search-area")
+            .assertIsDisplayed()
+            .performClick()
+
+        assertEquals(PestMapSearchArea(15.5, -89.9, 25.0), uiState.cameraCenter)
+        assertEquals(1, searches)
+    }
+
+    @Test
     fun `alert detail shows preventive product information and can be dismissed`() {
         val alert = alert().copy(descripcion = "Presencia en hojas jóvenes")
         val product = PestSuggestedProduct(
@@ -418,11 +469,12 @@ private fun fakeMapHostFactory(
     _: Bundle?,
     _: PestMapCameraState,
     onLoadStateChanged: (PestMapLoadState) -> Unit,
-    _: (PestMapCameraState) -> Unit,
+    onCameraChanged: (PestMapCameraState) -> Unit,
     onTrackingModeChanged: (PestMapTrackingMode) -> Unit ->
     FakePestMapHost(
         context = context,
         onLoadStateChanged = onLoadStateChanged,
+        onCameraChanged = onCameraChanged,
         onTrackingModeChanged = onTrackingModeChanged
     ).also(onHostCreated)
 }
@@ -430,6 +482,7 @@ private fun fakeMapHostFactory(
 private class FakePestMapHost(
     context: Context,
     private val onLoadStateChanged: (PestMapLoadState) -> Unit,
+    private val onCameraChanged: (PestMapCameraState) -> Unit,
     private val onTrackingModeChanged: (PestMapTrackingMode) -> Unit
 ) : PestMapHost {
     override val view: View = View(context)
@@ -462,8 +515,11 @@ private class FakePestMapHost(
         centerRequests += 1
     }
 
-    fun simulateManualExploration() {
+    fun simulateManualExploration(
+        cameraState: PestMapCameraState = PestMapCameraState.initial()
+    ) {
         onTrackingModeChanged(PestMapTrackingMode.FREE_EXPLORATION)
+        onCameraChanged(cameraState)
     }
 
     fun simulateMarkerSelection(alertId: Int) {

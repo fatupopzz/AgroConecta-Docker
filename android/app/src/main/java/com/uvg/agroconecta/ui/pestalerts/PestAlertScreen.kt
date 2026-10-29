@@ -73,6 +73,8 @@ fun PestAlertScreen(
     onDismissAlertDetail: () -> Unit = {},
     onRetryAlertDetail: () -> Unit = {},
     onViewModeChanged: (PestAlertViewMode) -> Unit = {},
+    onMapCameraChanged: (Double, Double) -> Unit = { _, _ -> },
+    onSearchVisibleArea: () -> Unit = {},
     onDismissReportForm: () -> Unit = {},
     onReportPestTypeSelected: (PestType) -> Unit = {},
     onReportCropSelected: (String) -> Unit = {},
@@ -189,7 +191,11 @@ fun PestAlertScreen(
                             alerts = uiState.alerts,
                             errorMessage = primaryErrorMessage,
                             onRetry = onRetry,
-                            onAlertClick = onAlertClick
+                            onAlertClick = onAlertClick,
+                            showSearchAreaAction = uiState.shouldShowVisibleAreaSearch,
+                            isSearchingArea = uiState.isLoadingAlerts,
+                            onCameraChanged = onMapCameraChanged,
+                            onSearchVisibleArea = onSearchVisibleArea
                         )
                     } else {
                         AlertsList(
