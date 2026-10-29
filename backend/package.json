@@ -4,8 +4,8 @@
   "scripts": {
     "dev": "node index.js",
     "test": "vitest run",
-    "test:unit": "vitest run --exclude tests/authController.test.js",
-    "test:integration": "vitest run tests/authController.test.js",
+    "test:unit": "vitest run --exclude \"tests/integration/**\"",
+    "test:integration": "vitest run tests/integration tests/priceNotifications.integration.test.js",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage"
   },
