@@ -21,6 +21,8 @@ import com.uvg.agroconecta.data.local.FavoriteLocalDataSource
 import com.uvg.agroconecta.data.local.ProductCacheDao
 import com.uvg.agroconecta.data.location.AndroidCurrentLocationProvider
 import com.uvg.agroconecta.data.location.CurrentLocationProvider
+import com.uvg.agroconecta.data.repository.FarmLocationRepository
+import com.uvg.agroconecta.data.repository.FarmLocationSource
 import com.uvg.agroconecta.data.repository.CropCycleRepository
 import com.uvg.agroconecta.data.repository.FavoriteRepository
 import com.uvg.agroconecta.data.repository.OfflineFirstProductCatalogRepository
@@ -117,6 +119,14 @@ object StorageModule {
         apiService: ApiService,
         localDataSource: FavoriteLocalDataSource
     ): FavoriteRepository = RemoteFavoriteRepository(apiService, localDataSource)
+
+    // Inicio, alertas y checkout solo leen la ubicación de la finca; la
+    // interfaz permite probar sus ViewModels sin red.
+    @Provides
+    @Singleton
+    fun provideFarmLocationSource(
+        repository: FarmLocationRepository
+    ): FarmLocationSource = repository
 
     @Provides
     @Singleton

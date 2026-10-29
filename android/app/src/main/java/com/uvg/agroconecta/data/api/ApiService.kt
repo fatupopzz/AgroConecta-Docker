@@ -345,6 +345,14 @@ interface ApiService {
         @Path("id") id: Int
     ): Response<List<Product>>
 
+    // Ubicación de la finca del agricultor que inició sesión. 404 = todavía no
+    // la guardó.
+    @GET("agricultores/me/ubicacion")
+    suspend fun getFarmLocation(): Response<FarmLocation>
+
+    @PUT("agricultores/me/ubicacion")
+    suspend fun saveFarmLocation(@Body body: SaveFarmLocationRequest): Response<FarmLocation>
+
     // ── Distributor by ID ─────────────────────────────────────────────────
     @GET("distribuidores/{id}")
     suspend fun getDistributorById(
