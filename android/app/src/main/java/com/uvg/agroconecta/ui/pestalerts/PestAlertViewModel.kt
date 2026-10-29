@@ -3,6 +3,9 @@ package com.uvg.agroconecta.ui.pestalerts
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.location.CurrentLocationProvider
+import com.uvg.agroconecta.data.location.GeoCoordinates
+import com.uvg.agroconecta.data.repository.FarmLocationSource
+import com.uvg.agroconecta.data.repository.NoFarmLocation
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
@@ -70,7 +73,10 @@ val pestAlertCrops = listOf(
 @HiltViewModel
 class PestAlertViewModel @Inject constructor(
     private val repository: PestAlertRepository,
-    private val locationProvider: CurrentLocationProvider
+    private val locationProvider: CurrentLocationProvider,
+    // Con valor por defecto para que las pruebas que no usan la finca no
+    // tengan que pasarlo; Hilt siempre inyecta el repositorio real.
+    private val farmLocations: FarmLocationSource = NoFarmLocation
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PestAlertUiState())
@@ -80,6 +86,41 @@ class PestAlertViewModel @Inject constructor(
     private var alertDetailJob: Job? = null
     private var suggestionsJob: Job? = null
     private var locationJob: Job? = null
+
+    /**
+     * Busca alertas alrededor de la finca guardada. Devuelve false si no hay
+     * una con coordenadas; entonces la pantalla pide el GPS como antes. Las
+     * alertas importan donde está el cultivo, no donde esté parado el
+     * agricultor al abrir la pantalla.
+     */
+    suspend fun useSavedFarmLocation(): Boolean {
+        val coordinates = farmLocations.savedLocation()?.coordinates ?: return false
+        locationJob?.cancel()
+        applyLocation(coordinates)
+        return true
+    }
+
+    private fun applyLocation(coordinates: GeoCoordinates) {
+        _uiState.update {
+            it.copy(
+                location = PestAlertLocation(
+                    latitude = coordinates.latitude,
+                    longitude = coordinates.longitude
+                ),
+                isLocating = false,
+                locationErrorMessage = null,
+                reportErrorMessage = null
+            )
+        }
+        synchronizePushRegistration(
+            latitude = coordinates.latitude,
+            longitude = coordinates.longitude
+        )
+        loadNearbyAlerts(
+            latitude = coordinates.latitude,
+            longitude = coordinates.longitude
+        )
+    }
 
     fun refreshLocation() {
         locationJob?.cancel()
@@ -101,25 +142,7 @@ class PestAlertViewModel @Inject constructor(
                         )
                     }
                 } else {
-                    _uiState.update {
-                        it.copy(
-                            location = PestAlertLocation(
-                                latitude = coordinates.latitude,
-                                longitude = coordinates.longitude
-                            ),
-                            isLocating = false,
-                            locationErrorMessage = null,
-                            reportErrorMessage = null
-                        )
-                    }
-                    synchronizePushRegistration(
-                        latitude = coordinates.latitude,
-                        longitude = coordinates.longitude
-                    )
-                    loadNearbyAlerts(
-                        latitude = coordinates.latitude,
-                        longitude = coordinates.longitude
-                    )
+                    applyLocation(coordinates)
                 }
             }.onFailure { error ->
                 if (error is CancellationException) throw error

@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.location.CurrentLocationProvider
+import com.uvg.agroconecta.data.repository.FarmLocationSource
+import com.uvg.agroconecta.data.repository.NoFarmLocation
 import com.uvg.agroconecta.data.location.GeoCoordinates
 import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
@@ -59,7 +61,10 @@ class HomeViewModel @Inject constructor(
     private val api: ApiService,
     private val cropCycleRepository: CropCycleRepository,
     private val productCatalogRepository: ProductCatalogRepository,
-    private val locationProvider: CurrentLocationProvider
+    private val locationProvider: CurrentLocationProvider,
+    // Con valor por defecto para que las pruebas que no usan la finca no
+    // tengan que pasarlo; Hilt siempre inyecta el repositorio real.
+    private val farmLocations: FarmLocationSource = NoFarmLocation
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -129,6 +134,22 @@ class HomeViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoadingRecomendados = false) }
             }
         }
+    }
+
+    /**
+     * Usa la ubicación guardada de la finca para los distribuidores cercanos.
+     * Devuelve false si no hay una con coordenadas; entonces la pantalla pide
+     * el GPS como antes. Así quien ya marcó su finca no ve el permiso de
+     * ubicación cada vez, y la distancia es a su finca y no a donde esté.
+     */
+    suspend fun useSavedFarmLocation(): Boolean {
+        val coordinates = farmLocations.savedLocation()?.coordinates ?: return false
+        locationJob?.cancel()
+        _uiState.update {
+            it.copy(location = coordinates, isLocating = false, locationErrorMessage = null)
+        }
+        loadDistribuidores(latitude = coordinates.latitude, longitude = coordinates.longitude)
+        return true
     }
 
     fun refreshLocation() {

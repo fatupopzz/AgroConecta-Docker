@@ -187,6 +187,8 @@ fun HomeScreen(
 
     LaunchedEffect(tipoUsuario) {
         if (tipoUsuario == "agricultor") {
+            // La finca guardada va primero: no hace falta pedir el GPS.
+            if (viewModel.useSavedFarmLocation()) return@LaunchedEffect
             if (context.hasHomeLocationPermission()) {
                 viewModel.refreshLocation()
             } else {
