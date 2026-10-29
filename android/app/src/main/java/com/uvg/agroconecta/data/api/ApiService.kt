@@ -324,6 +324,15 @@ interface ApiService {
         @Query("limit") limit: Int = 10
     ): Response<DistributorReviewsResponse>
 
+    // Reseña del distribuidor en su propia tabla. Antes se guardaba como
+    // reseña de su primer producto y movía las estrellas de otros
+    // distribuidores que venden ese mismo producto.
+    @POST("distribuidoresReview/{id}/reviews")
+    suspend fun createDistributorReview(
+        @Path("id") id: Int,
+        @Body body: CreateReviewRequest
+    ): Response<DistributorReviewCreatedResponse>
+
     @GET("distribuidores/{id}/stats")
     suspend fun getDistributorStats(
         @Path("id") id: Int

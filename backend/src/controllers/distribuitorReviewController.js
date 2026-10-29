@@ -19,6 +19,7 @@ const createDistributorReview = async (req, res) => {
 
     if (
       calificacion === undefined ||
+      !Number.isInteger(Number(calificacion)) ||
       Number(calificacion) < 1 ||
       Number(calificacion) > 5
     ) {
@@ -71,6 +72,19 @@ const createDistributorReview = async (req, res) => {
         Number(calificacion),
         comentario || null,
       ]
+    );
+
+    // El detalle de producto y el panel de administración leen la columna
+    // guardada; se recalcula aquí para que muestren la reseña recién dejada.
+    await pool.query(
+      `UPDATE distribuidor
+       SET calificacion_promedio = (
+         SELECT COALESCE(ROUND(AVG(calificacion)::numeric, 1), 0)
+         FROM resena_distribuidor
+         WHERE id_distribuidor = $1
+       )
+       WHERE id_distribuidor = $1`,
+      [Number(id)]
     );
 
     return res.status(201).json({

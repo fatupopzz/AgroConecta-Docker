@@ -55,8 +55,9 @@ class DistributorViewModel @Inject constructor(
                     }
                 }
 
-                // Reseñas
+                // Reseñas y calificación
                 reloadReviews(distributorId)
+                reloadRating(distributorId)
 
                 // Productos — loop con for para poder usar suspend dentro de corrutina
                 val productosResponse = api.getProducts(limit = 100)
@@ -106,24 +107,27 @@ class DistributorViewModel @Inject constructor(
         } catch (_: Exception) { }
     }
 
+    // El promedio real viene del servidor; antes se calculaba con las primeras
+    // 20 reseñas descargadas y no coincidía con el de Inicio.
+    private suspend fun reloadRating(distributorId: Int) {
+        try {
+            val response = api.getDistributorRating(distributorId)
+            if (response.isSuccessful) {
+                _uiState.update { it.copy(rating = response.body()) }
+            }
+        } catch (_: Exception) { }
+    }
+
     fun submitReview(
         distributorId: Int,
         calificacion: Int,
         comentario: String
     ) {
-        val primerProducto = _uiState.value.productos.firstOrNull()
-        if (primerProducto == null) {
-            _uiState.update {
-                it.copy(reviewSubmitError = "Este distribuidor no tiene productos para reseñar")
-            }
-            return
-        }
-
         _uiState.update { it.copy(isSubmittingReview = true) }
         viewModelScope.launch {
             try {
-                val response = api.createReview(
-                    productoId = primerProducto.id,
+                val response = api.createDistributorReview(
+                    id = distributorId,
                     body = CreateReviewRequest(
                         calificacion = calificacion,
                         comentario = comentario
@@ -132,6 +136,7 @@ class DistributorViewModel @Inject constructor(
                 if (response.isSuccessful) {
                     _uiState.update { it.copy(reviewSubmitSuccess = true) }
                     reloadReviews(distributorId)
+                    reloadRating(distributorId)
                 } else {
                     val msg = when (response.code()) {
                         409 -> "Ya dejaste una reseña para este distribuidor"
