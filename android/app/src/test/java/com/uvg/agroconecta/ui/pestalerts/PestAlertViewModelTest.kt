@@ -8,6 +8,7 @@ import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.PestType
 import com.uvg.agroconecta.data.repository.PestAlertRepository
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -32,7 +33,10 @@ class PestAlertViewModelTest {
         viewModel.loadNearbyAlerts(14.63, -90.50, 12.0)
 
         assertEquals(listOf(alert), viewModel.uiState.value.alerts)
-        assertEquals(PestAlertLocation(14.63, -90.50, 12.0), viewModel.uiState.value.location)
+        assertEquals(
+            PestMapSearchArea(14.63, -90.50, 12.0),
+            viewModel.uiState.value.searchArea
+        )
         assertEquals(
             PestMapSearchArea(14.63, -90.50, 12.0),
             viewModel.uiState.value.lastSearchArea
@@ -78,16 +82,36 @@ class PestAlertViewModelTest {
     fun `selecting alert loads its suggested products`() {
         val alert = alert()
         val product = PestSuggestedProduct(id = 8, nombre = "Aceite de neem")
-        val repository = FakePestAlertRepository(products = mapOf(alert.id to listOf(product)))
+        val repository = FakePestAlertRepository(
+            alerts = listOf(alert),
+            products = mapOf(alert.id to listOf(product))
+        )
         val viewModel = createViewModel(repository)
 
-        viewModel.selectAlert(alert)
+        viewModel.loadNearbyAlerts(14.63, -90.50)
+        viewModel.openAlertDetails(alert.id)
 
-        assertEquals(alert, viewModel.uiState.value.selectedAlert)
+        assertEquals(alert.id, viewModel.uiState.value.selectedAlertId)
+        assertEquals(alert, viewModel.uiState.value.selectedAlertDetails)
         assertEquals(listOf(product), viewModel.uiState.value.suggestedProducts)
         assertFalse(viewModel.uiState.value.isLoadingSuggestions)
         assertNull(viewModel.uiState.value.detailErrorMessage)
         assertEquals(listOf(alert.id), repository.productRequests)
+    }
+
+    @Test
+    fun `map selection stores only alert id until details are requested`() {
+        val alert = alert()
+        val viewModel = createViewModel(FakePestAlertRepository(alerts = listOf(alert)))
+        viewModel.loadNearbyAlerts(14.63, -90.50)
+
+        viewModel.selectAlert(alert.id)
+
+        assertEquals(alert.id, viewModel.uiState.value.selectedAlertId)
+        assertNull(viewModel.uiState.value.selectedAlertDetails)
+
+        viewModel.selectAlert(null)
+        assertNull(viewModel.uiState.value.selectedAlertId)
     }
 
     @Test
@@ -103,23 +127,27 @@ class PestAlertViewModelTest {
         viewModel.openAlert(alert.id)
 
         assertEquals(listOf(alert.id), repository.detailRequests)
-        assertEquals(alert, viewModel.uiState.value.selectedAlert)
+        assertEquals(alert.id, viewModel.uiState.value.selectedAlertId)
+        assertEquals(alert, viewModel.uiState.value.selectedAlertDetails)
         assertEquals(listOf(product), viewModel.uiState.value.suggestedProducts)
         assertEquals(listOf(alert.id), repository.productRequests)
     }
 
     @Test
-    fun `dismissing detail clears selected alert and suggestions`() {
+    fun `dismissing detail preserves map selection and clears detail data`() {
         val alert = alert()
         val repository = FakePestAlertRepository(
+            alerts = listOf(alert),
             products = mapOf(alert.id to listOf(PestSuggestedProduct(8, "Aceite de neem")))
         )
         val viewModel = createViewModel(repository)
-        viewModel.selectAlert(alert)
+        viewModel.loadNearbyAlerts(14.63, -90.50)
+        viewModel.openAlertDetails(alert.id)
 
         viewModel.dismissAlertDetail()
 
-        assertNull(viewModel.uiState.value.selectedAlert)
+        assertEquals(alert.id, viewModel.uiState.value.selectedAlertId)
+        assertNull(viewModel.uiState.value.selectedAlertDetails)
         assertEquals(emptyList<PestSuggestedProduct>(), viewModel.uiState.value.suggestedProducts)
         assertFalse(viewModel.uiState.value.isLoadingSuggestions)
     }
@@ -128,13 +156,16 @@ class PestAlertViewModelTest {
     fun `exposes detail error without clearing selected alert`() {
         val alert = alert()
         val repository = FakePestAlertRepository(
+            alerts = listOf(alert),
             productsError = IllegalStateException("No disponible")
         )
         val viewModel = createViewModel(repository)
 
-        viewModel.selectAlert(alert)
+        viewModel.loadNearbyAlerts(14.63, -90.50)
+        viewModel.openAlertDetails(alert.id)
 
-        assertEquals(alert, viewModel.uiState.value.selectedAlert)
+        assertEquals(alert.id, viewModel.uiState.value.selectedAlertId)
+        assertEquals(alert, viewModel.uiState.value.selectedAlertDetails)
         assertEquals("No disponible", viewModel.uiState.value.detailErrorMessage)
         assertFalse(viewModel.uiState.value.isLoadingSuggestions)
     }
@@ -144,11 +175,13 @@ class PestAlertViewModelTest {
         val alert = alert()
         val product = PestSuggestedProduct(id = 8, nombre = "Aceite de neem")
         val repository = FakePestAlertRepository(
+            alerts = listOf(alert),
             products = mapOf(alert.id to listOf(product)),
             productsError = IllegalStateException("No disponible")
         )
         val viewModel = createViewModel(repository)
-        viewModel.selectAlert(alert)
+        viewModel.loadNearbyAlerts(14.63, -90.50)
+        viewModel.openAlertDetails(alert.id)
         repository.productsError = null
 
         viewModel.retrySuggestedProducts()
@@ -172,11 +205,32 @@ class PestAlertViewModelTest {
     }
 
     @Test
+    fun `search area does not replace GPS location for reports`() {
+        val repository = FakePestAlertRepository()
+        val viewModel = createViewModel(repository)
+        viewModel.loadNearbyAlerts(14.63, -90.50)
+        viewModel.openReportForm()
+        viewModel.selectReportPestType(PestType.APHID)
+        viewModel.selectReportCrop("Frijol")
+
+        viewModel.submitPestReport()
+
+        assertEquals(
+            "No se pudo obtener la ubicación del reporte",
+            viewModel.uiState.value.reportErrorMessage
+        )
+        assertEquals(0, repository.reportRequests.size)
+    }
+
+    @Test
     fun `submits report with selected values and prepends created alert`() {
         val createdAlert = alert().copy(id = 30, distanceKm = 0.0)
         val repository = FakePestAlertRepository(reportResult = createdAlert)
-        val viewModel = createViewModel(repository)
-        viewModel.loadNearbyAlerts(14.63, -90.50)
+        val viewModel = createViewModel(
+            repository,
+            FakeCurrentLocationProvider(GeoCoordinates(14.63, -90.50))
+        )
+        viewModel.refreshLocation()
         viewModel.openReportForm()
         viewModel.selectReportPestType(PestType.THRIPS)
         viewModel.selectReportCrop("Tomate")
@@ -201,8 +255,11 @@ class PestAlertViewModelTest {
         val repository = FakePestAlertRepository(
             reportError = IllegalStateException("Sin conexión")
         )
-        val viewModel = createViewModel(repository)
-        viewModel.loadNearbyAlerts(14.63, -90.50)
+        val viewModel = createViewModel(
+            repository,
+            FakeCurrentLocationProvider(GeoCoordinates(14.63, -90.50))
+        )
+        viewModel.refreshLocation()
         viewModel.openReportForm()
         viewModel.selectReportPestType(PestType.APHID)
         viewModel.selectReportCrop("Frijol")
@@ -236,8 +293,12 @@ class PestAlertViewModelTest {
         viewModel.refreshLocation()
 
         assertEquals(
-            PestAlertLocation(14.6349, -90.5069),
-            viewModel.uiState.value.location
+            PestMapSearchArea(
+                14.6349,
+                -90.5069,
+                PestAlertRepository.DEFAULT_RADIUS_KM
+            ),
+            viewModel.uiState.value.searchArea
         )
         assertEquals(
             PestAlertLocation(14.6349, -90.5069),
@@ -275,7 +336,7 @@ class PestAlertViewModelTest {
 
         viewModel.refreshLocation()
 
-        assertNull(viewModel.uiState.value.location)
+        assertNull(viewModel.uiState.value.userLocation)
         assertFalse(viewModel.uiState.value.isLocating)
         assertEquals(
             "No se pudo determinar tu ubicación. Verifica que el GPS esté activo",
@@ -295,7 +356,7 @@ class PestAlertViewModelTest {
         viewModel.refreshLocation()
         viewModel.onLocationPermissionDenied()
 
-        assertNull(viewModel.uiState.value.location)
+        assertNull(viewModel.uiState.value.userLocation)
         assertFalse(viewModel.uiState.value.isLocating)
         assertEquals(
             "Activa el permiso de ubicación para consultar y reportar alertas cercanas",
@@ -317,8 +378,8 @@ class PestAlertViewModelTest {
             viewModel.uiState.value.userLocation
         )
         assertEquals(
-            PestAlertLocation(14.63, -90.50, 25.0),
-            viewModel.uiState.value.location
+            PestMapSearchArea(14.63, -90.50, 25.0),
+            viewModel.uiState.value.searchArea
         )
     }
 
@@ -348,17 +409,28 @@ class PestAlertViewModelTest {
     }
 
     @Test
+    fun `tracking mode is explicit and center on user restores following`() {
+        val viewModel = createViewModel(FakePestAlertRepository())
+
+        viewModel.setTrackingMode(PestMapTrackingMode.FREE_EXPLORATION)
+        assertEquals(PestMapTrackingMode.FREE_EXPLORATION, viewModel.uiState.value.trackingMode)
+
+        viewModel.centerOnUser()
+        assertEquals(PestMapTrackingMode.FOLLOWING_USER, viewModel.uiState.value.trackingMode)
+    }
+
+    @Test
     fun `camera movement only suggests search after a relevant distance`() {
         val repository = FakePestAlertRepository()
         val viewModel = createViewModel(repository)
         viewModel.loadNearbyAlerts(14.6349, -90.5069, 25.0)
 
-        viewModel.updateMapCameraCenter(14.6380, -90.5069)
+        viewModel.onMapMoved(GeoCoordinates(14.6380, -90.5069))
 
         assertFalse(viewModel.uiState.value.shouldShowVisibleAreaSearch)
         assertEquals(1, repository.nearbyRequests.size)
 
-        viewModel.updateMapCameraCenter(14.6600, -90.5069)
+        viewModel.onMapMoved(GeoCoordinates(14.6600, -90.5069))
 
         assertTrue(viewModel.uiState.value.shouldShowVisibleAreaSearch)
         assertEquals(1, repository.nearbyRequests.size)
@@ -374,7 +446,7 @@ class PestAlertViewModelTest {
             )
         )
         viewModel.refreshLocation()
-        viewModel.updateMapCameraCenter(15.5000, -89.9000)
+        viewModel.onMapMoved(GeoCoordinates(15.5000, -89.9000))
 
         viewModel.searchVisibleArea()
 
@@ -398,7 +470,7 @@ class PestAlertViewModelTest {
         val repository = FakePestAlertRepository(alerts = listOf(alert()))
         val viewModel = createViewModel(repository)
         viewModel.loadNearbyAlerts(14.6349, -90.5069, 25.0)
-        viewModel.updateMapCameraCenter(15.5000, -89.9000)
+        viewModel.onMapMoved(GeoCoordinates(15.5000, -89.9000))
         repository.nearbyError = IllegalStateException("Sin conexión")
 
         viewModel.searchVisibleArea()
@@ -416,9 +488,9 @@ class PestAlertViewModelTest {
         val repository = FakePestAlertRepository(alerts = listOf(alert()))
         val viewModel = createViewModel(repository)
         viewModel.loadNearbyAlerts(14.6349, -90.5069, 25.0)
-        viewModel.updateMapCameraCenter(15.5000, -89.9000)
+        viewModel.onMapMoved(GeoCoordinates(15.5000, -89.9000))
 
-        viewModel.selectSearchRadius(50.0)
+        viewModel.changeSearchRadius(50.0)
 
         assertEquals(
             PestAlertLocation(15.5000, -89.9000, 50.0),
@@ -441,8 +513,8 @@ class PestAlertViewModelTest {
         val viewModel = createViewModel(repository)
         viewModel.loadNearbyAlerts(14.6349, -90.5069, 25.0)
 
-        viewModel.selectSearchRadius(25.0)
-        viewModel.selectSearchRadius(30.0)
+        viewModel.changeSearchRadius(25.0)
+        viewModel.changeSearchRadius(30.0)
 
         assertEquals(1, repository.nearbyRequests.size)
         assertEquals(25.0, viewModel.uiState.value.activeSearchRadiusKm, 0.0)

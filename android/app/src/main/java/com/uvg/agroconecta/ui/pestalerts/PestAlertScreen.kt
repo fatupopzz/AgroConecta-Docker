@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.diagnosis.PlantDiseaseLabels
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestType
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import com.uvg.agroconecta.ui.theme.ErrorRed
 import com.uvg.agroconecta.ui.theme.GrayMid
 import com.uvg.agroconecta.ui.theme.GreenPrimary
@@ -75,6 +76,9 @@ fun PestAlertScreen(
     onRetryAlertDetail: () -> Unit = {},
     onViewModeChanged: (PestAlertViewMode) -> Unit = {},
     onMapCameraChanged: (Double, Double) -> Unit = { _, _ -> },
+    onMapTrackingModeChanged: (PestMapTrackingMode) -> Unit = {},
+    onCenterMapOnUser: () -> Unit = {},
+    onMapAlertSelected: (Int?) -> Unit = {},
     onSearchVisibleArea: () -> Unit = {},
     onSearchRadiusSelected: (Double) -> Unit = {},
     onDismissReportForm: () -> Unit = {},
@@ -176,18 +180,23 @@ fun PestAlertScreen(
 
             if (uiState.viewMode == PestAlertViewMode.MAP) {
                 PestAlertsMap(
-                    currentLocation = uiState.userLocation ?: uiState.location,
+                    currentLocation = uiState.userLocation,
                     alerts = uiState.alerts,
                     searchArea = uiState.lastSearchArea,
                     errorMessage = primaryErrorMessage,
                     onRetry = primaryErrorRetry,
                     onAlertClick = onAlertClick,
+                    selectedAlertId = uiState.selectedAlertId,
+                    onSelectedAlertIdChanged = onMapAlertSelected,
                     showSearchAreaAction = uiState.shouldShowVisibleAreaSearch,
                     showEmptySearchResult = uiState.lastSearchArea != null &&
                         uiState.alerts.isEmpty() &&
                         !uiState.isLoadingAlerts,
                     isSearchingArea = uiState.isLoadingAlerts,
                     onCameraChanged = onMapCameraChanged,
+                    trackingMode = uiState.trackingMode,
+                    onTrackingModeChanged = onMapTrackingModeChanged,
+                    onCenterOnUser = onCenterMapOnUser,
                     onSearchVisibleArea = onSearchVisibleArea,
                     selectedRadiusKm = uiState.activeSearchRadiusKm,
                     onSearchRadiusSelected = onSearchRadiusSelected
@@ -225,7 +234,7 @@ fun PestAlertScreen(
     if (uiState.isReportFormVisible) {
         PestAlertReportDialog(
             formState = uiState.reportForm,
-            location = uiState.userLocation ?: uiState.location,
+            location = uiState.userLocation,
             isSubmitting = uiState.isSubmittingReport,
             errorMessage = uiState.reportErrorMessage ?: uiState.locationErrorMessage,
             onDismiss = onDismissReportForm,
@@ -236,7 +245,7 @@ fun PestAlertScreen(
         )
     }
 
-    uiState.selectedAlert?.let { alert ->
+    uiState.selectedAlertDetails?.let { alert ->
         PestAlertDetailSheet(
             alert = alert,
             products = uiState.suggestedProducts,

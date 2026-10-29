@@ -60,10 +60,15 @@ fun PestAlertsMap(
     errorMessage: String?,
     onRetry: () -> Unit,
     onAlertClick: (PestAlert) -> Unit,
+    selectedAlertId: Int?,
+    onSelectedAlertIdChanged: (Int?) -> Unit,
     showSearchAreaAction: Boolean,
     showEmptySearchResult: Boolean,
     isSearchingArea: Boolean,
     onCameraChanged: (Double, Double) -> Unit,
+    trackingMode: PestMapTrackingMode,
+    onTrackingModeChanged: (PestMapTrackingMode) -> Unit,
+    onCenterOnUser: () -> Unit,
     onSearchVisibleArea: () -> Unit,
     selectedRadiusKm: Double,
     onSearchRadiusSelected: (Double) -> Unit
@@ -103,10 +108,15 @@ fun PestAlertsMap(
                 alerts = alerts,
                 searchArea = searchArea,
                 onAlertClick = onAlertClick,
+                selectedAlertId = selectedAlertId,
+                onSelectedAlertIdChanged = onSelectedAlertIdChanged,
                 showSearchAreaAction = showSearchAreaAction,
                 showEmptySearchResult = showEmptySearchResult,
                 isSearchingArea = isSearchingArea,
                 onCameraChanged = onCameraChanged,
+                trackingMode = trackingMode,
+                onTrackingModeChanged = onTrackingModeChanged,
+                onCenterOnUser = onCenterOnUser,
                 onSearchVisibleArea = onSearchVisibleArea,
                 selectedRadiusKm = selectedRadiusKm,
                 onSearchRadiusSelected = onSearchRadiusSelected
@@ -127,10 +137,15 @@ private fun PestMapView(
     alerts: List<PestAlert>,
     searchArea: PestMapSearchArea?,
     onAlertClick: (PestAlert) -> Unit,
+    selectedAlertId: Int?,
+    onSelectedAlertIdChanged: (Int?) -> Unit,
     showSearchAreaAction: Boolean,
     showEmptySearchResult: Boolean,
     isSearchingArea: Boolean,
     onCameraChanged: (Double, Double) -> Unit,
+    trackingMode: PestMapTrackingMode,
+    onTrackingModeChanged: (PestMapTrackingMode) -> Unit,
+    onCenterOnUser: () -> Unit,
     onSearchVisibleArea: () -> Unit,
     selectedRadiusKm: Double,
     onSearchRadiusSelected: (Double) -> Unit
@@ -139,15 +154,13 @@ private fun PestMapView(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val hostFactory = LocalPestMapHostFactory.current
     val currentOnCameraChanged by rememberUpdatedState(onCameraChanged)
+    val currentOnTrackingModeChanged by rememberUpdatedState(onTrackingModeChanged)
+    val currentOnSelectedAlertIdChanged by rememberUpdatedState(onSelectedAlertIdChanged)
     val savedMapViewState = rememberSaveable { Bundle() }
     var cameraState by rememberSaveable(stateSaver = PestMapCameraState.Saver) {
         mutableStateOf(PestMapCameraState.initial())
     }
     var loadState by remember { mutableStateOf<PestMapLoadState>(PestMapLoadState.Loading) }
-    var trackingMode by rememberSaveable {
-        mutableStateOf(PestMapTrackingMode.FOLLOWING_USER)
-    }
-    var selectedPestAlertId by rememberSaveable { mutableStateOf<Int?>(null) }
     val alertsById = remember(alerts) { alerts.associateBy(PestAlert::id) }
     val pestMarkers = remember(alerts) {
         alerts.mapNotNull(PestAlert::toPestMapMarker)
@@ -163,7 +176,7 @@ private fun PestMapView(
                 cameraState = updatedCamera
                 currentOnCameraChanged(updatedCamera.latitude, updatedCamera.longitude)
             },
-            onTrackingModeChanged = { trackingMode = it }
+            onTrackingModeChanged = { mode -> currentOnTrackingModeChanged(mode) }
         )
     }
 
@@ -190,18 +203,13 @@ private fun PestMapView(
         )
     }
 
-    LaunchedEffect(mapHost, pestMarkers) {
+    LaunchedEffect(mapHost, pestMarkers, selectedAlertId) {
         mapHost.updatePestMarkers(
             markers = pestMarkers,
-            onMarkerSelected = { alertId -> selectedPestAlertId = alertId },
-            onSelectionCleared = { selectedPestAlertId = null }
+            selectedAlertId = selectedAlertId,
+            onMarkerSelected = { alertId -> currentOnSelectedAlertIdChanged(alertId) },
+            onSelectionCleared = { currentOnSelectedAlertIdChanged(null) }
         )
-    }
-
-    LaunchedEffect(alertsById, selectedPestAlertId) {
-        if (selectedPestAlertId != null && alertsById[selectedPestAlertId] == null) {
-            selectedPestAlertId = null
-        }
     }
 
     DisposableEffect(mapHost, lifecycle) {
@@ -212,7 +220,7 @@ private fun PestMapView(
         }
     }
 
-    val selectedAlert = selectedPestAlertId?.let(alertsById::get)
+    val selectedAlert = selectedAlertId?.let(alertsById::get)
 
     Box(
         modifier = Modifier
@@ -257,7 +265,7 @@ private fun PestMapView(
 
             FilledTonalIconButton(
                 onClick = {
-                    trackingMode = PestMapTrackingMode.FOLLOWING_USER
+                    onCenterOnUser()
                     mapHost.centerOnUser()
                 },
                 enabled = currentLocation != null,

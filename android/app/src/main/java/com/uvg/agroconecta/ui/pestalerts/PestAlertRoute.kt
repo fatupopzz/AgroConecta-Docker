@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
+import com.uvg.agroconecta.data.location.GeoCoordinates
 
 private val locationPermissions = arrayOf(
     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -98,16 +99,21 @@ fun PestAlertRoute(
         onNavigateBack = onNavigateBack,
         onRetry = requestOrRefreshLocation,
         onRetryAlerts = viewModel::retryNearbyAlerts,
-        onAlertClick = viewModel::selectAlert,
+        onAlertClick = { alert -> viewModel.openAlertDetails(alert.id) },
         onDismissAlertDetail = viewModel::dismissAlertDetail,
         onRetryAlertDetail = viewModel::retrySuggestedProducts,
         onViewModeChanged = viewModel::setViewMode,
-        onMapCameraChanged = viewModel::updateMapCameraCenter,
+        onMapCameraChanged = { latitude, longitude ->
+            viewModel.onMapMoved(GeoCoordinates(latitude, longitude))
+        },
+        onMapTrackingModeChanged = viewModel::setTrackingMode,
+        onCenterMapOnUser = viewModel::centerOnUser,
+        onMapAlertSelected = viewModel::selectAlert,
         onSearchVisibleArea = viewModel::searchVisibleArea,
-        onSearchRadiusSelected = viewModel::selectSearchRadius,
+        onSearchRadiusSelected = viewModel::changeSearchRadius,
         onReportPest = {
             viewModel.openReportForm()
-            if (uiState.userLocation == null && uiState.location == null && !uiState.isLocating) {
+            if (uiState.userLocation == null && !uiState.isLocating) {
                 requestOrRefreshLocation()
             }
         },

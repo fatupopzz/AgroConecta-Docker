@@ -31,6 +31,7 @@ import com.uvg.agroconecta.ui.pestalerts.map.PestMapMarker
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapSearchRadius
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -144,21 +145,27 @@ class PestAlertScreenTest {
     fun `empty successful map search stays visible and can explore another area`() {
         lateinit var mapHost: FakePestMapHost
         var searches = 0
+        var uiState by mutableStateOf(
+            PestAlertUiState(
+                lastSearchArea = PestMapSearchArea(14.6349, -90.5069, 25.0),
+                cameraCenter = PestMapSearchArea(15.5, -89.9, 25.0),
+                viewMode = PestAlertViewMode.MAP
+            )
+        )
         compose.setContent {
             CompositionLocalProvider(
                 LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
             ) {
                 MaterialTheme {
                     PestAlertScreen(
-                        uiState = PestAlertUiState(
-                            lastSearchArea = PestMapSearchArea(14.6349, -90.5069, 25.0),
-                            cameraCenter = PestMapSearchArea(15.5, -89.9, 25.0),
-                            viewMode = PestAlertViewMode.MAP
-                        ),
+                        uiState = uiState,
                         onNavigateBack = {},
                         onRetry = {},
                         onAlertClick = {},
                         onReportPest = {},
+                        onMapTrackingModeChanged = { mode ->
+                            uiState = uiState.copy(trackingMode = mode)
+                        },
                         onSearchVisibleArea = { searches += 1 }
                     )
                 }
@@ -187,7 +194,7 @@ class PestAlertScreenTest {
                 MaterialTheme {
                     PestAlertScreen(
                         uiState = PestAlertUiState(
-                            location = PestAlertLocation(14.6349, -90.5069),
+                            searchArea = PestMapSearchArea(14.6349, -90.5069, 25.0),
                             alertsErrorMessage = "Sin conexión",
                             viewMode = PestAlertViewMode.MAP
                         ),
@@ -261,7 +268,7 @@ class PestAlertScreenTest {
             MaterialTheme {
                 PestAlertScreen(
                     uiState = PestAlertUiState(
-                        location = location,
+                        userLocation = location,
                         isReportFormVisible = true,
                         reportForm = PestReportFormState(
                             selectedPestType = PestType.APHID,
@@ -318,6 +325,7 @@ class PestAlertScreenTest {
     fun `map mode forwards location and centers from my location button`() {
         val alert = alert()
         lateinit var mapHost: FakePestMapHost
+        var centerActions = 0
         compose.setContent {
             CompositionLocalProvider(
                 LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
@@ -326,13 +334,14 @@ class PestAlertScreenTest {
                     PestAlertScreen(
                         uiState = PestAlertUiState(
                             alerts = listOf(alert),
-                            location = PestAlertLocation(14.6349, -90.5069),
+                            userLocation = PestAlertLocation(14.6349, -90.5069),
                             viewMode = PestAlertViewMode.MAP
                         ),
                         onNavigateBack = {},
                         onRetry = {},
                         onAlertClick = {},
-                        onReportPest = {}
+                        onReportPest = {},
+                        onCenterMapOnUser = { centerActions += 1 }
                     )
                 }
             }
@@ -349,6 +358,7 @@ class PestAlertScreenTest {
             mapHost.locationUpdates
         )
         assertEquals(1, mapHost.centerRequests)
+        assertEquals(1, centerActions)
     }
 
     @Test
@@ -359,7 +369,7 @@ class PestAlertScreenTest {
                     PestAlertScreen(
                         uiState = PestAlertUiState(
                             alerts = listOf(alert()),
-                            location = null,
+                            userLocation = null,
                             viewMode = PestAlertViewMode.MAP
                         ),
                         onNavigateBack = {},
@@ -381,6 +391,7 @@ class PestAlertScreenTest {
         val alert = alert().copy(descripcion = "Presencia detectada en hojas jóvenes")
         lateinit var mapHost: FakePestMapHost
         var selectedAlert: PestAlert? = null
+        var selectedAlertId by mutableStateOf<Int?>(null)
         var detailAlert by mutableStateOf<PestAlert?>(null)
         var mapHostCreations = 0
         compose.setContent {
@@ -394,9 +405,10 @@ class PestAlertScreenTest {
                     PestAlertScreen(
                         uiState = PestAlertUiState(
                             alerts = listOf(alert),
-                            location = PestAlertLocation(14.6349, -90.5069),
+                            userLocation = PestAlertLocation(14.6349, -90.5069),
                             viewMode = PestAlertViewMode.MAP,
-                            selectedAlert = detailAlert
+                            selectedAlertId = selectedAlertId,
+                            selectedAlertDetails = detailAlert
                         ),
                         onNavigateBack = {},
                         onRetry = {},
@@ -405,6 +417,7 @@ class PestAlertScreenTest {
                             detailAlert = it
                         },
                         onReportPest = {},
+                        onMapAlertSelected = { selectedAlertId = it },
                         onDismissAlertDetail = { detailAlert = null }
                     )
                 }
@@ -451,6 +464,7 @@ class PestAlertScreenTest {
             descripcion = "Segunda alerta"
         )
         lateinit var mapHost: FakePestMapHost
+        var selectedAlertId by mutableStateOf<Int?>(null)
         compose.setContent {
             CompositionLocalProvider(
                 LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
@@ -459,13 +473,15 @@ class PestAlertScreenTest {
                     PestAlertScreen(
                         uiState = PestAlertUiState(
                             alerts = listOf(firstAlert, secondAlert),
-                            location = PestAlertLocation(14.6349, -90.5069),
-                            viewMode = PestAlertViewMode.MAP
+                            userLocation = PestAlertLocation(14.6349, -90.5069),
+                            viewMode = PestAlertViewMode.MAP,
+                            selectedAlertId = selectedAlertId
                         ),
                         onNavigateBack = {},
                         onRetry = {},
                         onAlertClick = {},
-                        onReportPest = {}
+                        onReportPest = {},
+                        onMapAlertSelected = { selectedAlertId = it }
                     )
                 }
             }
@@ -479,9 +495,11 @@ class PestAlertScreenTest {
         compose.onNodeWithText("Cultivo: Tomate").assertIsDisplayed()
         compose.onNodeWithText("Segunda alerta").assertExists()
         compose.onNodeWithText("Primera alerta").assertDoesNotExist()
+        assertEquals(secondAlert.id, mapHost.selectedMarkerUpdates.last())
 
         compose.runOnIdle { mapHost.simulateEmptyMapClick() }
         compose.onNodeWithTag("pest-map-selected-alert").assertDoesNotExist()
+        assertNull(mapHost.selectedMarkerUpdates.last())
     }
 
     @Test
@@ -497,22 +515,27 @@ class PestAlertScreenTest {
     @Test
     fun `manual exploration prevents recentering on the next location`() {
         lateinit var mapHost: FakePestMapHost
-        var location by mutableStateOf(PestAlertLocation(14.6349, -90.5069))
+        var uiState by mutableStateOf(
+            PestAlertUiState(
+                alerts = listOf(alert()),
+                userLocation = PestAlertLocation(14.6349, -90.5069),
+                viewMode = PestAlertViewMode.MAP
+            )
+        )
         compose.setContent {
             CompositionLocalProvider(
                 LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
             ) {
                 MaterialTheme {
                     PestAlertScreen(
-                        uiState = PestAlertUiState(
-                            alerts = listOf(alert()),
-                            location = location,
-                            viewMode = PestAlertViewMode.MAP
-                        ),
+                        uiState = uiState,
                         onNavigateBack = {},
                         onRetry = {},
                         onAlertClick = {},
-                        onReportPest = {}
+                        onReportPest = {},
+                        onMapTrackingModeChanged = { mode ->
+                            uiState = uiState.copy(trackingMode = mode)
+                        }
                     )
                 }
             }
@@ -520,7 +543,9 @@ class PestAlertScreenTest {
 
         compose.runOnIdle { mapHost.simulateManualExploration() }
         compose.runOnIdle {
-            location = PestAlertLocation(14.6355, -90.5075)
+            uiState = uiState.copy(
+                userLocation = PestAlertLocation(14.6355, -90.5075)
+            )
         }
         compose.waitForIdle()
 
@@ -537,7 +562,7 @@ class PestAlertScreenTest {
         var uiState by mutableStateOf(
             PestAlertUiState(
                 alerts = listOf(alert()),
-                location = PestAlertLocation(14.6349, -90.5069),
+                userLocation = PestAlertLocation(14.6349, -90.5069),
                 lastSearchArea = PestMapSearchArea(14.6349, -90.5069, 25.0),
                 viewMode = PestAlertViewMode.MAP
             )
@@ -557,6 +582,9 @@ class PestAlertScreenTest {
                             uiState = uiState.copy(
                                 cameraCenter = PestMapSearchArea(latitude, longitude, 25.0)
                             )
+                        },
+                        onMapTrackingModeChanged = { mode ->
+                            uiState = uiState.copy(trackingMode = mode)
                         },
                         onSearchVisibleArea = { searches += 1 }
                     )
@@ -587,7 +615,7 @@ class PestAlertScreenTest {
         var uiState by mutableStateOf(
             PestAlertUiState(
                 alerts = listOf(alert()),
-                location = PestAlertLocation(14.6349, -90.5069),
+                userLocation = PestAlertLocation(14.6349, -90.5069),
                 lastSearchArea = PestMapSearchArea(14.6349, -90.5069, 25.0),
                 viewMode = PestAlertViewMode.MAP
             )
@@ -636,7 +664,7 @@ class PestAlertScreenTest {
                     PestAlertScreen(
                         uiState = PestAlertUiState(
                             alerts = listOf(alert()),
-                            location = PestAlertLocation(14.6349, -90.5069, 25.0),
+                            userLocation = PestAlertLocation(14.6349, -90.5069, 25.0),
                             lastSearchArea = PestMapSearchArea(14.6349, -90.5069, 25.0),
                             viewMode = PestAlertViewMode.MAP
                         ),
@@ -674,7 +702,8 @@ class PestAlertScreenTest {
                 PestAlertScreen(
                     uiState = PestAlertUiState(
                         alerts = listOf(alert),
-                        selectedAlert = alert,
+                        selectedAlertId = alert.id,
+                        selectedAlertDetails = alert,
                         suggestedProducts = listOf(product)
                     ),
                     onNavigateBack = {},
@@ -708,7 +737,8 @@ class PestAlertScreenTest {
             MaterialTheme {
                 PestAlertScreen(
                     uiState = PestAlertUiState(
-                        selectedAlert = alert(),
+                        selectedAlertId = alert().id,
+                        selectedAlertDetails = alert(),
                         detailErrorMessage = "No disponible"
                     ),
                     onNavigateBack = {},
@@ -767,6 +797,7 @@ private class FakePestMapHost(
     override val view: View = View(context)
     val locationUpdates = mutableListOf<Pair<PestMapCoordinate?, Boolean>>()
     val markerUpdates = mutableListOf<List<PestMapMarker>>()
+    val selectedMarkerUpdates = mutableListOf<Int?>()
     val searchRadiusUpdates = mutableListOf<PestMapSearchRadius?>()
     var centerRequests = 0
     private var onMarkerSelected: (Int) -> Unit = {}
@@ -790,10 +821,12 @@ private class FakePestMapHost(
 
     override fun updatePestMarkers(
         markers: List<PestMapMarker>,
+        selectedAlertId: Int?,
         onMarkerSelected: (Int) -> Unit,
         onSelectionCleared: () -> Unit
     ) {
         markerUpdates += markers
+        selectedMarkerUpdates += selectedAlertId
         this.onMarkerSelected = onMarkerSelected
         this.onSelectionCleared = onSelectionCleared
     }

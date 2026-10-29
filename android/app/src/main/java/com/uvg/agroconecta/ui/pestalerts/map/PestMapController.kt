@@ -58,6 +58,7 @@ internal interface PestMapHost {
     fun updateSearchRadius(searchRadius: PestMapSearchRadius?)
     fun updatePestMarkers(
         markers: List<PestMapMarker>,
+        selectedAlertId: Int?,
         onMarkerSelected: (Int) -> Unit,
         onSelectionCleared: () -> Unit
     )
@@ -285,6 +286,7 @@ internal class PestMapController(
 
     override fun updatePestMarkers(
         markers: List<PestMapMarker>,
+        selectedAlertId: Int?,
         onMarkerSelected: (Int) -> Unit,
         onSelectionCleared: () -> Unit
     ) {
@@ -292,10 +294,14 @@ internal class PestMapController(
         onPestMarkerSelectionCleared = onSelectionCleared
         hasReceivedPestMarkers = true
         val updatedMarkers = markers.associateBy(PestMapMarker::alertId)
+        val updatedSelection = selectedAlertId?.takeIf(updatedMarkers::containsKey)
         if (updatedMarkers != pestMarkersById) {
             pestMarkersById = updatedMarkers
-            selectedPestMarkerId = selectedPestMarkerId?.takeIf(updatedMarkers::containsKey)
             renderPestMarkers()
+            renderSelectedPestMarker()
+        }
+        if (updatedSelection != selectedPestMarkerId) {
+            selectedPestMarkerId = updatedSelection
             renderSelectedPestMarker()
         }
         adjustInitialCameraIfReady()

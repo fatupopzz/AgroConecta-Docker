@@ -3,12 +3,14 @@ package com.uvg.agroconecta.ui.pestalerts
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.location.CurrentLocationProvider
+import com.uvg.agroconecta.data.location.GeoCoordinates
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.PestType
 import com.uvg.agroconecta.data.repository.PestAlertRepository
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapConfig
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import com.uvg.agroconecta.validation.PestAlertReportFormValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -40,10 +42,12 @@ data class PestMapSearchArea(
 data class PestAlertUiState(
     val alerts: List<PestAlert> = emptyList(),
     val userLocation: PestAlertLocation? = null,
-    val location: PestAlertLocation? = null,
+    val searchArea: PestMapSearchArea? = null,
     val cameraCenter: PestMapSearchArea? = null,
     val lastSearchArea: PestMapSearchArea? = null,
-    val selectedAlert: PestAlert? = null,
+    val selectedAlertId: Int? = null,
+    val selectedAlertDetails: PestAlert? = null,
+    val trackingMode: PestMapTrackingMode = PestMapTrackingMode.FOLLOWING_USER,
     val suggestedProducts: List<PestSuggestedProduct> = emptyList(),
     val isLoadingAlerts: Boolean = false,
     val isLoadingSuggestions: Boolean = false,
@@ -126,7 +130,6 @@ class PestAlertViewModel @Inject constructor(
                         )
                         it.copy(
                             userLocation = location,
-                            location = location,
                             isLocating = false,
                             locationErrorMessage = null,
                             reportErrorMessage = null
@@ -164,7 +167,6 @@ class PestAlertViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 userLocation = null,
-                location = null,
                 isLocating = false,
                 locationErrorMessage = "Activa el permiso de ubicación para consultar y reportar alertas cercanas"
             )
@@ -190,7 +192,7 @@ class PestAlertViewModel @Inject constructor(
                 .collect { coordinates ->
                     _uiState.update { current ->
                         val radius = current.userLocation?.radiusKm
-                            ?: current.location?.radiusKm
+                            ?: current.searchArea?.radiusKm
                             ?: PestAlertRepository.DEFAULT_RADIUS_KM
                         current.copy(
                             userLocation = PestAlertLocation(
@@ -215,8 +217,8 @@ class PestAlertViewModel @Inject constructor(
         longitude: Double,
         radiusKm: Double = PestAlertRepository.DEFAULT_RADIUS_KM
     ) {
-        val location = PestAlertLocation(latitude, longitude, radiusKm)
-        val validationError = location.validationError()
+        val requestedLocation = PestAlertLocation(latitude, longitude, radiusKm)
+        val validationError = requestedLocation.validationError()
         if (validationError != null) {
             _uiState.update {
                 it.copy(
@@ -228,14 +230,14 @@ class PestAlertViewModel @Inject constructor(
         }
 
         alertsJob?.cancel()
-        val searchArea = PestMapSearchArea(
+        val requestedArea = PestMapSearchArea(
             centerLatitude = latitude,
             centerLongitude = longitude,
             radiusKm = radiusKm
         )
         _uiState.update {
             it.copy(
-                location = location,
+                searchArea = requestedArea,
                 isLoadingAlerts = true,
                 alertsErrorMessage = null
             )
@@ -245,12 +247,12 @@ class PestAlertViewModel @Inject constructor(
                 repository.getNearbyAlerts(latitude, longitude, radiusKm)
             }.onSuccess { alerts ->
                 _uiState.update { current ->
-                    if (current.location != location) {
+                    if (current.searchArea != requestedArea) {
                         current
                     } else {
                         current.copy(
                             alerts = alerts,
-                            lastSearchArea = searchArea,
+                            lastSearchArea = requestedArea,
                             isLoadingAlerts = false,
                             alertsErrorMessage = null
                         )
@@ -259,7 +261,7 @@ class PestAlertViewModel @Inject constructor(
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 _uiState.update { current ->
-                    if (current.location != location) {
+                    if (current.searchArea != requestedArea) {
                         current
                     } else {
                         current.copy(
@@ -274,27 +276,27 @@ class PestAlertViewModel @Inject constructor(
     }
 
     fun retryNearbyAlerts() {
-        val location = _uiState.value.location ?: return
+        val searchArea = _uiState.value.searchArea ?: _uiState.value.lastSearchArea ?: return
         loadNearbyAlerts(
-            latitude = location.latitude,
-            longitude = location.longitude,
-            radiusKm = location.radiusKm
+            latitude = searchArea.centerLatitude,
+            longitude = searchArea.centerLongitude,
+            radiusKm = searchArea.radiusKm
         )
     }
 
-    fun updateMapCameraCenter(latitude: Double, longitude: Double) {
-        if (!latitude.isFinite() || latitude !in -90.0..90.0) return
-        if (!longitude.isFinite() || longitude !in -180.0..180.0) return
+    fun onMapMoved(center: GeoCoordinates) {
+        if (!center.latitude.isFinite() || center.latitude !in -90.0..90.0) return
+        if (!center.longitude.isFinite() || center.longitude !in -180.0..180.0) return
 
         _uiState.update { current ->
             val radiusKm = current.cameraCenter?.radiusKm
                 ?: current.lastSearchArea?.radiusKm
-                ?: current.location?.radiusKm
+                ?: current.searchArea?.radiusKm
                 ?: PestAlertRepository.DEFAULT_RADIUS_KM
             current.copy(
                 cameraCenter = PestMapSearchArea(
-                    centerLatitude = latitude,
-                    centerLongitude = longitude,
+                    centerLatitude = center.latitude,
+                    centerLongitude = center.longitude,
                     radiusKm = radiusKm
                 )
             )
@@ -310,14 +312,12 @@ class PestAlertViewModel @Inject constructor(
         )
     }
 
-    fun selectSearchRadius(radiusKm: Double) {
+    fun changeSearchRadius(radiusKm: Double) {
         if (radiusKm !in pestMapSearchRadiusOptionsKm) return
         val state = _uiState.value
         val currentArea = state.cameraCenter
             ?: state.lastSearchArea
-            ?: state.location?.let { location ->
-                PestMapSearchArea(location.latitude, location.longitude, location.radiusKm)
-            }
+            ?: state.searchArea
             ?: state.userLocation?.let { location ->
                 PestMapSearchArea(location.latitude, location.longitude, location.radiusKm)
             }
@@ -337,11 +337,35 @@ class PestAlertViewModel @Inject constructor(
         )
     }
 
-    fun selectAlert(alert: PestAlert) {
+    fun selectAlert(alertId: Int?) {
+        if (alertId == null) {
+            suggestionsJob?.cancel()
+            _uiState.update {
+                it.copy(
+                    selectedAlertId = null,
+                    selectedAlertDetails = null,
+                    suggestedProducts = emptyList(),
+                    isLoadingSuggestions = false,
+                    detailErrorMessage = null
+                )
+            }
+            return
+        }
+        if (_uiState.value.alerts.none { it.id == alertId }) return
+        _uiState.update { it.copy(selectedAlertId = alertId) }
+    }
+
+    fun openAlertDetails(alertId: Int) {
+        val alert = _uiState.value.alerts.firstOrNull { it.id == alertId } ?: return
+        selectAlertDetails(alert)
+    }
+
+    private fun selectAlertDetails(alert: PestAlert) {
         suggestionsJob?.cancel()
         _uiState.update {
             it.copy(
-                selectedAlert = alert,
+                selectedAlertId = alert.id,
+                selectedAlertDetails = alert,
                 suggestedProducts = emptyList(),
                 isLoadingSuggestions = true,
                 detailErrorMessage = null
@@ -352,7 +376,7 @@ class PestAlertViewModel @Inject constructor(
                 repository.getSuggestedProducts(alert.id)
             }.onSuccess { products ->
                 _uiState.update { current ->
-                    if (current.selectedAlert?.id != alert.id) {
+                    if (current.selectedAlertId != alert.id) {
                         current
                     } else {
                         current.copy(
@@ -365,7 +389,7 @@ class PestAlertViewModel @Inject constructor(
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 _uiState.update { current ->
-                    if (current.selectedAlert?.id != alert.id) {
+                    if (current.selectedAlertId != alert.id) {
                         current
                     } else {
                         current.copy(
@@ -382,10 +406,18 @@ class PestAlertViewModel @Inject constructor(
     fun openAlert(alertId: Int) {
         if (alertId <= 0) return
         alertDetailJob?.cancel()
+        _uiState.update {
+            it.copy(
+                selectedAlertId = alertId,
+                selectedAlertDetails = null,
+                suggestedProducts = emptyList(),
+                detailErrorMessage = null
+            )
+        }
         alertDetailJob = viewModelScope.launch {
             runCatching {
                 repository.getAlert(alertId)
-            }.onSuccess(::selectAlert)
+            }.onSuccess(::selectAlertDetails)
                 .onFailure { error ->
                     if (error is CancellationException) throw error
                     _uiState.update {
@@ -402,7 +434,7 @@ class PestAlertViewModel @Inject constructor(
         suggestionsJob?.cancel()
         _uiState.update {
             it.copy(
-                selectedAlert = null,
+                selectedAlertDetails = null,
                 suggestedProducts = emptyList(),
                 isLoadingSuggestions = false,
                 detailErrorMessage = null
@@ -411,8 +443,8 @@ class PestAlertViewModel @Inject constructor(
     }
 
     fun retrySuggestedProducts() {
-        val selectedAlert = _uiState.value.selectedAlert ?: return
-        selectAlert(selectedAlert)
+        val selectedAlert = _uiState.value.selectedAlertDetails ?: return
+        selectAlertDetails(selectedAlert)
     }
 
     fun clearAlertsError() {
@@ -421,6 +453,14 @@ class PestAlertViewModel @Inject constructor(
 
     fun setViewMode(viewMode: PestAlertViewMode) {
         _uiState.update { it.copy(viewMode = viewMode) }
+    }
+
+    fun setTrackingMode(trackingMode: PestMapTrackingMode) {
+        _uiState.update { it.copy(trackingMode = trackingMode) }
+    }
+
+    fun centerOnUser() {
+        _uiState.update { it.copy(trackingMode = PestMapTrackingMode.FOLLOWING_USER) }
     }
 
     fun openReportForm() {
@@ -475,7 +515,7 @@ class PestAlertViewModel @Inject constructor(
     fun submitPestReport() {
         if (_uiState.value.isSubmittingReport) return
         val state = _uiState.value
-        val location = state.userLocation ?: state.location
+        val location = state.userLocation
         val form = state.reportForm
         val validationError = PestAlertReportFormValidator.errorFor(
             hasPestType = form.selectedPestType != null,
@@ -578,7 +618,7 @@ internal val PestAlertUiState.shouldShowVisibleAreaSearch: Boolean
 internal val PestAlertUiState.activeSearchRadiusKm: Double
     get() = cameraCenter?.radiusKm
         ?: lastSearchArea?.radiusKm
-        ?: location?.radiusKm
+        ?: searchArea?.radiusKm
         ?: userLocation?.radiusKm
         ?: PestAlertRepository.DEFAULT_RADIUS_KM
 
