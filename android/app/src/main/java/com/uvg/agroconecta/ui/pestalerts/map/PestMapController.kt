@@ -267,8 +267,16 @@ internal class PestMapController(
     override fun updateSearchRadius(searchRadius: PestMapSearchRadius?) {
         val validSearchRadius = searchRadius?.takeIf(PestMapSearchRadius::isValid)
         if (validSearchRadius == this.searchRadius) return
+        val shouldFitUpdatedRadius = this.searchRadius?.let { previous ->
+            validSearchRadius != null &&
+                previous.center == validSearchRadius.center &&
+                previous.radiusKm != validSearchRadius.radiusKm
+        } == true
         this.searchRadius = validSearchRadius
         renderSearchRadius()
+        if (shouldFitUpdatedRadius) {
+            validSearchRadius?.let(::fitSearchRadius)
+        }
     }
 
     override fun updatePestMarkers(
@@ -471,6 +479,25 @@ internal class PestMapController(
                 )
             )
         }
+    }
+
+    private fun fitSearchRadius(searchRadius: PestMapSearchRadius) {
+        val currentMap = map ?: return
+        if (mapView.width == 0 || mapView.height == 0) return
+        val ring = searchRadius.polygonRing()
+        if (ring.isEmpty()) return
+
+        val bounds = LatLngBounds.Builder()
+            .includes(
+                ring.map { coordinate ->
+                    LatLng(coordinate.latitude, coordinate.longitude)
+                }
+            )
+            .build()
+        currentMap.animateCamera(
+            CameraUpdateFactory.newLatLngBounds(bounds, initialCameraPaddingPixels()),
+            CAMERA_ANIMATION_DURATION_MS
+        )
     }
 
     private fun renderPestMarkers() {

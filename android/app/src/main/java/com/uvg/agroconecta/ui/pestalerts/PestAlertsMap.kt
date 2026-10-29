@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -60,7 +61,9 @@ fun PestAlertsMap(
     showSearchAreaAction: Boolean,
     isSearchingArea: Boolean,
     onCameraChanged: (Double, Double) -> Unit,
-    onSearchVisibleArea: () -> Unit
+    onSearchVisibleArea: () -> Unit,
+    selectedRadiusKm: Double,
+    onSearchRadiusSelected: (Double) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -79,7 +82,6 @@ fun PestAlertsMap(
                 color = GrayMid
             )
         }
-
         errorMessage?.let { message ->
             InlineAlertsError(message = message, onRetry = onRetry)
         }
@@ -101,7 +103,9 @@ fun PestAlertsMap(
                 showSearchAreaAction = showSearchAreaAction,
                 isSearchingArea = isSearchingArea,
                 onCameraChanged = onCameraChanged,
-                onSearchVisibleArea = onSearchVisibleArea
+                onSearchVisibleArea = onSearchVisibleArea,
+                selectedRadiusKm = selectedRadiusKm,
+                onSearchRadiusSelected = onSearchRadiusSelected
             )
         }
 
@@ -122,7 +126,9 @@ private fun PestMapView(
     showSearchAreaAction: Boolean,
     isSearchingArea: Boolean,
     onCameraChanged: (Double, Double) -> Unit,
-    onSearchVisibleArea: () -> Unit
+    onSearchVisibleArea: () -> Unit,
+    selectedRadiusKm: Double,
+    onSearchRadiusSelected: (Double) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -210,6 +216,16 @@ private fun PestMapView(
         )
 
         if (loadState == PestMapLoadState.Ready) {
+            SearchRadiusSelector(
+                selectedRadiusKm = selectedRadiusKm,
+                enabled = !isSearchingArea,
+                onRadiusSelected = onSearchRadiusSelected,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            )
+
             if (
                 trackingMode == PestMapTrackingMode.FREE_EXPLORATION &&
                 showSearchAreaAction
@@ -219,7 +235,7 @@ private fun PestMapView(
                     enabled = !isSearchingArea,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(12.dp)
+                        .padding(top = 64.dp)
                         .testTag("pest-map-search-area")
                 ) {
                     Text(
@@ -288,6 +304,39 @@ private fun PestMapView(
                         Text("Reintentar mapa")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchRadiusSelector(
+    selectedRadiusKm: Double,
+    enabled: Boolean,
+    onRadiusSelected: (Double) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        tonalElevation = 3.dp,
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            pestMapSearchRadiusOptionsKm.forEach { radiusKm ->
+                FilterChip(
+                    selected = selectedRadiusKm == radiusKm,
+                    onClick = { onRadiusSelected(radiusKm) },
+                    enabled = enabled,
+                    label = { Text("${radiusKm.toInt()} km") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("pest-map-radius-${radiusKm.toInt()}")
+                )
             }
         }
     }

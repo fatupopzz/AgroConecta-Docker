@@ -103,6 +103,7 @@ fun PestAlertRoute(
         onViewModeChanged = viewModel::setViewMode,
         onMapCameraChanged = viewModel::updateMapCameraCenter,
         onSearchVisibleArea = viewModel::searchVisibleArea,
+        onSearchRadiusSelected = viewModel::selectSearchRadius,
         onReportPest = {
             viewModel.openReportForm()
             if (uiState.userLocation == null && uiState.location == null && !uiState.isLocating) {

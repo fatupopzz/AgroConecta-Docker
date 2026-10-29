@@ -427,6 +427,37 @@ class PestAlertScreenTest {
     }
 
     @Test
+    fun `map offers supported radius options`() {
+        var selectedRadius: Double? = null
+        compose.setContent {
+            CompositionLocalProvider(LocalPestMapHostFactory provides fakeMapHostFactory()) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = PestAlertUiState(
+                            alerts = listOf(alert()),
+                            location = PestAlertLocation(14.6349, -90.5069, 25.0),
+                            lastSearchArea = PestMapSearchArea(14.6349, -90.5069, 25.0),
+                            viewMode = PestAlertViewMode.MAP
+                        ),
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = {},
+                        onReportPest = {},
+                        onSearchRadiusSelected = { selectedRadius = it }
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithText("5 km").assertIsDisplayed()
+        compose.onNodeWithText("10 km").assertIsDisplayed()
+        compose.onNodeWithText("25 km").assertIsDisplayed()
+        compose.onNodeWithTag("pest-map-radius-50").performClick()
+
+        assertEquals(50.0, selectedRadius)
+    }
+
+    @Test
     fun `alert detail shows preventive product information and can be dismissed`() {
         val alert = alert().copy(descripcion = "Presencia en hojas jóvenes")
         val product = PestSuggestedProduct(

@@ -75,6 +75,7 @@ fun PestAlertScreen(
     onViewModeChanged: (PestAlertViewMode) -> Unit = {},
     onMapCameraChanged: (Double, Double) -> Unit = { _, _ -> },
     onSearchVisibleArea: () -> Unit = {},
+    onSearchRadiusSelected: (Double) -> Unit = {},
     onDismissReportForm: () -> Unit = {},
     onReportPestTypeSelected: (PestType) -> Unit = {},
     onReportCropSelected: (String) -> Unit = {},
@@ -196,7 +197,9 @@ fun PestAlertScreen(
                             showSearchAreaAction = uiState.shouldShowVisibleAreaSearch,
                             isSearchingArea = uiState.isLoadingAlerts,
                             onCameraChanged = onMapCameraChanged,
-                            onSearchVisibleArea = onSearchVisibleArea
+                            onSearchVisibleArea = onSearchVisibleArea,
+                            selectedRadiusKm = uiState.activeSearchRadiusKm,
+                            onSearchRadiusSelected = onSearchRadiusSelected
                         )
                     } else {
                         AlertsList(

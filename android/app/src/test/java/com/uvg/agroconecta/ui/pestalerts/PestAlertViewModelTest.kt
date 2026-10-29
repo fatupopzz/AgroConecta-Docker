@@ -407,6 +407,43 @@ class PestAlertViewModelTest {
         assertEquals("Sin conexión", viewModel.uiState.value.alertsErrorMessage)
     }
 
+    @Test
+    fun `changing radius searches again around current camera center`() {
+        val repository = FakePestAlertRepository(alerts = listOf(alert()))
+        val viewModel = createViewModel(repository)
+        viewModel.loadNearbyAlerts(14.6349, -90.5069, 25.0)
+        viewModel.updateMapCameraCenter(15.5000, -89.9000)
+
+        viewModel.selectSearchRadius(50.0)
+
+        assertEquals(
+            PestAlertLocation(15.5000, -89.9000, 50.0),
+            repository.nearbyRequests.last()
+        )
+        assertEquals(
+            PestMapSearchArea(15.5000, -89.9000, 50.0),
+            viewModel.uiState.value.cameraCenter
+        )
+        assertEquals(
+            PestMapSearchArea(15.5000, -89.9000, 50.0),
+            viewModel.uiState.value.lastSearchArea
+        )
+        assertEquals(50.0, viewModel.uiState.value.activeSearchRadiusKm, 0.0)
+    }
+
+    @Test
+    fun `same or unsupported radius does not repeat search`() {
+        val repository = FakePestAlertRepository()
+        val viewModel = createViewModel(repository)
+        viewModel.loadNearbyAlerts(14.6349, -90.5069, 25.0)
+
+        viewModel.selectSearchRadius(25.0)
+        viewModel.selectSearchRadius(30.0)
+
+        assertEquals(1, repository.nearbyRequests.size)
+        assertEquals(25.0, viewModel.uiState.value.activeSearchRadiusKm, 0.0)
+    }
+
     private fun alert() = PestAlert(
         id = 29,
         pestType = "pulgon",

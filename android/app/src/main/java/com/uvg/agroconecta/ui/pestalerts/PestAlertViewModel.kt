@@ -82,6 +82,8 @@ val pestAlertCrops = listOf(
     "Otro"
 )
 
+val pestMapSearchRadiusOptionsKm = listOf(5.0, 10.0, 25.0, 50.0)
+
 @HiltViewModel
 class PestAlertViewModel @Inject constructor(
     private val repository: PestAlertRepository,
@@ -285,7 +287,8 @@ class PestAlertViewModel @Inject constructor(
         if (!longitude.isFinite() || longitude !in -180.0..180.0) return
 
         _uiState.update { current ->
-            val radiusKm = current.lastSearchArea?.radiusKm
+            val radiusKm = current.cameraCenter?.radiusKm
+                ?: current.lastSearchArea?.radiusKm
                 ?: current.location?.radiusKm
                 ?: PestAlertRepository.DEFAULT_RADIUS_KM
             current.copy(
@@ -304,6 +307,33 @@ class PestAlertViewModel @Inject constructor(
             latitude = area.centerLatitude,
             longitude = area.centerLongitude,
             radiusKm = area.radiusKm
+        )
+    }
+
+    fun selectSearchRadius(radiusKm: Double) {
+        if (radiusKm !in pestMapSearchRadiusOptionsKm) return
+        val state = _uiState.value
+        val currentArea = state.cameraCenter
+            ?: state.lastSearchArea
+            ?: state.location?.let { location ->
+                PestMapSearchArea(location.latitude, location.longitude, location.radiusKm)
+            }
+            ?: state.userLocation?.let { location ->
+                PestMapSearchArea(location.latitude, location.longitude, location.radiusKm)
+            }
+            ?: PestMapSearchArea(
+                centerLatitude = PestMapConfig.INITIAL_LATITUDE,
+                centerLongitude = PestMapConfig.INITIAL_LONGITUDE,
+                radiusKm = PestAlertRepository.DEFAULT_RADIUS_KM
+            )
+        if (currentArea.radiusKm == radiusKm) return
+
+        val updatedArea = currentArea.copy(radiusKm = radiusKm)
+        _uiState.update { it.copy(cameraCenter = updatedArea) }
+        loadNearbyAlerts(
+            latitude = updatedArea.centerLatitude,
+            longitude = updatedArea.centerLongitude,
+            radiusKm = updatedArea.radiusKm
         )
     }
 
@@ -540,9 +570,17 @@ internal val PestAlertUiState.shouldShowVisibleAreaSearch: Boolean
     get() {
         val camera = cameraCenter ?: return false
         val previous = lastSearchArea ?: return true
-        return camera.distanceMetersTo(previous) >=
+        return camera.radiusKm != previous.radiusKm ||
+            camera.distanceMetersTo(previous) >=
             PestMapConfig.SEARCH_CENTER_CHANGE_THRESHOLD_METERS
     }
+
+internal val PestAlertUiState.activeSearchRadiusKm: Double
+    get() = cameraCenter?.radiusKm
+        ?: lastSearchArea?.radiusKm
+        ?: location?.radiusKm
+        ?: userLocation?.radiusKm
+        ?: PestAlertRepository.DEFAULT_RADIUS_KM
 
 private fun PestMapSearchArea.distanceMetersTo(other: PestMapSearchArea): Double {
     val latitudeDelta = Math.toRadians(other.centerLatitude - centerLatitude)
