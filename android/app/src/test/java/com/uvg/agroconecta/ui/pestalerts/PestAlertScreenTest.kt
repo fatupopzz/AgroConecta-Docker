@@ -247,24 +247,34 @@ class PestAlertScreenTest {
 
     @Test
     fun `map forwards pest markers and opens selected marker detail`() {
-        val alert = alert()
+        val alert = alert().copy(descripcion = "Presencia detectada en hojas jóvenes")
         lateinit var mapHost: FakePestMapHost
         var selectedAlert: PestAlert? = null
+        var detailAlert by mutableStateOf<PestAlert?>(null)
+        var mapHostCreations = 0
         compose.setContent {
             CompositionLocalProvider(
-                LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
+                LocalPestMapHostFactory provides fakeMapHostFactory {
+                    mapHost = it
+                    mapHostCreations += 1
+                }
             ) {
                 MaterialTheme {
                     PestAlertScreen(
                         uiState = PestAlertUiState(
                             alerts = listOf(alert),
                             location = PestAlertLocation(14.6349, -90.5069),
-                            viewMode = PestAlertViewMode.MAP
+                            viewMode = PestAlertViewMode.MAP,
+                            selectedAlert = detailAlert
                         ),
                         onNavigateBack = {},
                         onRetry = {},
-                        onAlertClick = { selectedAlert = it },
-                        onReportPest = {}
+                        onAlertClick = {
+                            selectedAlert = it
+                            detailAlert = it
+                        },
+                        onReportPest = {},
+                        onDismissAlertDetail = { detailAlert = null }
                     )
                 }
             }
@@ -288,9 +298,69 @@ class PestAlertScreenTest {
         compose.onNodeWithTag("pest-map-selected-alert").assertIsDisplayed()
         compose.onNodeWithText("Pulgón").assertIsDisplayed()
         compose.onNodeWithText("Cultivo: Frijol").assertIsDisplayed()
+        compose.onNodeWithText("Distancia: 3.4 km").assertIsDisplayed()
+        compose.onNodeWithText("Fecha: 21/09/2026").assertIsDisplayed()
+        compose.onNodeWithText("Presencia detectada en hojas jóvenes").assertExists()
         compose.onNodeWithTag("pest-map-view-details").performClick()
 
         assertEquals(alert, selectedAlert)
+        compose.onNodeWithTag("pest-alert-detail").assertIsDisplayed()
+        compose.onNodeWithTag("dismiss-pest-alert-detail").performClick()
+        compose.onNodeWithTag("pest-map-selected-alert").assertIsDisplayed()
+        assertEquals(1, mapHostCreations)
+    }
+
+    @Test
+    fun `map changes selection and closes summary after empty map tap`() {
+        val firstAlert = alert().copy(descripcion = "Primera alerta")
+        val secondAlert = alert().copy(
+            id = 30,
+            pestType = "mosca_blanca",
+            cultivo = "Tomate",
+            descripcion = "Segunda alerta"
+        )
+        lateinit var mapHost: FakePestMapHost
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
+            ) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = PestAlertUiState(
+                            alerts = listOf(firstAlert, secondAlert),
+                            location = PestAlertLocation(14.6349, -90.5069),
+                            viewMode = PestAlertViewMode.MAP
+                        ),
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = {},
+                        onReportPest = {}
+                    )
+                }
+            }
+        }
+
+        compose.runOnIdle { mapHost.simulateMarkerSelection(firstAlert.id) }
+        compose.onNodeWithText("Primera alerta").assertExists()
+
+        compose.runOnIdle { mapHost.simulateMarkerSelection(secondAlert.id) }
+        compose.onNodeWithText("Mosca blanca").assertIsDisplayed()
+        compose.onNodeWithText("Cultivo: Tomate").assertIsDisplayed()
+        compose.onNodeWithText("Segunda alerta").assertExists()
+        compose.onNodeWithText("Primera alerta").assertDoesNotExist()
+
+        compose.runOnIdle { mapHost.simulateEmptyMapClick() }
+        compose.onNodeWithTag("pest-map-selected-alert").assertDoesNotExist()
+    }
+
+    @Test
+    fun `summary description is normalized truncated and has fallback`() {
+        assertEquals(
+            "Texto con espacios",
+            summarizeAlertDescription("  Texto  con\n espacios  ")
+        )
+        assertEquals("123456789…", summarizeAlertDescription("123456789012", maxLength = 10))
+        assertEquals("Sin descripción adicional.", summarizeAlertDescription("  "))
     }
 
     @Test
@@ -569,6 +639,7 @@ private class FakePestMapHost(
     val searchRadiusUpdates = mutableListOf<PestMapSearchRadius?>()
     var centerRequests = 0
     private var onMarkerSelected: (Int) -> Unit = {}
+    private var onSelectionCleared: () -> Unit = {}
 
     override fun attach(lifecycle: Lifecycle) {
         onLoadStateChanged(PestMapLoadState.Ready)
@@ -588,10 +659,12 @@ private class FakePestMapHost(
 
     override fun updatePestMarkers(
         markers: List<PestMapMarker>,
-        onMarkerSelected: (Int) -> Unit
+        onMarkerSelected: (Int) -> Unit,
+        onSelectionCleared: () -> Unit
     ) {
         markerUpdates += markers
         this.onMarkerSelected = onMarkerSelected
+        this.onSelectionCleared = onSelectionCleared
     }
 
     override fun centerOnUser() {
@@ -607,6 +680,10 @@ private class FakePestMapHost(
 
     fun simulateMarkerSelection(alertId: Int) {
         onMarkerSelected(alertId)
+    }
+
+    fun simulateEmptyMapClick() {
+        onSelectionCleared()
     }
 
     override fun dispose() = Unit

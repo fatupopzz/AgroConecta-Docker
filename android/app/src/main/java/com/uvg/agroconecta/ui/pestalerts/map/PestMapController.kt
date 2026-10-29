@@ -58,7 +58,8 @@ internal interface PestMapHost {
     fun updateSearchRadius(searchRadius: PestMapSearchRadius?)
     fun updatePestMarkers(
         markers: List<PestMapMarker>,
-        onMarkerSelected: (Int) -> Unit
+        onMarkerSelected: (Int) -> Unit,
+        onSelectionCleared: () -> Unit
     )
     fun centerOnUser()
     fun dispose()
@@ -108,6 +109,7 @@ internal class PestMapController(
     private var pestMarkersById: Map<Int, PestMapMarker> = emptyMap()
     private var selectedPestMarkerId: Int? = null
     private var onPestMarkerSelected: (Int) -> Unit = {}
+    private var onPestMarkerSelectionCleared: () -> Unit = {}
     private var hasReceivedUserLocation = false
     private var hasReceivedPestMarkers = false
     private var hasAdjustedInitialCamera = mapViewState.getBoolean(INITIAL_CAMERA_ADJUSTED_KEY)
@@ -165,10 +167,12 @@ internal class PestMapController(
         val feature = currentMap.queryRenderedFeatures(
             currentMap.projection.toScreenLocation(coordinate),
             PEST_MARKER_CIRCLE_LAYER_ID
-        ).firstOrNull() ?: return@OnMapClickListener false
-        val alertId = feature.getNumberProperty(PEST_ALERT_ID_PROPERTY)?.toInt()
-            ?: return@OnMapClickListener false
-        if (pestMarkersById[alertId] == null) {
+        ).firstOrNull()
+        val alertId = feature
+            ?.getNumberProperty(PEST_ALERT_ID_PROPERTY)
+            ?.toInt()
+        if (alertId == null || pestMarkersById[alertId] == null) {
+            clearPestMarkerSelection()
             false
         } else {
             selectedPestMarkerId = alertId
@@ -281,9 +285,11 @@ internal class PestMapController(
 
     override fun updatePestMarkers(
         markers: List<PestMapMarker>,
-        onMarkerSelected: (Int) -> Unit
+        onMarkerSelected: (Int) -> Unit,
+        onSelectionCleared: () -> Unit
     ) {
         onPestMarkerSelected = onMarkerSelected
+        onPestMarkerSelectionCleared = onSelectionCleared
         hasReceivedPestMarkers = true
         val updatedMarkers = markers.associateBy(PestMapMarker::alertId)
         if (updatedMarkers != pestMarkersById) {
@@ -293,6 +299,13 @@ internal class PestMapController(
             renderSelectedPestMarker()
         }
         adjustInitialCameraIfReady()
+    }
+
+    private fun clearPestMarkerSelection() {
+        if (selectedPestMarkerId == null) return
+        selectedPestMarkerId = null
+        renderSelectedPestMarker()
+        onPestMarkerSelectionCleared()
     }
 
     override fun centerOnUser() {

@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
@@ -186,9 +187,11 @@ private fun PestMapView(
     }
 
     LaunchedEffect(mapHost, pestMarkers) {
-        mapHost.updatePestMarkers(pestMarkers) { alertId ->
-            selectedPestAlertId = alertId
-        }
+        mapHost.updatePestMarkers(
+            markers = pestMarkers,
+            onMarkerSelected = { alertId -> selectedPestAlertId = alertId },
+            onSelectionCleared = { selectedPestAlertId = null }
+        )
     }
 
     LaunchedEffect(alertsById, selectedPestAlertId) {
@@ -204,6 +207,8 @@ private fun PestMapView(
             mapHost.dispose()
         }
     }
+
+    val selectedAlert = selectedPestAlertId?.let(alertsById::get)
 
     Box(
         modifier = Modifier
@@ -253,7 +258,10 @@ private fun PestMapView(
                 enabled = currentLocation != null,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(16.dp)
+                    .padding(
+                        end = 16.dp,
+                        bottom = if (selectedAlert == null) 16.dp else 116.dp
+                    )
                     .size(48.dp)
                     .testTag("pest-map-my-location")
             ) {
@@ -264,14 +272,14 @@ private fun PestMapView(
             }
         }
 
-        selectedPestAlertId?.let(alertsById::get)?.let { selectedAlert ->
+        selectedAlert?.let { alert ->
             PestMarkerSummary(
-                alert = selectedAlert,
-                onViewDetails = { onAlertClick(selectedAlert) },
+                alert = alert,
+                onViewDetails = { onAlertClick(alert) },
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 72.dp, bottom = 12.dp)
+                    .padding(12.dp)
             )
         }
 
@@ -355,37 +363,79 @@ private fun PestMarkerSummary(
         tonalElevation = 4.dp,
         shadowElevation = 4.dp
     ) {
-        Row(
-            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.BugReport,
-                contentDescription = null,
-                tint = ErrorRed,
-                modifier = Modifier.size(28.dp)
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 10.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    imageVector = Icons.Default.BugReport,
+                    contentDescription = null,
+                    tint = ErrorRed,
+                    modifier = Modifier.size(28.dp)
+                )
                 Text(
                     text = pestTypeDisplayName(alert.pestType),
-                    style = MaterialTheme.typography.titleSmall
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 10.dp)
                 )
+                TextButton(
+                    onClick = onViewDetails,
+                    modifier = Modifier.testTag("pest-map-view-details")
+                ) {
+                    Text("Ver detalles")
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Text(
                     text = "Cultivo: ${alert.cultivo}",
                     style = MaterialTheme.typography.bodySmall,
                     color = GrayMid
                 )
+                Text(
+                    text = "Distancia: ${formatDistance(alert.distanceKm)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GrayMid
+                )
+                Text(
+                    text = "Fecha: ${formatAlertDate(alert.reportedAt)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GrayMid
+                )
             }
-            TextButton(
-                onClick = onViewDetails,
-                modifier = Modifier.testTag("pest-map-view-details")
-            ) {
-                Text("Ver detalles")
-            }
+            Text(
+                text = summarizeAlertDescription(alert.descripcion),
+                style = MaterialTheme.typography.bodySmall,
+                color = GrayMid,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp, end = 8.dp)
+            )
         }
     }
+}
+
+internal fun summarizeAlertDescription(
+    description: String?,
+    maxLength: Int = 120
+): String {
+    val normalized = description
+        ?.trim()
+        ?.replace(Regex("\\s+"), " ")
+        .orEmpty()
+    if (normalized.isEmpty()) return "Sin descripción adicional."
+    if (normalized.length <= maxLength) return normalized
+
+    return normalized
+        .take((maxLength - 1).coerceAtLeast(0))
+        .trimEnd()
+        .plus("…")
 }
