@@ -378,44 +378,56 @@ const getDistributorReviews = async (req, res) => {
   });
 };
 
+// Productos que el distribuidor tiene a la venta, en una sola consulta. La app
+// antes descargaba 100 productos del catálogo y pedía el detalle de cada uno
+// para ver si este distribuidor lo vendía: hasta 101 llamadas por perfil.
+// Devuelve los mismos campos que el catálogo (categoría, fotos, precio) para
+// que la app pinte las tarjetas igual que en el resto de pantallas.
 const getDistributorProducts = async (req, res) => {
+  const { id } = req.params;
 
-    const { id } = req.params;
+  if (!isPositiveInteger(id)) {
+    return res.status(400).json({ error: "ID inválido" });
+  }
 
-    const result = await pool.query(
-        `
-        SELECT
-            p.id_producto,
-            p.nombre,
-            p.marca,
-            p.descripcion,
-            p.composicion,
-            p.dosis_recomendada,
-            p.instrucciones_uso,
-            p.calificacion_promedio,
-            p.activo,
-            p.id_categoria,
+  const result = await pool.query(
+    `SELECT
+        p.id_producto,
+        p.nombre,
+        p.marca,
+        p.descripcion,
+        p.composicion,
+        p.dosis_recomendada,
+        p.instrucciones_uso,
+        p.calificacion_promedio,
+        p.activo,
+        p.id_categoria,
+        c.nombre AS categoria,
+        p.imagen_url,
+        p.imagen_thumb_url,
+        i.precio,
+        i.precio AS precio_desde,
+        i.stock_disponible,
+        i.unidad_medida,
+        i.tiempo_entrega_dias,
+        i.ultima_actualizacion,
+        (
+          SELECT COUNT(*)::int
+          FROM inventario_distribuidor otros
+          WHERE otros.id_producto = p.id_producto
+            AND otros.stock_disponible > 0
+        ) AS num_distribuidores
+     FROM inventario_distribuidor i
+     JOIN producto p ON p.id_producto = i.id_producto
+     JOIN categoria c ON c.id_categoria = p.id_categoria
+     WHERE i.id_distribuidor = $1
+       AND p.activo = true
+       AND i.stock_disponible > 0
+     ORDER BY p.nombre ASC`,
+    [Number(id)]
+  );
 
-            i.precio,
-            i.stock_disponible,
-            i.unidad_medida,
-            i.tiempo_entrega_dias,
-            i.ultima_actualizacion
-
-        FROM inventario_distribuidor i
-
-        INNER JOIN producto p
-            ON p.id_producto = i.id_producto
-
-        WHERE i.id_distribuidor = $1
-
-        ORDER BY p.nombre ASC
-        `,
-        [Number(id)]
-    );
-
-    return res.json(result.rows);
-
+  return res.json(result.rows);
 };
 
 const getDistributorStats = async (req, res) => {

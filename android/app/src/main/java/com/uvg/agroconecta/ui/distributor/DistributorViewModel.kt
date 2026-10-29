@@ -8,6 +8,8 @@ import com.uvg.agroconecta.data.models.DistributorReview
 import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.data.models.CreateReviewRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,51 +39,23 @@ class DistributorViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DistributorUiState())
     val uiState: StateFlow<DistributorUiState> = _uiState.asStateFlow()
 
+    /**
+     * Carga el perfil completo. Las cuatro consultas no dependen entre sí, así
+     * que van en paralelo: el perfil tarda lo que tarda la más lenta y no la
+     * suma de todas, algo que se nota con señal débil.
+     */
     fun loadAll(distributorId: Int) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                // Datos del distribuidor — safe body
-                val distResponse = api.getDistributorById(distributorId)
-                if (distResponse.isSuccessful) {
-                    val dist = distResponse.body()
-                    if (dist != null) {
-                        _uiState.update {
-                            it.copy(
-                                distributorName = dist.nombreNegocio,
-                                isVerified = dist.estadoVerificacion == "verificado"
-                            )
-                        }
-                    }
+                coroutineScope {
+                    launch { loadDistributor(distributorId) }
+                    launch { reloadReviews(distributorId) }
+                    launch { reloadRating(distributorId) }
+                    launch { loadProducts(distributorId) }
                 }
-
-                // Reseñas y calificación
-                reloadReviews(distributorId)
-                reloadRating(distributorId)
-
-                // Productos — loop con for para poder usar suspend dentro de corrutina
-                val productosResponse = api.getProducts(limit = 100)
-                if (productosResponse.isSuccessful) {
-                    val todosProductos = productosResponse.body()?.products ?: emptyList()
-                    val productosDelDist = mutableListOf<Product>()
-
-                    for (producto in todosProductos) {
-                        try {
-                            val detalle = api.getProductById(producto.id)
-                            val perteneceAlDistribuidor = detalle.isSuccessful &&
-                                    detalle.body()?.ofertas
-                                        ?.any { it.idDistribuidor == distributorId } == true
-                            if (perteneceAlDistribuidor) {
-                                productosDelDist.add(producto)
-                            }
-                        } catch (_: Exception) {
-                            // Si falla el detalle de un producto, se omite
-                        }
-                    }
-
-                    _uiState.update { it.copy(productos = productosDelDist) }
-                }
-
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(errorMessage = "Error al cargar el perfil del distribuidor")
@@ -89,6 +63,28 @@ class DistributorViewModel @Inject constructor(
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
             }
+        }
+    }
+
+    private suspend fun loadDistributor(distributorId: Int) {
+        val response = api.getDistributorById(distributorId)
+        val dist = response.body()
+        if (response.isSuccessful && dist != null) {
+            _uiState.update {
+                it.copy(
+                    distributorName = dist.nombreNegocio,
+                    isVerified = dist.estadoVerificacion == "verificado"
+                )
+            }
+        }
+    }
+
+    // Una sola llamada. Antes se bajaban 100 productos del catálogo y se pedía
+    // el detalle de cada uno para ver si este distribuidor lo vendía.
+    private suspend fun loadProducts(distributorId: Int) {
+        val response = api.getDistributorProducts(distributorId)
+        if (response.isSuccessful) {
+            _uiState.update { it.copy(productos = response.body().orEmpty()) }
         }
     }
 
