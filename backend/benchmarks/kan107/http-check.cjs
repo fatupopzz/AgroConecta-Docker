@@ -20,7 +20,7 @@ const tests=[
  ['/api/products?id_categoria=1&limit=100',null,200],['/api/products?nombre=Producto%2074&id_categoria=5',null,200],
  ['/api/notifications',farmer,200],['/api/notifications',dist,200],['/api/notifications',null,401]
 ];
-(async()=>{await client.connect();await client.query('BEGIN');if(process.argv[2]==='before') for(const m of fs.readFileSync('/repo/backend/sql/kan107_sql_indexes_migration.sql','utf8').matchAll(/CREATE INDEX IF NOT EXISTS (\w+)/g)) await client.query(`DROP INDEX IF EXISTS ${m[1]}`);const results=[];
+(async()=>{await client.connect();await client.query('BEGIN');if(process.argv[2]==='before') for(const m of fs.readFileSync('/repo/backend/sql/014_kan107_sql_indexes.sql','utf8').matchAll(/CREATE INDEX IF NOT EXISTS (\w+)/g)) await client.query(`DROP INDEX IF EXISTS ${m[1]}`);const results=[];
  for(const [url,token,status] of tests){let req=request(app).get(url);if(token)req=req.set('Authorization',`Bearer ${token}`);const res=await req;assert.equal(res.status,status,url);results.push({url,status:res.status,body:res.body});}
  const stage=process.argv[2];
  if(stage==='after'){

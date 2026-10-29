@@ -13,7 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backend/sql/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U agroconecta_user -d agroconecta"]
       interval: 10s
