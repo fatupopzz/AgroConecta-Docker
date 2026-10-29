@@ -310,3 +310,49 @@ describe("calificación y reseñas de un distribuidor", () => {
     expect(response.body).toEqual({ error: "Ya calificaste a este distribuidor" });
   });
 });
+
+describe("GET /api/distribuidores/:id/productos", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    jwt.verify.mockReturnValue({ id: 12, tipo: "agricultor" });
+  });
+
+  test("devuelve en una consulta lo que vende, con los campos del catálogo", async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{
+        id_producto: 1,
+        nombre: "Urea 46%",
+        categoria: "Fertilizantes",
+        imagen_thumb_url: "/uploads/productos/urea_thumb.webp",
+        precio_desde: "185.00",
+        num_distribuidores: 2,
+      }],
+    });
+
+    const response = await request(app)
+      .get("/api/distribuidores/4/productos")
+      .set("Authorization", "Bearer token-valido");
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body[0]).toEqual(expect.objectContaining({
+      id_producto: 1,
+      categoria: "Fertilizantes",
+      precio_desde: "185.00",
+    }));
+    expect(pool.query).toHaveBeenCalledTimes(1);
+    const [sql, params] = pool.query.mock.calls[0];
+    expect(params).toEqual([4]);
+    expect(sql).toMatch(/JOIN categoria c/);
+    expect(sql).toMatch(/p\.activo = true/);
+    expect(sql).toMatch(/i\.stock_disponible > 0/);
+  });
+
+  test("rechaza un ID inválido sin consultar la base", async () => {
+    const response = await request(app)
+      .get("/api/distribuidores/abc/productos")
+      .set("Authorization", "Bearer token-valido");
+
+    expect(response.statusCode).toBe(400);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+});

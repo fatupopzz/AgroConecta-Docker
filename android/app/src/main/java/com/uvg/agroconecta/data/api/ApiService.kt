@@ -338,6 +338,13 @@ interface ApiService {
         @Path("id") id: Int
     ): Response<DistributorStatsResponse>
 
+    // Lo que el distribuidor tiene a la venta (activo y con existencias), con
+    // los mismos campos que el catálogo.
+    @GET("distribuidores/{id}/productos")
+    suspend fun getDistributorProducts(
+        @Path("id") id: Int
+    ): Response<List<Product>>
+
     // ── Distributor by ID ─────────────────────────────────────────────────
     @GET("distribuidores/{id}")
     suspend fun getDistributorById(

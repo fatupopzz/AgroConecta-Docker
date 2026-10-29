@@ -7,7 +7,9 @@ import com.uvg.agroconecta.data.models.DistributorRatingResponse
 import com.uvg.agroconecta.data.models.DistributorReview
 import com.uvg.agroconecta.data.models.DistributorReviewCreatedResponse
 import com.uvg.agroconecta.data.models.DistributorReviewsResponse
+import com.uvg.agroconecta.data.models.Product
 import com.uvg.agroconecta.data.models.RatingDistribution
+import com.uvg.agroconecta.ui.profile.DistributorProfile
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -82,6 +84,35 @@ class DistributorViewModelReviewTest {
 
         assertTrue(viewModel.uiState.value.reviewSubmitSuccess)
         assertEquals(null, viewModel.uiState.value.reviewSubmitError)
+    }
+
+    @Test
+    fun `el perfil trae los productos del distribuidor en una sola llamada`() {
+        val urea = Product(
+            id = 1, nombre = "Urea 46%", marca = "Yara", descripcion = null, composicion = null,
+            dosis = null, instrucciones = null, calificacion = 4.0, categoria = "Fertilizantes",
+            precioDesde = 185.0, numDistribuidores = 2
+        )
+        coEvery { api.getDistributorById(4) } returns Response.success(
+            DistributorProfile(idDistribuidor = 4, nombreNegocio = "Agroservicio El Sol", nombre = null,
+                email = null, telefono = null, departamento = null, direccion = null, nit = null,
+                estadoVerificacion = "verificado", calificacionPromedio = 4.5)
+        )
+        coEvery { api.getDistributorReviews(4, 1, 20) } returns Response.success(reviews)
+        coEvery { api.getDistributorRating(4) } returns Response.success(rating)
+        coEvery { api.getDistributorProducts(4) } returns Response.success(listOf(urea))
+
+        val viewModel = DistributorViewModel(api)
+        viewModel.loadAll(4)
+
+        val state = viewModel.uiState.value
+        assertEquals("Agroservicio El Sol", state.distributorName)
+        assertTrue(state.isVerified)
+        assertEquals(listOf(1), state.productos.map { it.id })
+        assertEquals(false, state.isLoading)
+        // Mock estricto: si se volviera a recorrer el catálogo con getProducts y
+        // getProductById, esas llamadas no están preparadas y el test falla.
+        coVerify(exactly = 1) { api.getDistributorProducts(4) }
     }
 
     @Test
