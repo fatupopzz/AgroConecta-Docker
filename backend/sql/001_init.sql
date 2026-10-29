@@ -71,6 +71,11 @@ CREATE TABLE IF NOT EXISTS direccion_entrega (
     es_predeterminada BOOLEAN DEFAULT FALSE
 );
 
+-- Una sola dirección predeterminada (la ubicación de la finca) por agricultor.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_direccion_entrega_predeterminada
+    ON direccion_entrega (id_agricultor)
+    WHERE es_predeterminada;
+
 CREATE TABLE IF NOT EXISTS pedido (
     id_pedido           SERIAL PRIMARY KEY,
     id_agricultor       INT NOT NULL REFERENCES agricultor(id_agricultor),

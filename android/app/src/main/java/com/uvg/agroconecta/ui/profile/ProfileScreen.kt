@@ -97,6 +97,7 @@ fun ProfileScreen(
     onPedidosClick: () -> Unit,
     onFavoritesClick: () -> Unit,
     onDashboardClick: () -> Unit,
+    onFarmLocationClick: () -> Unit = {},
     onHelpClick: () -> Unit,
     onStatsClick: () -> Unit,
     onMyProductsClick: () -> Unit,
@@ -189,6 +190,7 @@ fun ProfileScreen(
                             data.profile,
                             onFavoritesClick = onFavoritesClick,
                             onDashboardClick = onDashboardClick,
+                            onFarmLocationClick = onFarmLocationClick,
                             onHelpClick = onHelpClick,
                             onEditClick = { showEditDialog = true },
                             onLogoutClick = { showLogoutDialog = true }
@@ -226,7 +228,8 @@ fun FarmerProfileContent(
     onDashboardClick: () -> Unit,
     onHelpClick: () -> Unit,
     onEditClick: () -> Unit,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    onFarmLocationClick: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -246,6 +249,7 @@ fun FarmerProfileContent(
         }
 
         ProfileShortcuts {
+            FarmLocationButton(onClick = onFarmLocationClick)
             FarmerDashboardButton(onClick = onDashboardClick)
             FavoriteProductsButton(onClick = onFavoritesClick)
         }
@@ -534,6 +538,11 @@ fun FavoriteProductsButton(onClick: () -> Unit) {
         onClick = onClick,
         iconTint = MaterialTheme.colorScheme.error
     )
+}
+
+@Composable
+fun FarmLocationButton(onClick: () -> Unit) {
+    ProfileShortcut(icon = Icons.Default.MyLocation, label = "Ubicación de mi finca", onClick = onClick)
 }
 
 @Composable

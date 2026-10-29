@@ -81,7 +81,7 @@ class WeatherViewModel @Inject constructor(
                 if (version != generation) return@launch
                 if (report == null) {
                     _state.update { it.copy(report = null, location = null, stale = false,
-                        error = "Guarda coordenadas en tu dirección principal o permite la ubicación para ver el clima.") }
+                        error = "Marca la ubicación de tu finca en Perfil o permite la ubicación para ver el clima.") }
                 } else {
                     _state.update { it.copy(report = report,
                         location = if (farm != null) WeatherLocation.MAIN_ADDRESS else WeatherLocation.CURRENT,

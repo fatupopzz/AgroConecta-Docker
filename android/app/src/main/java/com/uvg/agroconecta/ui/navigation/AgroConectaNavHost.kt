@@ -32,6 +32,8 @@ import com.uvg.agroconecta.ui.notifications.PriceNotificationState
 import com.uvg.agroconecta.ui.notifications.priceNotificationProductId
 import com.uvg.agroconecta.ui.product.ProductDetailScreen
 import com.uvg.agroconecta.data.api.SessionManager
+import com.uvg.agroconecta.di.FarmLocationEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import com.uvg.agroconecta.ui.cart.CartScreen
 import com.uvg.agroconecta.ui.cart.CartViewModel
 import com.uvg.agroconecta.ui.components.LocalIsOffline
@@ -42,6 +44,7 @@ import com.uvg.agroconecta.ui.distributor.DistributorProfileScreen
 import com.uvg.agroconecta.ui.distributor.DistributorStatsScreen
 import com.uvg.agroconecta.ui.distributor.MyProductsScreen
 import com.uvg.agroconecta.ui.dashboard.FarmerDashboardScreen
+import com.uvg.agroconecta.ui.farmlocation.FarmLocationRoute
 import com.uvg.agroconecta.ui.dosecalculator.DoseCalculatorScreen
 import com.uvg.agroconecta.ui.favorites.FavoriteViewModel
 import com.uvg.agroconecta.ui.favorites.FavoritesScreen
@@ -154,6 +157,18 @@ fun AgroConectaNavHost(
                 launchSingleTop = true
             }
         }
+    }
+
+    // La dirección de entrega se llena sola: primero la de la finca guardada en
+    // el servidor, que el agricultor revisó a propósito; si no hay, la última
+    // que escribió en este teléfono.
+    val farmLocations = remember {
+        EntryPointAccessors.fromApplication(context.applicationContext, FarmLocationEntryPoint::class.java)
+            .farmLocationSource()
+    }
+    val initialDeliveryAddress: suspend () -> String = {
+        farmLocations.savedLocation()?.deliveryText()
+            ?: SessionManager.getDeliveryAddress(context).first().orEmpty()
     }
 
     // Aviso para el login cuando la cuenta se creó pero no se pudo entrar solo.
@@ -460,7 +475,7 @@ fun AgroConectaNavHost(
                     val isSubmitting = isPreparingSubmission || isCreatingOrder
 
                     LaunchedEffect(Unit) {
-                        deliveryAddress = SessionManager.getDeliveryAddress(context).first().orEmpty()
+                        deliveryAddress = initialDeliveryAddress()
 
                         if (cartItemsForUrgency.isEmpty()) {
                             val farmerId = SessionManager.getFarmerId(context).first() ?: -1
@@ -538,9 +553,7 @@ fun AgroConectaNavHost(
                     val farmerId by SessionManager.getFarmerId(context).collectAsState(initial = null)
 
                     LaunchedEffect(Unit) {
-                        checkoutViewModel.setInitialDeliveryAddress(
-                            SessionManager.getDeliveryAddress(context).first()
-                        )
+                        checkoutViewModel.setInitialDeliveryAddress(initialDeliveryAddress())
                     }
                     LaunchedEffect(cartItemsForOrder) {
                         checkoutViewModel.onCartItemsChange(cartItemsForOrder)
@@ -900,6 +913,11 @@ fun AgroConectaNavHost(
                                 launchSingleTop = true
                             }
                         },
+                        onFarmLocationClick = {
+                            navController.navigate(Screen.FarmLocation.route) {
+                                launchSingleTop = true
+                            }
+                        },
                         onHelpClick = {
                             navController.navigate(Screen.Help.route) {
                                 launchSingleTop = true
@@ -970,6 +988,10 @@ fun AgroConectaNavHost(
                     MyProductsScreen(
                         onNavigateBack = { navController.popBackStack() }
                     )
+                }
+
+                composable(Screen.FarmLocation.route) {
+                    FarmLocationRoute(onNavigateBack = { navController.popBackStack() })
                 }
 
                 composable(Screen.FarmerDashboard.route) {
