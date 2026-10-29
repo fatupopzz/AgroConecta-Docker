@@ -2,7 +2,7 @@
 #
 # Los nombres de los trabajos ("Backend · unitarias", etc.) son los que se
 # marcan como obligatorios en la protección de la rama develop: si se cambian
-# aquí, hay que actualizarlos también en GitHub (Settings → Branches).
+# aquí, hay que actualizarlos también en GitHub (Settings → Rules → Rulesets).
 #
 # No se filtra por carpetas a propósito: con checks obligatorios, un PR que no
 # tocara el backend nunca reportaría ese check y quedaría bloqueado para siempre.
