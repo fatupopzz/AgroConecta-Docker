@@ -40,15 +40,16 @@ const getDistributors = async (req, res) => {
             ${distanceColumn}
      FROM distribuidor d
      JOIN usuario u ON d.id_usuario = u.id_usuario
-     -- Misma fuente que /:id/rating y /:id/reviews: reseñas de los productos
-     -- que vende el distribuidor.
+     -- Misma fuente que /:id, /:id/rating y /:id/reviews: las reseñas que los
+     -- agricultores dejan al distribuidor. Antes se usaban las reseñas de sus
+     -- productos, y como un producto lo venden varios, calificar a uno movía
+     -- las estrellas de los demás.
      LEFT JOIN (
-       SELECT i.id_distribuidor,
+       SELECT r.id_distribuidor,
               ROUND(AVG(r.calificacion)::numeric, 1) AS calificacion_promedio,
               COUNT(r.id_resena)::int AS cantidad_resenas
-       FROM inventario_distribuidor i
-       JOIN resena r ON r.id_producto = i.id_producto
-       GROUP BY i.id_distribuidor
+       FROM resena_distribuidor r
+       GROUP BY r.id_distribuidor
      ) reviews ON reviews.id_distribuidor = d.id_distribuidor
      WHERE d.estado_verificacion = 'verificado'
      ORDER BY ${orderBy}`,
@@ -96,8 +97,8 @@ const getDistributorById = async (req, res) => {
   // Obtener promedio y cantidad de reseñas
   const reviews = await pool.query(
     `SELECT
-        ROUND(AVG(calificacion),2) AS calificacion_promedio,
-        COUNT(*) AS cantidad_resenas
+        ROUND(AVG(calificacion)::numeric, 1) AS calificacion_promedio,
+        COUNT(*)::int AS cantidad_resenas
      FROM resena_distribuidor
      WHERE id_distribuidor = $1`,
     [id]
@@ -105,12 +106,8 @@ const getDistributorById = async (req, res) => {
 
   res.json({
     ...result.rows[0],
-
-    calificacion_promedio:
-      reviews.rows[0].calificacion_promedio ?? 0,
-
-    cantidad_resenas:
-      Number(reviews.rows[0].cantidad_resenas)
+    calificacion_promedio: Number(reviews.rows[0].calificacion_promedio ?? 0),
+    cantidad_resenas: Number(reviews.rows[0].cantidad_resenas ?? 0),
   });
 };
 
@@ -294,10 +291,8 @@ const getDistributorRating = async (req, res) => {
        COUNT(r.id_resena) FILTER (WHERE r.calificacion = 3)::int AS tres_estrellas,
        COUNT(r.id_resena) FILTER (WHERE r.calificacion = 2)::int AS dos_estrellas,
        COUNT(r.id_resena) FILTER (WHERE r.calificacion = 1)::int AS una_estrella
-     FROM inventario_distribuidor i
-     JOIN producto p ON i.id_producto = p.id_producto
-     LEFT JOIN resena r ON r.id_producto = p.id_producto
-     WHERE i.id_distribuidor = $1`,
+     FROM resena_distribuidor r
+     WHERE r.id_distribuidor = $1`,
     [Number(id)]
   );
 
@@ -346,31 +341,29 @@ const getDistributorReviews = async (req, res) => {
     return res.status(404).json({ error: "Distribuidor no encontrado" });
   }
 
+  // id_producto y producto_nombre se mantienen en la respuesta (en null) para
+  // no romper versiones de la app que todavía esperan esos campos.
   const reviewsResult = await pool.query(
     `SELECT r.id_resena,
             r.calificacion,
             r.comentario,
             r.fecha_resena,
-            p.id_producto,
-            p.nombre AS producto_nombre,
+            NULL::int AS id_producto,
+            NULL::text AS producto_nombre,
             u.nombre AS agricultor_nombre
-     FROM resena r
-     JOIN producto p ON r.id_producto = p.id_producto
-     JOIN inventario_distribuidor i ON i.id_producto = p.id_producto
+     FROM resena_distribuidor r
      JOIN agricultor a ON r.id_agricultor = a.id_agricultor
      JOIN usuario u ON a.id_usuario = u.id_usuario
-     WHERE i.id_distribuidor = $1
-     ORDER BY r.fecha_resena DESC
+     WHERE r.id_distribuidor = $1
+     ORDER BY r.fecha_resena DESC, r.id_resena DESC
      LIMIT $2 OFFSET $3`,
     [Number(id), limit, offset]
   );
 
   const countResult = await pool.query(
     `SELECT COUNT(r.id_resena)::int AS total
-     FROM resena r
-     JOIN producto p ON r.id_producto = p.id_producto
-     JOIN inventario_distribuidor i ON i.id_producto = p.id_producto
-     WHERE i.id_distribuidor = $1`,
+     FROM resena_distribuidor r
+     WHERE r.id_distribuidor = $1`,
     [Number(id)]
   );
 

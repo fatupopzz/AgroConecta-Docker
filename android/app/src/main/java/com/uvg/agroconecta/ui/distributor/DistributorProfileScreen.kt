@@ -145,7 +145,8 @@ fun DistributorProfileScreen(
                 DistributorHeader(
                     name = uiState.distributorName,
                     isVerified = uiState.isVerified,
-                    reviews = uiState.reviews
+                    averageRating = uiState.rating?.calificacionPromedio,
+                    totalReviews = uiState.rating?.totalResenas ?: uiState.reviews.size
                 )
             }
 
@@ -204,7 +205,7 @@ fun DistributorProfileScreen(
             }
 
             item(key = "reviews-title") {
-                SectionHeader(title = "Reseñas (${uiState.reviews.size})")
+                SectionHeader(title = "Reseñas (${uiState.rating?.totalResenas ?: uiState.reviews.size})")
             }
 
             if (uiState.reviews.isEmpty()) {
@@ -229,7 +230,8 @@ fun DistributorProfileScreen(
 private fun DistributorHeader(
     name: String,
     isVerified: Boolean,
-    reviews: List<DistributorReview>
+    averageRating: Double?,
+    totalReviews: Int
 ) {
     Column(
         modifier = Modifier
@@ -260,22 +262,21 @@ private fun DistributorHeader(
         if (isVerified) {
             StatusTag(text = "Distribuidor verificado", tone = TagTone.Info, icon = Icons.Default.Verified)
         }
-        if (reviews.isNotEmpty()) {
-            val promedio = reviews.map { it.calificacion }.average()
+        if (averageRating != null && totalReviews > 0) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.semantics(mergeDescendants = true) {}
             ) {
-                StarRating(rating = promedio, starSize = 20.dp)
+                StarRating(rating = averageRating, starSize = 20.dp)
                 Spacer(Modifier.width(AgroSpacing.xs))
                 Text(
-                    text = String.format(Locale.US, "%.1f", promedio),
+                    text = String.format(Locale.US, "%.1f", averageRating),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.width(AgroSpacing.xxs))
                 Text(
-                    text = if (reviews.size == 1) "(1 reseña)" else "(${reviews.size} reseñas)",
+                    text = if (totalReviews == 1) "(1 reseña)" else "($totalReviews reseñas)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

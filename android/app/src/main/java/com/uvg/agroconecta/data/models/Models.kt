@@ -248,6 +248,10 @@ data class RatingDistribution(
     @SerializedName("1") val una: Int
 )
 
+data class DistributorReviewCreatedResponse(
+    val message: String?
+)
+
 data class DistributorReviewsResponse(
     val page: Int,
     val limit: Int,
@@ -261,8 +265,10 @@ data class DistributorReview(
     val calificacion: Int,
     val comentario: String?,
     @SerializedName("fecha_resena") val fechaResena: String?,
-    @SerializedName("id_producto") val idProducto: Int,
-    @SerializedName("producto_nombre") val productoNombre: String?,
+    // Las reseñas son del distribuidor, ya no de un producto suyo; el backend
+    // manda estos dos campos en null y se conservan por compatibilidad.
+    @SerializedName("id_producto") val idProducto: Int? = null,
+    @SerializedName("producto_nombre") val productoNombre: String? = null,
     @SerializedName("agricultor_nombre") val agricultorNombre: String?
 )
 
