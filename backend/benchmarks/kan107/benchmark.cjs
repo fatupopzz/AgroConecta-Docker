@@ -37,11 +37,11 @@ const stage=process.argv[2]||'before';
 (async()=>{
  await client.connect();
  if(stage==='seed') {
-  await client.query(fs.readFileSync(`${root}/sql/init.sql`,'utf8'));
+  await client.query(fs.readFileSync(`${root}/sql/001_init.sql`,'utf8'));
   await client.query(fs.readFileSync(`${out}/seed.sql`,'utf8'));
   await client.end(); return;
  }
- if(stage==='before') { await client.query('BEGIN'); for(const m of fs.readFileSync(`${root}/sql/kan107_sql_indexes_migration.sql`,'utf8').matchAll(/CREATE INDEX IF NOT EXISTS (\w+)/g)) await client.query(`DROP INDEX IF EXISTS ${m[1]}`); }
+ if(stage==='before') { await client.query('BEGIN'); for(const m of fs.readFileSync(`${root}/sql/014_kan107_sql_indexes.sql`,'utf8').matchAll(/CREATE INDEX IF NOT EXISTS (\w+)/g)) await client.query(`DROP INDEX IF EXISTS ${m[1]}`); }
  await client.query('ANALYZE');
  const results={stage,version:(await client.query('SELECT version()')).rows[0],indexes:(await client.query("SELECT tablename,indexname,indexdef,pg_relation_size(indexname::regclass) AS bytes FROM pg_indexes WHERE schemaname='public' ORDER BY tablename,indexname")).rows,constraints:(await client.query("SELECT conrelid::regclass::text AS table_name,conname,pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE connamespace='public'::regnamespace")).rows,queries:[]};
  for(const q of queries){
