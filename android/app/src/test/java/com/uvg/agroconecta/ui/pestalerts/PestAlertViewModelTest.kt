@@ -65,6 +65,10 @@ class PestAlertViewModelTest {
         viewModel.retryNearbyAlerts()
 
         assertEquals(listOf(originalAlert), viewModel.uiState.value.alerts)
+        assertEquals(
+            PestMapSearchArea(14.63, -90.50, PestAlertRepository.DEFAULT_RADIUS_KM),
+            viewModel.uiState.value.lastSearchArea
+        )
         assertEquals("Sin conexión", viewModel.uiState.value.alertsErrorMessage)
         assertFalse(viewModel.uiState.value.isLoadingAlerts)
         assertEquals(2, repository.nearbyRequests.size)

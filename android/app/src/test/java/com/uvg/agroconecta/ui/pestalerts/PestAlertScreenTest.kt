@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -109,6 +110,136 @@ class PestAlertScreenTest {
         compose.onNodeWithTag("report-pest").performClick()
 
         assertEquals(1, reportClicks)
+    }
+
+    @Test
+    fun `map remains available without location permission and retries location`() {
+        var retries = 0
+        compose.setContent {
+            CompositionLocalProvider(LocalPestMapHostFactory provides fakeMapHostFactory()) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = PestAlertUiState(
+                            locationErrorMessage = "Activa el permiso de ubicación",
+                            viewMode = PestAlertViewMode.MAP
+                        ),
+                        onNavigateBack = {},
+                        onRetry = { retries += 1 },
+                        onAlertClick = {},
+                        onReportPest = {}
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("pest-alert-map").assertIsDisplayed()
+        compose.onNodeWithText("Activa el permiso de ubicación").assertIsDisplayed()
+        compose.onNodeWithTag("pest-map-my-location").assertIsNotEnabled()
+        compose.onNodeWithText("Reintentar").performClick()
+
+        assertEquals(1, retries)
+    }
+
+    @Test
+    fun `empty successful map search stays visible and can explore another area`() {
+        lateinit var mapHost: FakePestMapHost
+        var searches = 0
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
+            ) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = PestAlertUiState(
+                            lastSearchArea = PestMapSearchArea(14.6349, -90.5069, 25.0),
+                            cameraCenter = PestMapSearchArea(15.5, -89.9, 25.0),
+                            viewMode = PestAlertViewMode.MAP
+                        ),
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = {},
+                        onReportPest = {},
+                        onSearchVisibleArea = { searches += 1 }
+                    )
+                }
+            }
+        }
+
+        compose.runOnIdle { mapHost.simulateManualExploration() }
+        compose.onNodeWithTag("pest-alert-map").assertIsDisplayed()
+        compose.onNodeWithTag("pest-map-empty-result").assertIsDisplayed()
+        compose.onNodeWithText("No se encontraron plagas en esta zona").assertIsDisplayed()
+        compose.onNodeWithTag("pest-map-search-area")
+            .assertIsDisplayed()
+            .assertIsEnabled()
+            .performClick()
+        compose.waitForIdle()
+
+        assertEquals(1, searches)
+    }
+
+    @Test
+    fun `network error keeps empty map and retries the last alert search`() {
+        var locationRetries = 0
+        var alertRetries = 0
+        compose.setContent {
+            CompositionLocalProvider(LocalPestMapHostFactory provides fakeMapHostFactory()) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = PestAlertUiState(
+                            location = PestAlertLocation(14.6349, -90.5069),
+                            alertsErrorMessage = "Sin conexión",
+                            viewMode = PestAlertViewMode.MAP
+                        ),
+                        onNavigateBack = {},
+                        onRetry = { locationRetries += 1 },
+                        onRetryAlerts = { alertRetries += 1 },
+                        onAlertClick = {},
+                        onReportPest = {}
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("pest-alert-map").assertIsDisplayed()
+        compose.onNodeWithText("Sin conexión").assertIsDisplayed()
+        compose.onNodeWithText("Reintentar").performClick()
+
+        assertEquals(0, locationRetries)
+        assertEquals(1, alertRetries)
+    }
+
+    @Test
+    fun `map load error stays inside map while list selector remains available`() {
+        lateinit var mapHost: FakePestMapHost
+        var selectedMode: PestAlertViewMode? = null
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
+            ) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = PestAlertUiState(
+                            alerts = listOf(alert()),
+                            viewMode = PestAlertViewMode.MAP
+                        ),
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = {},
+                        onReportPest = {},
+                        onViewModeChanged = { selectedMode = it }
+                    )
+                }
+            }
+        }
+
+        compose.runOnIdle { mapHost.simulateLoadError("No se pudo cargar el mapa") }
+        compose.onNodeWithTag("pest-alert-map").assertIsDisplayed()
+        compose.onNodeWithText("No se pudo cargar el mapa").assertIsDisplayed()
+        compose.onNodeWithText("Reintentar mapa").assertIsDisplayed()
+        compose.onNodeWithText("Lista").performClick()
+
+        assertEquals(PestAlertViewMode.LIST, selectedMode)
     }
 
     @Test
@@ -684,6 +815,10 @@ private class FakePestMapHost(
 
     fun simulateEmptyMapClick() {
         onSelectionCleared()
+    }
+
+    fun simulateLoadError(message: String) {
+        onLoadStateChanged(PestMapLoadState.Error(message))
     }
 
     override fun dispose() = Unit

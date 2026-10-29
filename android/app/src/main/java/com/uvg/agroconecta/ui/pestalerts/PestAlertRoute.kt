@@ -97,6 +97,7 @@ fun PestAlertRoute(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
         onRetry = requestOrRefreshLocation,
+        onRetryAlerts = viewModel::retryNearbyAlerts,
         onAlertClick = viewModel::selectAlert,
         onDismissAlertDetail = viewModel::dismissAlertDetail,
         onRetryAlertDetail = viewModel::retrySuggestedProducts,

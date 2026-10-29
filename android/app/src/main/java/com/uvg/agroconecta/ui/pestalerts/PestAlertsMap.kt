@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.ui.pestalerts.map.LocalPestMapHostFactory
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapCameraState
@@ -60,6 +61,7 @@ fun PestAlertsMap(
     onRetry: () -> Unit,
     onAlertClick: (PestAlert) -> Unit,
     showSearchAreaAction: Boolean,
+    showEmptySearchResult: Boolean,
     isSearchingArea: Boolean,
     onCameraChanged: (Double, Double) -> Unit,
     onSearchVisibleArea: () -> Unit,
@@ -102,6 +104,7 @@ fun PestAlertsMap(
                 searchArea = searchArea,
                 onAlertClick = onAlertClick,
                 showSearchAreaAction = showSearchAreaAction,
+                showEmptySearchResult = showEmptySearchResult,
                 isSearchingArea = isSearchingArea,
                 onCameraChanged = onCameraChanged,
                 onSearchVisibleArea = onSearchVisibleArea,
@@ -125,6 +128,7 @@ private fun PestMapView(
     searchArea: PestMapSearchArea?,
     onAlertClick: (PestAlert) -> Unit,
     showSearchAreaAction: Boolean,
+    showEmptySearchResult: Boolean,
     isSearchingArea: Boolean,
     onCameraChanged: (Double, Double) -> Unit,
     onSearchVisibleArea: () -> Unit,
@@ -239,6 +243,7 @@ private fun PestMapView(
                     onClick = onSearchVisibleArea,
                     enabled = !isSearchingArea,
                     modifier = Modifier
+                        .zIndex(1f)
                         .align(Alignment.TopCenter)
                         .padding(top = 64.dp)
                         .testTag("pest-map-search-area")
@@ -281,6 +286,26 @@ private fun PestMapView(
                     .fillMaxWidth()
                     .padding(12.dp)
             )
+        }
+
+        if (loadState == PestMapLoadState.Ready && showEmptySearchResult) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 72.dp, bottom = 12.dp)
+                    .testTag("pest-map-empty-result"),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                tonalElevation = 3.dp,
+                shadowElevation = 2.dp
+            ) {
+                Text(
+                    text = "No se encontraron plagas en esta zona",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                )
+            }
         }
 
         when (val state = loadState) {

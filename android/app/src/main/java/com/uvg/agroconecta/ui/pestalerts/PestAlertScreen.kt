@@ -70,6 +70,7 @@ fun PestAlertScreen(
     onRetry: () -> Unit,
     onAlertClick: (PestAlert) -> Unit,
     onReportPest: () -> Unit,
+    onRetryAlerts: () -> Unit = onRetry,
     onDismissAlertDetail: () -> Unit = {},
     onRetryAlertDetail: () -> Unit = {},
     onViewModeChanged: (PestAlertViewMode) -> Unit = {},
@@ -92,6 +93,7 @@ fun PestAlertScreen(
 ) {
     val isLoadingLocationOrAlerts = uiState.isLocating || uiState.isLoadingAlerts
     val primaryErrorMessage = uiState.locationErrorMessage ?: uiState.alertsErrorMessage
+    val primaryErrorRetry = if (uiState.locationErrorMessage != null) onRetry else onRetryAlerts
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(favoriteErrorMessage) {
@@ -153,7 +155,10 @@ fun PestAlertScreen(
                 .fillMaxSize()
                 .padding(contentPadding)
         ) {
-            if (isLoadingLocationOrAlerts && uiState.alerts.isNotEmpty()) {
+            if (
+                isLoadingLocationOrAlerts &&
+                (uiState.alerts.isNotEmpty() || uiState.viewMode == PestAlertViewMode.MAP)
+            ) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
@@ -169,43 +174,46 @@ fun PestAlertScreen(
                 onModeSelected = onViewModeChanged
             )
 
-            when {
-                isLoadingLocationOrAlerts && uiState.alerts.isEmpty() -> {
-                    LoadingAlertsState()
-                }
+            if (uiState.viewMode == PestAlertViewMode.MAP) {
+                PestAlertsMap(
+                    currentLocation = uiState.userLocation ?: uiState.location,
+                    alerts = uiState.alerts,
+                    searchArea = uiState.lastSearchArea,
+                    errorMessage = primaryErrorMessage,
+                    onRetry = primaryErrorRetry,
+                    onAlertClick = onAlertClick,
+                    showSearchAreaAction = uiState.shouldShowVisibleAreaSearch,
+                    showEmptySearchResult = uiState.lastSearchArea != null &&
+                        uiState.alerts.isEmpty() &&
+                        !uiState.isLoadingAlerts,
+                    isSearchingArea = uiState.isLoadingAlerts,
+                    onCameraChanged = onMapCameraChanged,
+                    onSearchVisibleArea = onSearchVisibleArea,
+                    selectedRadiusKm = uiState.activeSearchRadiusKm,
+                    onSearchRadiusSelected = onSearchRadiusSelected
+                )
+            } else {
+                when {
+                    isLoadingLocationOrAlerts && uiState.alerts.isEmpty() -> {
+                        LoadingAlertsState()
+                    }
 
-                primaryErrorMessage != null && uiState.alerts.isEmpty() -> {
-                    AlertsErrorState(
-                        message = primaryErrorMessage,
-                        onRetry = onRetry
-                    )
-                }
-
-                uiState.alerts.isEmpty() -> {
-                    EmptyAlertsState()
-                }
-
-                else -> {
-                    if (uiState.viewMode == PestAlertViewMode.MAP) {
-                        PestAlertsMap(
-                            currentLocation = uiState.userLocation ?: uiState.location,
-                            alerts = uiState.alerts,
-                            searchArea = uiState.lastSearchArea,
-                            errorMessage = primaryErrorMessage,
-                            onRetry = onRetry,
-                            onAlertClick = onAlertClick,
-                            showSearchAreaAction = uiState.shouldShowVisibleAreaSearch,
-                            isSearchingArea = uiState.isLoadingAlerts,
-                            onCameraChanged = onMapCameraChanged,
-                            onSearchVisibleArea = onSearchVisibleArea,
-                            selectedRadiusKm = uiState.activeSearchRadiusKm,
-                            onSearchRadiusSelected = onSearchRadiusSelected
+                    primaryErrorMessage != null && uiState.alerts.isEmpty() -> {
+                        AlertsErrorState(
+                            message = primaryErrorMessage,
+                            onRetry = primaryErrorRetry
                         )
-                    } else {
+                    }
+
+                    uiState.alerts.isEmpty() -> {
+                        EmptyAlertsState()
+                    }
+
+                    else -> {
                         AlertsList(
                             alerts = uiState.alerts,
                             errorMessage = primaryErrorMessage,
-                            onRetry = onRetry,
+                            onRetry = primaryErrorRetry,
                             onAlertClick = onAlertClick
                         )
                     }
