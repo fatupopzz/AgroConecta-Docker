@@ -1,0 +1,172 @@
+# Pruebas automáticas de cada PR hacia develop.
+#
+# Los nombres de los trabajos ("Backend · unitarias", etc.) son los que se
+# marcan como obligatorios en la protección de la rama develop: si se cambian
+# aquí, hay que actualizarlos también en GitHub (Settings → Branches).
+#
+# No se filtra por carpetas a propósito: con checks obligatorios, un PR que no
+# tocara el backend nunca reportaría ese check y quedaría bloqueado para siempre.
+
+name: Pruebas automatizadas
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Un commit nuevo al mismo PR cancela la corrida anterior: solo importa el
+# resultado del último y así no se gastan minutos de GitHub.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-unit:
+    name: Backend · unitarias
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      JWT_SECRET: ci-unit-tests-secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar pruebas unitarias
+        run: >-
+          npm run test:unit --
+          --reporter=default
+          --reporter=junit
+          --outputFile.junit=reports/unit-tests.xml
+
+      - name: Guardar reporte
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-unitarias-${{ github.run_number }}
+          path: backend/reports/
+          if-no-files-found: warn
+          retention-days: 30
+
+  backend-integration:
+    name: Backend · integración PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agroconecta_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agroconecta_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_NAME: agroconecta_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      # La prueba de avisos de precio (KAN-102) se conecta por su cuenta con
+      # el usuario postgres; pg toma la contraseña de PGPASSWORD.
+      PGPASSWORD: postgres
+      KAN102_PG_PORT: 5432
+      DB_INTEGRATION: "1"
+      JWT_SECRET: ci-integration-tests-secret
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # El esquema se arma con el mismo migrador que usa la VM. Así cada PR
+      # comprueba también que las migraciones corran en una base vacía, y la
+      # segunda corrida confirma que no vuelven a aplicarse.
+      - name: Aplicar migraciones en una base vacía
+        run: |
+          node scripts/migrate.js
+          second_run="$(node scripts/migrate.js)"
+          echo "$second_run"
+          grep -q "la base está al día" <<< "$second_run"
+
+      - name: Ejecutar pruebas de integración
+        run: >-
+          npm run test:integration --
+          --reporter=default
+          --reporter=junit
+          --outputFile.junit=reports/integration-tests.xml
+
+      - name: Guardar reporte
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-integracion-${{ github.run_number }}
+          path: backend/reports/
+          if-no-files-found: warn
+          retention-days: 30
+
+  android-unit:
+    name: Android · unitarias
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Gradle 9 necesita Java 17 o más nuevo.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Guarda en caché las dependencias y lo compilado de Gradle entre corridas.
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Ejecutar pruebas unitarias
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Guardar reportes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-unitarias-${{ github.run_number }}
+          path: |
+            android/app/build/reports/tests/testDebugUnitTest/
+            android/app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+          retention-days: 30

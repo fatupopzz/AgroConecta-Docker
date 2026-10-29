@@ -101,6 +101,13 @@ AgroConecta-Docker/
     ├── package.json
     └── server.js
 ```
+## Pruebas automatizadas
+
+Cada pull request hacia `develop` corre en GitHub Actions las pruebas
+unitarias del backend, las de integración con PostgreSQL y las de la app
+Android; si alguna falla, no se puede fusionar. Detalle, ejecución local y
+protección de la rama en [PRUEBAS_AUTOMATIZADAS.md](PRUEBAS_AUTOMATIZADAS.md).
+
 ## Migraciones de la base de datos
 
 El esquema se versiona con los archivos numerados de `backend/sql/`

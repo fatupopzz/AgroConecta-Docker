@@ -23,3 +23,6 @@ android/.idea/
 ml/.venv/
 ml/.data/
 ml/__pycache__/
+
+# Reportes de pruebas (CI y --outputFile local)
+backend/reports/
