@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.LocationOn
@@ -62,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -160,6 +162,7 @@ fun HomeScreen(
     onRecommendedProductClick: (String) -> Unit = {},
     onPestAlertsClick: () -> Unit = {},
     onCropCalendarClick: () -> Unit = {},
+    onDiagnoseClick: () -> Unit = {},
     favoriteIds: Set<Int> = emptySet(),
     pendingFavoriteIds: Set<Int> = emptySet(),
     favoriteErrorMessage: String? = null,
@@ -266,6 +269,20 @@ fun HomeScreen(
                     )
                 }
 
+                // Las tres herramientas del campo van arriba y a la vista. Antes
+                // el diagnóstico con foto solo se encontraba dentro de Alertas,
+                // en la barra superior, y casi nadie llegaba a él.
+                if (esAgricultor) {
+                    item(key = "field-tools") {
+                        FieldToolsRow(
+                            onDiagnoseClick = onDiagnoseClick,
+                            onCalendarClick = onCropCalendarClick,
+                            onPestAlertsClick = onPestAlertsClick,
+                            modifier = Modifier.padding(top = AgroSpacing.sm)
+                        )
+                    }
+                }
+
                 // El clima va primero para el agricultor: decide si hoy conviene
                 // aplicar un producto antes que cualquier compra.
                 if (esAgricultor) {
@@ -364,23 +381,14 @@ fun HomeScreen(
                     )
                 }
 
-                if (esAgricultor) {
-                    item(key = "crop-calendar-shortcut") {
-                        ShortcutCard(
-                            icon = Icons.Default.CalendarMonth,
-                            title = "Calendario de cultivo",
-                            subtitle = "Tus siembras y qué toca hacer cada mes",
-                            onClick = onCropCalendarClick,
+                // El agricultor ya tiene las alertas en la fila de herramientas.
+                if (!esAgricultor) {
+                    item(key = "pest-alerts-shortcut") {
+                        PestAlertsShortcutCard(
+                            onClick = onPestAlertsClick,
                             modifier = Modifier.padding(top = AgroSpacing.xs)
                         )
                     }
-                }
-
-                item(key = "pest-alerts-shortcut") {
-                    PestAlertsShortcutCard(
-                        onClick = onPestAlertsClick,
-                        modifier = Modifier.padding(top = AgroSpacing.xs)
-                    )
                 }
 
                 item(key = "distributors") {
@@ -492,9 +500,11 @@ private fun HomeHeader(
         TextField(
             value = query,
             onValueChange = { query = it },
+            // Se recorta a la forma para que la línea indicadora del TextField
+            // no asome por debajo de las esquinas redondeadas.
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(end = AgroSpacing.xs),
+                .clip(MaterialTheme.shapes.extraLarge),
             shape = MaterialTheme.shapes.extraLarge,
             textStyle = MaterialTheme.typography.bodyLarge,
             placeholder = { Text("¿Qué producto buscas?") },
@@ -510,8 +520,9 @@ private fun HomeHeader(
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                focusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                unfocusedIndicatorColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent,
                 focusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 focusedTrailingIconColor = MaterialTheme.colorScheme.primary,
@@ -635,42 +646,75 @@ internal fun PestAlertsShortcutCard(
     }
 }
 
+/**
+ * Herramientas del campo en tres botones iguales. Ícono grande y una o dos
+ * palabras: se reconocen sin leer todo y caben a la par en una pantalla de
+ * 360 dp. Con la letra muy grande el texto pasa a dos líneas sin cortarse.
+ */
 @Composable
-private fun ShortcutCard(
+private fun FieldToolsRow(
+    onDiagnoseClick: () -> Unit,
+    onCalendarClick: () -> Unit,
+    onPestAlertsClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = AgroSpacing.screenHorizontal),
+        horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+    ) {
+        FieldToolButton(
+            icon = Icons.Default.PhotoCamera,
+            label = "Diagnosticar hoja",
+            onClick = onDiagnoseClick,
+            modifier = Modifier
+                .weight(1f)
+                .testTag("home-diagnose")
+        )
+        FieldToolButton(
+            icon = Icons.Default.CalendarMonth,
+            label = "Mi calendario",
+            onClick = onCalendarClick,
+            modifier = Modifier.weight(1f)
+        )
+        FieldToolButton(
+            icon = Icons.Default.BugReport,
+            label = "Alertas de plagas",
+            onClick = onPestAlertsClick,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun FieldToolButton(
     icon: ImageVector,
-    title: String,
-    subtitle: String,
+    label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     AgroCard(
         onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = AgroSpacing.screenHorizontal)
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        border = null
     ) {
-        Row(
-            modifier = Modifier.padding(AgroSpacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = AgroSpacing.sm, horizontal = AgroSpacing.xs),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
             IconBadge(icon = icon)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center,
+                minLines = 2,
+                maxLines = 2
             )
         }
     }

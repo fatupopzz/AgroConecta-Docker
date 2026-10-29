@@ -41,6 +41,7 @@ import com.uvg.agroconecta.ui.components.QuantityStepper
 import com.uvg.agroconecta.ui.components.StatusTag
 import com.uvg.agroconecta.ui.components.TagTone
 import com.uvg.agroconecta.ui.components.categoryBackground
+import com.uvg.agroconecta.ui.components.formatQuantityWithUnit
 import com.uvg.agroconecta.ui.components.formatQuetzales
 import com.uvg.agroconecta.ui.favorites.FavoriteButton
 import com.uvg.agroconecta.ui.theme.AgroSpacing
@@ -216,11 +217,11 @@ internal fun ProductOverviewSection(
  */
 @Composable
 private fun AvailabilityTag(offer: DistributorOffer) {
-    val unit = offer.unidadMedida ?: "unidades"
+    val amount = formatQuantityWithUnit(offer.stock, offer.unidadMedida)
     val (text, tone) = when {
         offer.stock <= 0 -> "Sin existencias" to TagTone.Danger
-        offer.stock <= LOW_STOCK_THRESHOLD -> "Quedan pocos: ${offer.stock} $unit" to TagTone.Warning
-        else -> "Disponible: ${offer.stock} $unit" to TagTone.Success
+        offer.stock <= LOW_STOCK_THRESHOLD -> "Quedan pocos: $amount" to TagTone.Warning
+        else -> "Disponible: $amount" to TagTone.Success
     }
     StatusTag(text = text, tone = tone, modifier = Modifier.padding(vertical = AgroSpacing.xxs))
 }

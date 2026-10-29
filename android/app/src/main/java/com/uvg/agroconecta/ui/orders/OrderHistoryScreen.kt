@@ -19,10 +19,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -213,21 +215,51 @@ private fun FarmerOrderActions(
     onExportPdf: () -> Unit,
     onRecurringOrders: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs)) {
-            AgroSecondaryButton(
-                text = "Pedidos recurrentes",
-                icon = Icons.Default.Autorenew,
-                onClick = onRecurringOrders,
-                modifier = Modifier.weight(1f)
-            )
-            AgroSecondaryButton(
-                text = "Exportar PDF",
-                loadingText = "Descargando PDF…",
+    // Los dos botones a la par partían "Pedidos recurrentes" en dos líneas.
+    // La tarjeta además explica para qué sirve, que no era obvio por el nombre.
+    Column(verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)) {
+        AgroCard(
+            onClick = onRecurringOrders,
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            border = null
+        ) {
+            Row(
+                modifier = Modifier.padding(AgroSpacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Autorenew,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Pedidos recurrentes",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = "Compra lo mismo cada cierto tiempo sin volver a armarlo",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+        val downloading = exportState is OrderExportState.Downloading
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            AgroTextButton(
+                text = if (downloading) "Descargando PDF…" else "Exportar PDF",
                 icon = Icons.Default.PictureAsPdf,
                 onClick = onExportPdf,
-                loading = exportState is OrderExportState.Downloading,
-                modifier = Modifier.weight(1f)
+                enabled = !downloading
             )
         }
         val exportError = (exportState as? OrderExportState.Error)?.message

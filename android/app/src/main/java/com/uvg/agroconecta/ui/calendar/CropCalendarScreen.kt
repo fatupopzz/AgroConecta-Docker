@@ -1,5 +1,6 @@
 package com.uvg.agroconecta.ui.calendar
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,28 +21,41 @@ import androidx.compose.material.icons.filled.ShoppingBasket
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.outlined.Agriculture
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroDropdownField
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
 import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
 import com.uvg.agroconecta.ui.components.AgroTextButton
-import com.uvg.agroconecta.ui.components.AgroTextField
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.EmptyState
 import com.uvg.agroconecta.ui.components.InlineError
@@ -53,6 +67,12 @@ import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.theme.AgroSizes
 import com.uvg.agroconecta.ui.theme.AgroSpacing
 import com.uvg.agroconecta.ui.theme.agroColors
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 import kotlinx.coroutines.delay
 
 @Composable
@@ -231,15 +251,11 @@ private fun RegisterPlantingCard(
                 supportingText = selectedTemplate?.descripcion,
                 enabled = !state.saving
             )
-            AgroTextField(
-                value = state.date,
-                onValueChange = onDate,
-                label = "Fecha de siembra",
-                placeholder = "2026-10-16",
-                supportingText = "Escríbela así: año-mes-día",
+            PlantingDateField(
+                isoDate = state.date,
+                onDate = onDate,
                 errorMessage = state.formError,
-                enabled = !state.saving,
-                modifier = Modifier.fillMaxWidth()
+                enabled = !state.saving
             )
             AgroPrimaryButton(
                 text = "Registrar siembra",
@@ -253,6 +269,89 @@ private fun RegisterPlantingCard(
     }
 }
 
+/**
+ * Fecha de siembra con un calendario en vez de escribirla. Antes había que
+ * teclear "AAAA-MM-DD", y casi todos la escribían como día/mes/año y el
+ * formulario la rechazaba. El ViewModel sigue recibiendo el mismo formato ISO.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlantingDateField(
+    isoDate: String,
+    onDate: (String) -> Unit,
+    errorMessage: String?,
+    enabled: Boolean
+) {
+    var choosing by rememberSaveable { mutableStateOf(false) }
+    val selected = remember(isoDate) { runCatching { LocalDate.parse(isoDate) }.getOrNull() }
+
+    Column(verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)) {
+        Text(
+            text = "Fecha de siembra",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        AgroSecondaryButton(
+            text = selected?.let { friendlyCalendarDate(it) } ?: "Elegir fecha",
+            icon = Icons.Default.CalendarMonth,
+            onClick = { choosing = true },
+            enabled = enabled,
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = selected?.let { "Fecha de siembra: ${friendlyCalendarDate(it)}. Toca para cambiarla" }
+                        ?: "Elegir fecha de siembra"
+                }
+        )
+        errorMessage?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            )
+        }
+    }
+
+    if (choosing) {
+        val today = remember { LocalDate.now() }
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (selected ?: today).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            // El backend acepta hasta un año antes o después; así no se puede
+            // elegir una fecha que después rechace.
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val day = Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate()
+                    return kotlin.math.abs(ChronoUnit.DAYS.between(today, day)) <= PLANTING_DATE_RANGE_DAYS
+                }
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { choosing = false },
+            confirmButton = {
+                AgroTextButton(
+                    text = "Listo",
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            onDate(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().toString())
+                        }
+                        choosing = false
+                    }
+                )
+            },
+            dismissButton = { AgroTextButton(text = "Cancelar", onClick = { choosing = false }) }
+        ) {
+            DatePicker(state = pickerState, showModeToggle = false)
+        }
+    }
+}
+
+private const val PLANTING_DATE_RANGE_DAYS = 365L
+
+private val calendarDateFormatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es", "GT"))
+
+internal fun friendlyCalendarDate(date: LocalDate): String = date.format(calendarDateFormatter)
+
 @Composable
 private fun TaskCard(
     row: CalendarTask,
@@ -264,12 +363,14 @@ private fun TaskCard(
     val haptics = rememberAgroHaptics()
     val isToday = row.period == TaskPeriod.TODAY
 
+    // Hoy se marca con borde y no con fondo verde: sobre fondo verde la
+    // etiqueta "Hoy", que también es verde, dejaba de verse.
     AgroCard(
         modifier = modifier.fillMaxWidth(),
-        containerColor = if (isToday) {
-            MaterialTheme.colorScheme.primaryContainer
+        border = if (isToday) {
+            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         } else {
-            MaterialTheme.colorScheme.surfaceContainerLowest
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         }
     ) {
         Column(
@@ -277,7 +378,7 @@ private fun TaskCard(
             verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
             StatusTag(
-                text = "${row.period.label} · ${row.date}",
+                text = "${row.period.label} · ${friendlyCalendarDate(row.date)}",
                 tone = when (row.period) {
                     TaskPeriod.TODAY -> TagTone.Success
                     TaskPeriod.PAST -> TagTone.Warning

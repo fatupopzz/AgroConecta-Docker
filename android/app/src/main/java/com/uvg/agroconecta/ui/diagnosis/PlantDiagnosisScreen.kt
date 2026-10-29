@@ -25,6 +25,9 @@ import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.outlined.CenterFocusStrong
+import androidx.compose.material.icons.outlined.Eco
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -141,10 +144,21 @@ private fun CaptureContent(onTakePhoto: () -> Unit, onPickFromGallery: () -> Uni
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { heading() }
         )
-        Spacer(Modifier.height(AgroSpacing.xs))
+        Spacer(Modifier.height(AgroSpacing.md))
+        // Los tres consejos con ícono se entienden de un vistazo; en un párrafo
+        // se saltaban y llegaban fotos de toda la planta, que el modelo no lee bien.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
+        ) {
+            PhotoTip(Icons.Outlined.Eco, "Una sola hoja", Modifier.weight(1f))
+            PhotoTip(Icons.Outlined.CenterFocusStrong, "De cerca", Modifier.weight(1f))
+            PhotoTip(Icons.Outlined.WbSunny, "Con buena luz", Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(AgroSpacing.md))
         Text(
-            text = "Una sola hoja, de cerca y con buena luz. Funciona con maíz, tomate, papa y chile pimiento, aunque no tengas señal.",
-            style = MaterialTheme.typography.bodyLarge,
+            text = "Funciona con maíz, tomate, papa y chile pimiento, aunque no tengas señal.",
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
@@ -162,6 +176,28 @@ private fun CaptureContent(onTakePhoto: () -> Unit, onPickFromGallery: () -> Uni
             onClick = onPickFromGallery,
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+@Composable
+private fun PhotoTip(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = modifier.semantics(mergeDescendants = true) {}
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = AgroSpacing.sm, horizontal = AgroSpacing.xs),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

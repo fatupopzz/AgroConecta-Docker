@@ -25,7 +25,7 @@ class CropCalendarScreenTest {
                 tasks = listOf(CalendarTask(1, "Maíz", task, LocalDate.of(2026,10,16), TaskPeriod.TODAY))),
                 {}, {}, {}, {}, {}, {}, { opened = it })
         } }
-        compose.onNodeWithText("Hoy · 2026-10-16").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Hoy · viernes 16 de octubre").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Ver insumos en catálogo").performScrollTo().performClick()
         assertEquals(2, opened)
     }

@@ -301,6 +301,7 @@ fun AgroConectaNavHost(
                         weatherState = if (weatherState.ownerId == userIdFlow) weatherState else WeatherUiState(),
                         onRefreshWeather = weatherViewModel::refresh,
                         onCropCalendarClick = { navController.navigate(Screen.CropCalendar.route) },
+                        onDiagnoseClick = { navController.navigate(Screen.PlantDiagnosis.route) },
                         tipoUsuario = tipoUsuario,
                         cartItemCount = cartItems.size,
                         priceNotifications = if (priceState.ownerId == userIdFlow && tipoUsuarioFlow == "agricultor") priceState else PriceNotificationState(),

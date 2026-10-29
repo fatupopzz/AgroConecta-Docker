@@ -61,7 +61,20 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
         }
         release {
-            isMinifyEnabled = false
+            // R8 quita el código que no se usa; sin esto viajaban en el APK los
+            // miles de íconos de material-icons-extended aunque se usen unos 60.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            // Las librerías nativas de TFLite para x86 solo sirven en
+            // emuladores de computadora; en un teléfono real pesan 12 MB de más.
+            // Debug las conserva para poder probar en cualquier emulador.
+            ndk {
+                abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            }
             buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
         }
     }
@@ -160,6 +173,10 @@ dependencies {
 
     // Image loading
     implementation(libs.coil.compose)
+
+    // Instala los perfiles de arranque que ya traen Compose y las demás
+    // librerías: la app abre más rápido aunque no se instale desde Play Store.
+    implementation(libs.androidx.profileinstaller)
 
     // Debug tooling
     debugImplementation(libs.androidx.compose.ui.tooling)
