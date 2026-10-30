@@ -269,6 +269,7 @@ class PestAlertScreenTest {
                 PestAlertScreen(
                     uiState = PestAlertUiState(
                         userLocation = location,
+                        reportLocation = location,
                         isReportFormVisible = true,
                         reportForm = PestReportFormState(
                             selectedPestType = PestType.APHID,
@@ -296,7 +297,7 @@ class PestAlertScreenTest {
     }
 
     @Test
-    fun `report form blocks submission while GPS location is unavailable`() {
+    fun `report form requests a map or GPS location before submission`() {
         compose.setContent {
             MaterialTheme {
                 PestAlertScreen(
@@ -315,10 +316,69 @@ class PestAlertScreenTest {
             }
         }
 
-        compose.onNodeWithText("Esperando ubicación GPS…")
+        compose.onNodeWithText("Selecciona el lugar en el mapa o usa tu GPS.")
             .performScrollTo()
             .assertIsDisplayed()
+        compose.onNodeWithTag("choose-report-location")
+            .assertIsEnabled()
         compose.onNodeWithTag("submit-pest-report").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `report location picker follows the map center and confirms it`() {
+        lateinit var mapHost: FakePestMapHost
+        var confirmations = 0
+        var uiState by mutableStateOf(
+            PestAlertUiState(
+                isReportFormVisible = true,
+                isSelectingReportLocation = true,
+                reportLocationDraft = PestAlertLocation(15.7835, -90.2308),
+                viewMode = PestAlertViewMode.MAP
+            )
+        )
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalPestMapHostFactory provides fakeMapHostFactory { mapHost = it }
+            ) {
+                MaterialTheme {
+                    PestAlertScreen(
+                        uiState = uiState,
+                        onNavigateBack = {},
+                        onRetry = {},
+                        onAlertClick = {},
+                        onReportPest = {},
+                        onMapCameraChanged = { latitude, longitude ->
+                            uiState = uiState.copy(
+                                reportLocationDraft = PestAlertLocation(latitude, longitude)
+                            )
+                        },
+                        onConfirmReportLocation = { confirmations += 1 }
+                    )
+                }
+            }
+        }
+
+        compose.onNodeWithTag("report-location-picker").assertIsDisplayed()
+        compose.onNodeWithTag("report-location-pin").assertIsDisplayed()
+        compose.onNodeWithText("Reportar una plaga").assertDoesNotExist()
+        assertEquals(
+            listOf(PestMapCoordinate(15.7835, -90.2308)),
+            mapHost.centeredCoordinates
+        )
+
+        compose.runOnIdle {
+            mapHost.simulateManualExploration(
+                PestMapCameraState(
+                    latitude = 16.3210,
+                    longitude = -90.7650,
+                    zoom = 10.0
+                )
+            )
+        }
+        compose.onNodeWithText("Lat. 16.32100, Long. -90.76500").assertIsDisplayed()
+        compose.onNodeWithTag("report-location-confirm").performClick()
+
+        assertEquals(1, confirmations)
     }
 
     @Test
@@ -799,6 +859,7 @@ private class FakePestMapHost(
     val markerUpdates = mutableListOf<List<PestMapMarker>>()
     val selectedMarkerUpdates = mutableListOf<Int?>()
     val searchRadiusUpdates = mutableListOf<PestMapSearchRadius?>()
+    val centeredCoordinates = mutableListOf<PestMapCoordinate>()
     var centerRequests = 0
     private var onMarkerSelected: (Int) -> Unit = {}
     private var onSelectionCleared: () -> Unit = {}
@@ -833,6 +894,10 @@ private class FakePestMapHost(
 
     override fun centerOnUser() {
         centerRequests += 1
+    }
+
+    override fun centerOnCoordinate(coordinate: PestMapCoordinate) {
+        centeredCoordinates += coordinate
     }
 
     fun simulateManualExploration(

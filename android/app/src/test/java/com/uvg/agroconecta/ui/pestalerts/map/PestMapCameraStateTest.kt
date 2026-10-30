@@ -1,7 +1,10 @@
 package com.uvg.agroconecta.ui.pestalerts.map
 
 import androidx.compose.runtime.saveable.SaverScope
+import org.maplibre.android.geometry.LatLng
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PestMapCameraStateTest {
@@ -90,6 +93,15 @@ class PestMapCameraStateTest {
         val restored = PestMapCameraState.Saver.restore(checkNotNull(saved))
 
         assertEquals(camera, restored)
+    }
+
+    @Test
+    fun `Guatemala camera bounds include the country and reject distant coordinates`() {
+        val bounds = PestMapConfig.guatemalaBounds()
+
+        assertTrue(bounds.contains(LatLng(14.6349, -90.5069)))
+        assertTrue(bounds.contains(LatLng(17.0, -89.9)))
+        assertFalse(bounds.contains(LatLng(14.1, -87.2)))
     }
 
     private fun marker(

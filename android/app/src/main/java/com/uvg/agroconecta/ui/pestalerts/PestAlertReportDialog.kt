@@ -47,12 +47,15 @@ import java.util.Locale
 fun PestAlertReportDialog(
     formState: PestReportFormState,
     location: PestAlertLocation?,
+    currentLocation: PestAlertLocation?,
     isSubmitting: Boolean,
     errorMessage: String?,
     onDismiss: () -> Unit,
     onPestTypeSelected: (PestType) -> Unit,
     onCropSelected: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,
+    onChooseLocation: () -> Unit,
+    onUseCurrentLocation: () -> Unit,
     onSubmit: () -> Unit
 ) {
     var pestMenuExpanded by remember { mutableStateOf(false) }
@@ -170,7 +173,13 @@ fun PestAlertReportDialog(
                         .testTag("report-description")
                 )
 
-                LocationSummary(location)
+                LocationSummary(
+                    location = location,
+                    currentLocation = currentLocation,
+                    enabled = !isSubmitting,
+                    onChooseLocation = onChooseLocation,
+                    onUseCurrentLocation = onUseCurrentLocation
+                )
 
                 errorMessage?.let { message ->
                     Text(
@@ -211,34 +220,67 @@ fun PestAlertReportDialog(
 }
 
 @Composable
-private fun LocationSummary(location: PestAlertLocation?) {
+private fun LocationSummary(
+    location: PestAlertLocation?,
+    currentLocation: PestAlertLocation?,
+    enabled: Boolean,
+    onChooseLocation: () -> Unit,
+    onUseCurrentLocation: () -> Unit
+) {
     Surface(
         color = if (location == null) Color(0xFFFFF4D6) else GreenSurface,
         shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.LocationOn,
-                contentDescription = null,
-                tint = if (location == null) Color(0xFF8A6100) else GreenPrimary
-            )
-            Column {
-                Text(
-                    text = "Ubicación automática",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = if (location == null) Color(0xFF8A6100) else GreenPrimary
                 )
-                Text(
-                    text = location?.let(::formatReportCoordinates)
-                        ?: "Esperando ubicación GPS…",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = GrayMid
-                )
+                Column {
+                    Text(
+                        text = "Ubicación del reporte",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = location?.let(::formatReportCoordinates)
+                            ?: "Selecciona el lugar en el mapa o usa tu GPS.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrayMid
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TextButton(
+                    onClick = onChooseLocation,
+                    enabled = enabled,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("choose-report-location")
+                ) {
+                    Text("Elegir en mapa")
+                }
+                TextButton(
+                    onClick = onUseCurrentLocation,
+                    enabled = enabled && currentLocation != null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("use-current-report-location")
+                ) {
+                    Text("Usar mi GPS")
+                }
             }
         }
     }

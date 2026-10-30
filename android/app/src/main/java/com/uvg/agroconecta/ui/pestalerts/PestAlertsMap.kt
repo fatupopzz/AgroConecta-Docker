@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -71,7 +72,12 @@ fun PestAlertsMap(
     onCenterOnUser: () -> Unit,
     onSearchVisibleArea: () -> Unit,
     selectedRadiusKm: Double,
-    onSearchRadiusSelected: (Double) -> Unit
+    onSearchRadiusSelected: (Double) -> Unit,
+    isSelectingReportLocation: Boolean = false,
+    reportLocationDraft: PestAlertLocation? = null,
+    onConfirmReportLocation: () -> Unit = {},
+    onCancelReportLocation: () -> Unit = {},
+    onUseCurrentLocationForReport: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -119,7 +125,12 @@ fun PestAlertsMap(
                 onCenterOnUser = onCenterOnUser,
                 onSearchVisibleArea = onSearchVisibleArea,
                 selectedRadiusKm = selectedRadiusKm,
-                onSearchRadiusSelected = onSearchRadiusSelected
+                onSearchRadiusSelected = onSearchRadiusSelected,
+                isSelectingReportLocation = isSelectingReportLocation,
+                reportLocationDraft = reportLocationDraft,
+                onConfirmReportLocation = onConfirmReportLocation,
+                onCancelReportLocation = onCancelReportLocation,
+                onUseCurrentLocationForReport = onUseCurrentLocationForReport
             )
         }
 
@@ -148,7 +159,12 @@ private fun PestMapView(
     onCenterOnUser: () -> Unit,
     onSearchVisibleArea: () -> Unit,
     selectedRadiusKm: Double,
-    onSearchRadiusSelected: (Double) -> Unit
+    onSearchRadiusSelected: (Double) -> Unit,
+    isSelectingReportLocation: Boolean,
+    reportLocationDraft: PestAlertLocation?,
+    onConfirmReportLocation: () -> Unit,
+    onCancelReportLocation: () -> Unit,
+    onUseCurrentLocationForReport: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -212,6 +228,16 @@ private fun PestMapView(
         )
     }
 
+    LaunchedEffect(mapHost, isSelectingReportLocation) {
+        if (isSelectingReportLocation) {
+            reportLocationDraft?.let { location ->
+                mapHost.centerOnCoordinate(
+                    PestMapCoordinate(location.latitude, location.longitude)
+                )
+            }
+        }
+    }
+
     DisposableEffect(mapHost, lifecycle) {
         mapHost.attach(lifecycle)
         onDispose {
@@ -232,7 +258,7 @@ private fun PestMapView(
             modifier = Modifier.fillMaxSize()
         )
 
-        if (loadState == PestMapLoadState.Ready) {
+        if (loadState == PestMapLoadState.Ready && !isSelectingReportLocation) {
             SearchRadiusSelector(
                 selectedRadiusKm = selectedRadiusKm,
                 enabled = !isSearchingArea,
@@ -285,7 +311,7 @@ private fun PestMapView(
             }
         }
 
-        selectedAlert?.let { alert ->
+        selectedAlert?.takeUnless { isSelectingReportLocation }?.let { alert ->
             PestMarkerSummary(
                 alert = alert,
                 onViewDetails = { onAlertClick(alert) },
@@ -296,7 +322,11 @@ private fun PestMapView(
             )
         }
 
-        if (loadState == PestMapLoadState.Ready && showEmptySearchResult) {
+        if (
+            loadState == PestMapLoadState.Ready &&
+            showEmptySearchResult &&
+            !isSelectingReportLocation
+        ) {
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -314,6 +344,21 @@ private fun PestMapView(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
                 )
             }
+        }
+
+        if (loadState == PestMapLoadState.Ready && isSelectingReportLocation) {
+            ReportLocationPickerOverlay(
+                location = reportLocationDraft,
+                canUseCurrentLocation = currentLocation != null,
+                onUseCurrentLocation = {
+                    onUseCurrentLocationForReport()
+                    onCenterOnUser()
+                    mapHost.centerOnUser()
+                },
+                onConfirm = onConfirmReportLocation,
+                onCancel = onCancelReportLocation,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         when (val state = loadState) {
@@ -343,6 +388,99 @@ private fun PestMapView(
                         modifier = Modifier.padding(top = 12.dp)
                     ) {
                         Text("Reintentar mapa")
+                    }
+                    if (isSelectingReportLocation) {
+                        TextButton(
+                            onClick = onCancelReportLocation,
+                            modifier = Modifier.testTag("cancel-report-location-on-map-error")
+                        ) {
+                            Text("Cancelar selección")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReportLocationPickerOverlay(
+    location: PestAlertLocation?,
+    canUseCurrentLocation: Boolean,
+    onUseCurrentLocation: () -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier.testTag("report-location-picker")) {
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(12.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            tonalElevation = 4.dp,
+            shadowElevation = 3.dp
+        ) {
+            Text(
+                text = "Mueve el mapa hasta colocar el pin donde observaste la plaga.",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(12.dp)
+            )
+        }
+
+        Icon(
+            imageVector = Icons.Default.LocationOn,
+            contentDescription = "Ubicación seleccionada",
+            tint = ErrorRed,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(52.dp)
+                .testTag("report-location-pin")
+        )
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(12.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
+            tonalElevation = 4.dp,
+            shadowElevation = 3.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = location?.let(::formatReportCoordinates)
+                        ?: "Esperando la posición del mapa…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GrayMid
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onCancel) {
+                        Text("Cancelar")
+                    }
+                    TextButton(
+                        onClick = onUseCurrentLocation,
+                        enabled = canUseCurrentLocation,
+                        modifier = Modifier.testTag("report-location-use-gps")
+                    ) {
+                        Text("Mi GPS")
+                    }
+                    Button(
+                        onClick = onConfirm,
+                        enabled = location != null,
+                        modifier = Modifier.testTag("report-location-confirm")
+                    ) {
+                        Text("Confirmar")
                     }
                 }
             }

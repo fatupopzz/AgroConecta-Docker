@@ -55,6 +55,9 @@ data class PestAlertUiState(
     val alertsErrorMessage: String? = null,
     val detailErrorMessage: String? = null,
     val isReportFormVisible: Boolean = false,
+    val isSelectingReportLocation: Boolean = false,
+    val reportLocation: PestAlertLocation? = null,
+    val reportLocationDraft: PestAlertLocation? = null,
     val reportForm: PestReportFormState = PestReportFormState(),
     val isSubmittingReport: Boolean = false,
     val reportErrorMessage: String? = null,
@@ -132,6 +135,20 @@ class PestAlertViewModel @Inject constructor(
                         )
                         it.copy(
                             userLocation = location,
+                            reportLocation = if (
+                                it.isReportFormVisible && it.reportLocation == null
+                            ) {
+                                location
+                            } else {
+                                it.reportLocation
+                            },
+                            reportLocationDraft = if (
+                                it.isReportFormVisible && it.reportLocationDraft == null
+                            ) {
+                                location
+                            } else {
+                                it.reportLocationDraft
+                            },
                             isLocating = false,
                             locationErrorMessage = null,
                             reportErrorMessage = null
@@ -202,6 +219,17 @@ class PestAlertViewModel @Inject constructor(
                                 longitude = coordinates.longitude,
                                 radiusKm = radius
                             ),
+                            reportLocation = if (
+                                current.isReportFormVisible && current.reportLocation == null
+                            ) {
+                                PestAlertLocation(
+                                    latitude = coordinates.latitude,
+                                    longitude = coordinates.longitude,
+                                    radiusKm = radius
+                                )
+                            } else {
+                                current.reportLocation
+                            },
                             locationErrorMessage = null
                         )
                     }
@@ -297,12 +325,22 @@ class PestAlertViewModel @Inject constructor(
                 ?: current.lastSearchArea?.radiusKm
                 ?: current.searchArea?.radiusKm
                 ?: PestAlertRepository.DEFAULT_RADIUS_KM
+            val mapCenter = PestMapSearchArea(
+                centerLatitude = center.latitude,
+                centerLongitude = center.longitude,
+                radiusKm = radiusKm
+            )
             current.copy(
-                cameraCenter = PestMapSearchArea(
-                    centerLatitude = center.latitude,
-                    centerLongitude = center.longitude,
-                    radiusKm = radiusKm
-                )
+                cameraCenter = mapCenter,
+                reportLocationDraft = if (current.isSelectingReportLocation) {
+                    PestAlertLocation(
+                        latitude = center.latitude,
+                        longitude = center.longitude,
+                        radiusKm = radiusKm
+                    )
+                } else {
+                    current.reportLocationDraft
+                }
             )
         }
     }
@@ -477,6 +515,9 @@ class PestAlertViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 isReportFormVisible = true,
+                isSelectingReportLocation = false,
+                reportLocation = it.userLocation,
+                reportLocationDraft = it.userLocation,
                 reportForm = PestReportFormState(),
                 reportErrorMessage = null,
                 reportSuccessMessage = null
@@ -489,6 +530,60 @@ class PestAlertViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 isReportFormVisible = false,
+                isSelectingReportLocation = false,
+                reportLocationDraft = null,
+                reportErrorMessage = null
+            )
+        }
+    }
+
+    fun openReportLocationPicker() {
+        if (_uiState.value.isSubmittingReport) return
+        _uiState.update { current ->
+            val startingLocation = current.reportLocation
+                ?: current.userLocation
+                ?: current.cameraCenter?.toPestAlertLocation()
+                ?: current.lastSearchArea?.toPestAlertLocation()
+                ?: PestAlertLocation(
+                    latitude = PestMapConfig.INITIAL_LATITUDE,
+                    longitude = PestMapConfig.INITIAL_LONGITUDE
+                )
+            current.copy(
+                isSelectingReportLocation = true,
+                reportLocationDraft = startingLocation,
+                viewMode = PestAlertViewMode.MAP,
+                trackingMode = PestMapTrackingMode.FREE_EXPLORATION,
+                reportErrorMessage = null
+            )
+        }
+    }
+
+    fun confirmReportLocation() {
+        _uiState.update { current ->
+            current.copy(
+                isSelectingReportLocation = false,
+                reportLocation = current.reportLocationDraft,
+                reportErrorMessage = null
+            )
+        }
+    }
+
+    fun cancelReportLocationPicker() {
+        _uiState.update { current ->
+            current.copy(
+                isSelectingReportLocation = false,
+                reportLocationDraft = current.reportLocation
+            )
+        }
+    }
+
+    fun useCurrentLocationForReport() {
+        val location = _uiState.value.userLocation ?: return
+        _uiState.update {
+            it.copy(
+                reportLocation = location,
+                reportLocationDraft = location,
+                trackingMode = PestMapTrackingMode.FOLLOWING_USER,
                 reportErrorMessage = null
             )
         }
@@ -524,7 +619,7 @@ class PestAlertViewModel @Inject constructor(
     fun submitPestReport() {
         if (_uiState.value.isSubmittingReport) return
         val state = _uiState.value
-        val location = state.userLocation
+        val location = state.reportLocation
         val form = state.reportForm
         val validationError = PestAlertReportFormValidator.errorFor(
             hasPestType = form.selectedPestType != null,
@@ -562,6 +657,9 @@ class PestAlertViewModel @Inject constructor(
                         alerts = (listOf(createdAlert) + current.alerts)
                             .distinctBy(PestAlert::id),
                         isReportFormVisible = false,
+                        isSelectingReportLocation = false,
+                        reportLocation = null,
+                        reportLocationDraft = null,
                         reportForm = PestReportFormState(),
                         isSubmittingReport = false,
                         reportErrorMessage = null,
@@ -643,6 +741,12 @@ private fun PestMapSearchArea.distanceMetersTo(other: PestMapSearchArea): Double
     val angularDistance = 2.0 * atan2(sqrt(haversine), sqrt(1.0 - haversine))
     return EARTH_RADIUS_METERS * angularDistance
 }
+
+private fun PestMapSearchArea.toPestAlertLocation(): PestAlertLocation = PestAlertLocation(
+    latitude = centerLatitude,
+    longitude = centerLongitude,
+    radiusKm = radiusKm
+)
 
 private const val EARTH_RADIUS_METERS = 6_371_000.0
 internal const val SEARCH_RADIUS_DEBOUNCE_MS = 350L

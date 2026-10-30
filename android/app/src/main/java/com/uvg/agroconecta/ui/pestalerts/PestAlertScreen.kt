@@ -85,6 +85,10 @@ fun PestAlertScreen(
     onReportPestTypeSelected: (PestType) -> Unit = {},
     onReportCropSelected: (String) -> Unit = {},
     onReportDescriptionChanged: (String) -> Unit = {},
+    onChooseReportLocation: () -> Unit = {},
+    onConfirmReportLocation: () -> Unit = {},
+    onCancelReportLocation: () -> Unit = {},
+    onUseCurrentLocationForReport: () -> Unit = {},
     onSubmitReport: () -> Unit = {},
     onDismissReportSuccess: () -> Unit = {},
     showFavoriteAction: Boolean = false,
@@ -139,19 +143,21 @@ fun PestAlertScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onReportPest,
-                modifier = Modifier.testTag("report-pest"),
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.BugReport,
-                        contentDescription = null
-                    )
-                },
-                text = { Text("Reportar plaga") },
-                containerColor = GreenPrimary,
-                contentColor = Color.White
-            )
+            if (!uiState.isSelectingReportLocation) {
+                ExtendedFloatingActionButton(
+                    onClick = onReportPest,
+                    modifier = Modifier.testTag("report-pest"),
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.BugReport,
+                            contentDescription = null
+                        )
+                    },
+                    text = { Text("Reportar plaga") },
+                    containerColor = GreenPrimary,
+                    contentColor = Color.White
+                )
+            }
         }
     ) { contentPadding ->
         Column(
@@ -173,10 +179,12 @@ fun PestAlertScreen(
                 )
             }
 
-            PestAlertViewSelector(
-                selectedMode = uiState.viewMode,
-                onModeSelected = onViewModeChanged
-            )
+            if (!uiState.isSelectingReportLocation) {
+                PestAlertViewSelector(
+                    selectedMode = uiState.viewMode,
+                    onModeSelected = onViewModeChanged
+                )
+            }
 
             if (uiState.viewMode == PestAlertViewMode.MAP) {
                 PestAlertsMap(
@@ -199,7 +207,12 @@ fun PestAlertScreen(
                     onCenterOnUser = onCenterMapOnUser,
                     onSearchVisibleArea = onSearchVisibleArea,
                     selectedRadiusKm = uiState.activeSearchRadiusKm,
-                    onSearchRadiusSelected = onSearchRadiusSelected
+                    onSearchRadiusSelected = onSearchRadiusSelected,
+                    isSelectingReportLocation = uiState.isSelectingReportLocation,
+                    reportLocationDraft = uiState.reportLocationDraft,
+                    onConfirmReportLocation = onConfirmReportLocation,
+                    onCancelReportLocation = onCancelReportLocation,
+                    onUseCurrentLocationForReport = onUseCurrentLocationForReport
                 )
             } else {
                 when {
@@ -231,16 +244,20 @@ fun PestAlertScreen(
         }
     }
 
-    if (uiState.isReportFormVisible) {
+    if (uiState.isReportFormVisible && !uiState.isSelectingReportLocation) {
         PestAlertReportDialog(
             formState = uiState.reportForm,
-            location = uiState.userLocation,
+            location = uiState.reportLocation,
+            currentLocation = uiState.userLocation,
             isSubmitting = uiState.isSubmittingReport,
-            errorMessage = uiState.reportErrorMessage ?: uiState.locationErrorMessage,
+            errorMessage = uiState.reportErrorMessage
+                ?: uiState.locationErrorMessage.takeIf { uiState.reportLocation == null },
             onDismiss = onDismissReportForm,
             onPestTypeSelected = onReportPestTypeSelected,
             onCropSelected = onReportCropSelected,
             onDescriptionChanged = onReportDescriptionChanged,
+            onChooseLocation = onChooseReportLocation,
+            onUseCurrentLocation = onUseCurrentLocationForReport,
             onSubmit = onSubmitReport
         )
     }

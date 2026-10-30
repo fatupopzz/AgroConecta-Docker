@@ -227,6 +227,52 @@ class PestAlertViewModelTest {
     }
 
     @Test
+    fun `manual map location submits a report without GPS`() {
+        val createdAlert = alert().copy(id = 30, distanceKm = 0.0)
+        val repository = FakePestAlertRepository(reportResult = createdAlert)
+        val viewModel = createViewModel(repository)
+        viewModel.openReportForm()
+        viewModel.selectReportPestType(PestType.APHID)
+        viewModel.selectReportCrop("Frijol")
+
+        viewModel.openReportLocationPicker()
+        viewModel.onMapMoved(GeoCoordinates(16.3210, -90.7650))
+        viewModel.confirmReportLocation()
+        viewModel.submitPestReport()
+
+        val request = repository.reportRequests.single()
+        assertEquals(16.3210, request.latitud, 0.0)
+        assertEquals(-90.7650, request.longitud, 0.0)
+        assertFalse(viewModel.uiState.value.isSelectingReportLocation)
+        assertFalse(viewModel.uiState.value.isReportFormVisible)
+    }
+
+    @Test
+    fun `canceling map selection preserves the previous report location`() {
+        val gpsLocation = GeoCoordinates(14.6349, -90.5069)
+        val viewModel = createViewModel(
+            FakePestAlertRepository(),
+            FakeCurrentLocationProvider(gpsLocation)
+        )
+        viewModel.refreshLocation()
+        viewModel.openReportForm()
+
+        viewModel.openReportLocationPicker()
+        viewModel.onMapMoved(GeoCoordinates(16.3210, -90.7650))
+        viewModel.cancelReportLocationPicker()
+
+        assertEquals(
+            PestAlertLocation(gpsLocation.latitude, gpsLocation.longitude),
+            viewModel.uiState.value.reportLocation
+        )
+        assertEquals(
+            viewModel.uiState.value.reportLocation,
+            viewModel.uiState.value.reportLocationDraft
+        )
+        assertFalse(viewModel.uiState.value.isSelectingReportLocation)
+    }
+
+    @Test
     fun `submits report with selected values and prepends created alert`() {
         val createdAlert = alert().copy(id = 30, distanceKm = 0.0)
         val repository = FakePestAlertRepository(reportResult = createdAlert)

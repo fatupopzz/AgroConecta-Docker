@@ -37,7 +37,7 @@ val supportWhatsAppNumber = providers.gradleProperty("AGROCONECTA_SUPPORT_WHATSA
 
 val pestMapStyleUrl = providers.gradleProperty("AGROCONECTA_PEST_MAP_STYLE_URL")
     .orElse(providers.environmentVariable("AGROCONECTA_PEST_MAP_STYLE_URL"))
-    .orElse("https://demotiles.maplibre.org/style.json")
+    .orElse("https://tiles.openfreemap.org/styles/liberty")
     .get()
 
 android {

@@ -69,6 +69,7 @@ internal interface PestMapHost {
         onSelectionCleared: () -> Unit
     )
     fun centerOnUser()
+    fun centerOnCoordinate(coordinate: PestMapCoordinate)
     fun dispose()
 }
 
@@ -224,6 +225,7 @@ internal class PestMapController(
             view.getMapAsync { readyMap ->
                 if (isDisposed) return@getMapAsync
                 map = readyMap
+                readyMap.setLatLngBoundsForCameraTarget(PestMapConfig.guatemalaBounds())
                 readyMap.addOnCameraIdleListener(cameraIdleListener)
                 readyMap.addOnCameraMoveStartedListener(cameraMoveStartedListener)
                 readyMap.addOnMapClickListener(mapClickListener)
@@ -344,6 +346,18 @@ internal class PestMapController(
             .zoom(max(currentPosition.zoom, PestMapConfig.INITIAL_ZOOM))
             .build()
         shouldCenterOnUser = false
+        currentMap.animateCamera(
+            CameraUpdateFactory.newCameraPosition(targetPosition),
+            CAMERA_ANIMATION_DURATION_MS
+        )
+    }
+
+    override fun centerOnCoordinate(coordinate: PestMapCoordinate) {
+        if (!coordinate.isValid) return
+        val currentMap = map ?: return
+        val targetPosition = CameraPosition.Builder(currentMap.cameraPosition)
+            .target(LatLng(coordinate.latitude, coordinate.longitude))
+            .build()
         currentMap.animateCamera(
             CameraUpdateFactory.newCameraPosition(targetPosition),
             CAMERA_ANIMATION_DURATION_MS
