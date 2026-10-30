@@ -1,5 +1,6 @@
 package com.uvg.agroconecta.ui.pestalerts.map
 
+import androidx.compose.runtime.saveable.SaverScope
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -68,6 +69,27 @@ class PestMapCameraStateTest {
                 markers = listOf(marker(1, alert))
             )
         )
+    }
+
+    @Test
+    fun `camera state survives save and restore`() {
+        val camera = PestMapCameraState(
+            latitude = 15.5000,
+            longitude = -89.9000,
+            zoom = 13.5,
+            bearing = 24.0,
+            tilt = 35.0
+        )
+        val saverScope = object : SaverScope {
+            override fun canBeSaved(value: Any): Boolean = true
+        }
+
+        val saved = with(PestMapCameraState.Saver) {
+            saverScope.save(camera)
+        }
+        val restored = PestMapCameraState.Saver.restore(checkNotNull(saved))
+
+        assertEquals(camera, restored)
     }
 
     private fun marker(

@@ -17,6 +17,7 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
@@ -34,8 +35,13 @@ import org.maplibre.android.style.layers.PropertyFactory.iconSize
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
+import org.maplibre.android.style.layers.PropertyFactory.textAllowOverlap
+import org.maplibre.android.style.layers.PropertyFactory.textColor
+import org.maplibre.android.style.layers.PropertyFactory.textField
+import org.maplibre.android.style.layers.PropertyFactory.textSize
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.sources.GeoJsonOptions
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
@@ -165,10 +171,22 @@ internal class PestMapController(
 
     private val mapClickListener = MapLibreMap.OnMapClickListener { coordinate ->
         val currentMap = map ?: return@OnMapClickListener false
-        val feature = currentMap.queryRenderedFeatures(
+        val renderedFeatures = currentMap.queryRenderedFeatures(
             currentMap.projection.toScreenLocation(coordinate),
+            PEST_MARKER_CLUSTER_LAYER_ID,
             PEST_MARKER_CIRCLE_LAYER_ID
-        ).firstOrNull()
+        )
+        val clusterFeature = renderedFeatures.firstOrNull { feature ->
+            feature.hasProperty(POINT_COUNT_PROPERTY)
+        }
+        if (clusterFeature != null) {
+            clearPestMarkerSelection()
+            shouldCenterOnUser = false
+            onTrackingModeChanged(PestMapTrackingMode.FREE_EXPLORATION)
+            expandCluster(clusterFeature)
+            return@OnMapClickListener true
+        }
+        val feature = renderedFeatures.firstOrNull()
         val alertId = feature
             ?.getNumberProperty(PEST_ALERT_ID_PROPERTY)
             ?.toInt()
@@ -411,7 +429,16 @@ internal class PestMapController(
 
     private fun installPestMarkerLayers(style: Style) {
         if (style.getSource(PEST_MARKER_SOURCE_ID) == null) {
-            style.addSource(GeoJsonSource(PEST_MARKER_SOURCE_ID))
+            style.addSource(
+                GeoJsonSource(
+                    PEST_MARKER_SOURCE_ID,
+                    GeoJsonOptions()
+                        .withCluster(true)
+                        .withClusterMaxZoom(PEST_MARKER_CLUSTER_MAX_ZOOM)
+                        .withClusterRadius(PEST_MARKER_CLUSTER_RADIUS_PIXELS)
+                        .withClusterMinPoints(PEST_MARKER_CLUSTER_MIN_POINTS)
+                )
+            )
         }
         if (style.getSource(SELECTED_PEST_MARKER_SOURCE_ID) == null) {
             style.addSource(GeoJsonSource(SELECTED_PEST_MARKER_SOURCE_ID))
@@ -428,9 +455,35 @@ internal class PestMapController(
                     )
             )
         }
+        if (style.getLayer(PEST_MARKER_CLUSTER_LAYER_ID) == null) {
+            style.addLayer(
+                CircleLayer(PEST_MARKER_CLUSTER_LAYER_ID, PEST_MARKER_SOURCE_ID)
+                    .withFilter(Expression.has(POINT_COUNT_PROPERTY))
+                    .withProperties(
+                        circleRadius(22f),
+                        circleColor(PEST_MARKER_CLUSTER_COLOR),
+                        circleOpacity(0.9f),
+                        circleStrokeColor(PEST_MARKER_STROKE_COLOR),
+                        circleStrokeWidth(3f)
+                    )
+            )
+        }
+        if (style.getLayer(PEST_MARKER_CLUSTER_COUNT_LAYER_ID) == null) {
+            style.addLayer(
+                SymbolLayer(PEST_MARKER_CLUSTER_COUNT_LAYER_ID, PEST_MARKER_SOURCE_ID)
+                    .withFilter(Expression.has(POINT_COUNT_PROPERTY))
+                    .withProperties(
+                        textField(Expression.get(POINT_COUNT_ABBREVIATED_PROPERTY)),
+                        textSize(13f),
+                        textColor(PEST_MARKER_STROKE_COLOR),
+                        textAllowOverlap(true)
+                    )
+            )
+        }
         if (style.getLayer(PEST_MARKER_CIRCLE_LAYER_ID) == null) {
             style.addLayer(
                 CircleLayer(PEST_MARKER_CIRCLE_LAYER_ID, PEST_MARKER_SOURCE_ID)
+                    .withFilter(Expression.not(Expression.has(POINT_COUNT_PROPERTY)))
                     .withProperties(
                         circleRadius(16f),
                         circleColor(PEST_MARKER_COLOR),
@@ -447,6 +500,7 @@ internal class PestMapController(
         if (style.getLayer(PEST_MARKER_ICON_LAYER_ID) == null) {
             style.addLayer(
                 SymbolLayer(PEST_MARKER_ICON_LAYER_ID, PEST_MARKER_SOURCE_ID)
+                    .withFilter(Expression.not(Expression.has(POINT_COUNT_PROPERTY)))
                     .withProperties(
                         iconImage(PEST_MARKER_ICON_ID),
                         iconSize(0.82f),
@@ -541,6 +595,24 @@ internal class PestMapController(
         } else {
             source.setGeoJson(Point.fromLngLat(marker.longitude, marker.latitude))
         }
+    }
+
+    private fun expandCluster(cluster: Feature) {
+        val currentMap = map ?: return
+        val source = style?.getSourceAs<GeoJsonSource>(PEST_MARKER_SOURCE_ID) ?: return
+        val point = cluster.geometry() as? Point ?: return
+        val targetPosition = CameraPosition.Builder(currentMap.cameraPosition)
+            .target(LatLng(point.latitude(), point.longitude()))
+            .zoom(
+                source.getClusterExpansionZoom(cluster)
+                    .toDouble()
+                    .coerceAtMost(PestMapConfig.MAX_ZOOM)
+            )
+            .build()
+        currentMap.animateCamera(
+            CameraUpdateFactory.newCameraPosition(targetPosition),
+            CAMERA_ANIMATION_DURATION_MS
+        )
     }
 
     private fun adjustInitialCameraIfReady() {
@@ -655,15 +727,23 @@ internal class PestMapController(
         const val PEST_MARKER_SOURCE_ID = "pest-map-alert-source"
         const val SELECTED_PEST_MARKER_SOURCE_ID = "pest-map-selected-alert-source"
         const val SELECTED_PEST_MARKER_LAYER_ID = "pest-map-selected-alert"
+        const val PEST_MARKER_CLUSTER_LAYER_ID = "pest-map-alert-cluster"
+        const val PEST_MARKER_CLUSTER_COUNT_LAYER_ID = "pest-map-alert-cluster-count"
         const val PEST_MARKER_CIRCLE_LAYER_ID = "pest-map-alert-circle"
         const val PEST_MARKER_ICON_LAYER_ID = "pest-map-alert-icon"
         const val PEST_MARKER_ICON_ID = "pest-map-bug-icon"
         const val PEST_ALERT_ID_PROPERTY = "alertId"
         const val PEST_TYPE_PROPERTY = "pestType"
         const val PEST_CROP_PROPERTY = "crop"
+        const val POINT_COUNT_PROPERTY = "point_count"
+        const val POINT_COUNT_ABBREVIATED_PROPERTY = "point_count_abbreviated"
         const val PEST_MARKER_COLOR = "#C62828"
+        const val PEST_MARKER_CLUSTER_COLOR = "#AD342C"
         const val PEST_MARKER_STROKE_COLOR = "#FFFFFF"
         const val SELECTED_PEST_MARKER_COLOR = "#FFB300"
+        const val PEST_MARKER_CLUSTER_MAX_ZOOM = 14
+        const val PEST_MARKER_CLUSTER_RADIUS_PIXELS = 52
+        const val PEST_MARKER_CLUSTER_MIN_POINTS = 4
         const val INITIAL_CAMERA_ADJUSTED_KEY = "pest-map-initial-camera-adjusted"
         const val CAMERA_ANIMATION_DURATION_MS = 650
     }

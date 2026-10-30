@@ -9,6 +9,9 @@ import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.PestType
 import com.uvg.agroconecta.data.repository.PestAlertRepository
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -19,6 +22,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PestAlertViewModelTest {
 
     @get:Rule
@@ -491,6 +495,8 @@ class PestAlertViewModelTest {
         viewModel.onMapMoved(GeoCoordinates(15.5000, -89.9000))
 
         viewModel.changeSearchRadius(50.0)
+        mainDispatcherRule.testDispatcher.scheduler.advanceTimeBy(SEARCH_RADIUS_DEBOUNCE_MS)
+        mainDispatcherRule.testDispatcher.scheduler.runCurrent()
 
         assertEquals(
             PestAlertLocation(15.5000, -89.9000, 50.0),
@@ -505,6 +511,46 @@ class PestAlertViewModelTest {
             viewModel.uiState.value.lastSearchArea
         )
         assertEquals(50.0, viewModel.uiState.value.activeSearchRadiusKm, 0.0)
+    }
+
+    @Test
+    fun `rapid radius changes debounce to the latest search`() {
+        val repository = FakePestAlertRepository(alerts = listOf(alert()))
+        val viewModel = createViewModel(repository)
+        viewModel.loadNearbyAlerts(14.6349, -90.5069, 25.0)
+
+        viewModel.changeSearchRadius(50.0)
+        viewModel.changeSearchRadius(10.0)
+
+        assertEquals(1, repository.nearbyRequests.size)
+        assertEquals(10.0, viewModel.uiState.value.activeSearchRadiusKm, 0.0)
+
+        mainDispatcherRule.testDispatcher.scheduler.advanceTimeBy(SEARCH_RADIUS_DEBOUNCE_MS)
+        mainDispatcherRule.testDispatcher.scheduler.runCurrent()
+
+        assertEquals(2, repository.nearbyRequests.size)
+        assertEquals(
+            PestAlertLocation(14.6349, -90.5069, 10.0),
+            repository.nearbyRequests.last()
+        )
+    }
+
+    @Test
+    fun `new area search cancels the previous request`() {
+        val firstRequestGate = CompletableDeferred<Unit>()
+        val repository = FakePestAlertRepository(nearbyGate = firstRequestGate)
+        val viewModel = createViewModel(repository)
+
+        viewModel.loadNearbyAlerts(14.6349, -90.5069, 25.0)
+        repository.nearbyGate = null
+        viewModel.loadNearbyAlerts(15.5000, -89.9000, 10.0)
+
+        assertEquals(
+            listOf(PestAlertLocation(14.6349, -90.5069, 25.0)),
+            repository.cancelledNearbyRequests
+        )
+        assertEquals(PestMapSearchArea(15.5000, -89.9000, 10.0), viewModel.uiState.value.lastSearchArea)
+        assertEquals(2, repository.nearbyRequests.size)
     }
 
     @Test
@@ -563,9 +609,11 @@ private class FakePestAlertRepository(
     var nearbyError: Throwable? = null,
     var productsError: Throwable? = null,
     private val reportResult: PestAlert? = null,
-    private val reportError: Throwable? = null
+    private val reportError: Throwable? = null,
+    var nearbyGate: CompletableDeferred<Unit>? = null
 ) : PestAlertRepository {
     val nearbyRequests = mutableListOf<PestAlertLocation>()
+    val cancelledNearbyRequests = mutableListOf<PestAlertLocation>()
     val detailRequests = mutableListOf<Int>()
     val productRequests = mutableListOf<Int>()
     val reportRequests = mutableListOf<PestAlertReportRequest>()
@@ -576,7 +624,14 @@ private class FakePestAlertRepository(
         longitude: Double,
         radiusKm: Double
     ): List<PestAlert> {
-        nearbyRequests += PestAlertLocation(latitude, longitude, radiusKm)
+        val request = PestAlertLocation(latitude, longitude, radiusKm)
+        nearbyRequests += request
+        try {
+            nearbyGate?.await()
+        } catch (error: CancellationException) {
+            cancelledNearbyRequests += request
+            throw error
+        }
         nearbyError?.let { throw it }
         return alerts
     }

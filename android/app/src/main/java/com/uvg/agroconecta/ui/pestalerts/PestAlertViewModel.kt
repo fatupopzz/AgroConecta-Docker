@@ -15,6 +15,7 @@ import com.uvg.agroconecta.validation.PestAlertReportFormValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -102,6 +103,7 @@ class PestAlertViewModel @Inject constructor(
     private var suggestionsJob: Job? = null
     private var locationJob: Job? = null
     private var locationTrackingJob: Job? = null
+    private var radiusSearchJob: Job? = null
 
     fun refreshLocation() {
         locationJob?.cancel()
@@ -217,6 +219,8 @@ class PestAlertViewModel @Inject constructor(
         longitude: Double,
         radiusKm: Double = PestAlertRepository.DEFAULT_RADIUS_KM
     ) {
+        radiusSearchJob?.cancel()
+        radiusSearchJob = null
         val requestedLocation = PestAlertLocation(latitude, longitude, radiusKm)
         val validationError = requestedLocation.validationError()
         if (validationError != null) {
@@ -330,11 +334,16 @@ class PestAlertViewModel @Inject constructor(
 
         val updatedArea = currentArea.copy(radiusKm = radiusKm)
         _uiState.update { it.copy(cameraCenter = updatedArea) }
-        loadNearbyAlerts(
-            latitude = updatedArea.centerLatitude,
-            longitude = updatedArea.centerLongitude,
-            radiusKm = updatedArea.radiusKm
-        )
+        radiusSearchJob?.cancel()
+        radiusSearchJob = viewModelScope.launch {
+            delay(SEARCH_RADIUS_DEBOUNCE_MS)
+            radiusSearchJob = null
+            loadNearbyAlerts(
+                latitude = updatedArea.centerLatitude,
+                longitude = updatedArea.centerLongitude,
+                radiusKm = updatedArea.radiusKm
+            )
+        }
     }
 
     fun selectAlert(alertId: Int?) {
@@ -636,3 +645,4 @@ private fun PestMapSearchArea.distanceMetersTo(other: PestMapSearchArea): Double
 }
 
 private const val EARTH_RADIUS_METERS = 6_371_000.0
+internal const val SEARCH_RADIUS_DEBOUNCE_MS = 350L
