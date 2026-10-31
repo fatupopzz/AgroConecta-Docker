@@ -37,12 +37,15 @@ private const val MAX_DESCRIPTION_LENGTH = 500
 fun PestAlertReportDialog(
     formState: PestReportFormState,
     location: PestAlertLocation?,
+    currentLocation: PestAlertLocation?,
     isSubmitting: Boolean,
     errorMessage: String?,
     onDismiss: () -> Unit,
     onPestTypeSelected: (PestType) -> Unit,
     onCropSelected: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,
+    onChooseLocation: () -> Unit,
+    onUseCurrentLocation: () -> Unit,
     onSubmit: () -> Unit
 ) {
     val canSubmit = PestAlertReportFormValidator.canSubmit(
@@ -98,7 +101,13 @@ fun PestAlertReportDialog(
                     modifier = Modifier.testTag("report-description")
                 )
 
-                LocationSummary(location)
+                LocationSummary(
+                    location = location,
+                    currentLocation = currentLocation,
+                    enabled = !isSubmitting,
+                    onChooseLocation = onChooseLocation,
+                    onUseCurrentLocation = onUseCurrentLocation
+                )
 
                 errorMessage?.let { message -> InlineError(message = message) }
             }
@@ -119,12 +128,15 @@ fun PestAlertReportDialog(
     )
 }
 
-/**
- * La ubicación se toma sola del GPS; aquí solo se muestra para que la
- * persona sepa si ya se obtuvo o si falta esperar antes de enviar.
- */
+/** Permite revisar la ubicación del reporte, elegirla en el mapa o usar el GPS. */
 @Composable
-private fun LocationSummary(location: PestAlertLocation?) {
+private fun LocationSummary(
+    location: PestAlertLocation?,
+    currentLocation: PestAlertLocation?,
+    enabled: Boolean,
+    onChooseLocation: () -> Unit,
+    onUseCurrentLocation: () -> Unit
+) {
     val waiting = location == null
     Surface(
         color = if (waiting) MaterialTheme.agroColors.warningContainer else MaterialTheme.colorScheme.primaryContainer,
@@ -136,25 +148,50 @@ private fun LocationSummary(location: PestAlertLocation?) {
         shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier
-                .padding(AgroSpacing.sm)
-                .semantics(mergeDescendants = true) {},
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+        Column(
+            modifier = Modifier.padding(AgroSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
-            Icon(
-                imageVector = if (waiting) Icons.Default.LocationSearching else Icons.Default.LocationOn,
-                contentDescription = null
-            )
-            Column {
-                Text(
-                    text = "Ubicación automática",
-                    style = MaterialTheme.typography.labelLarge
+            Row(
+                modifier = Modifier.semantics(mergeDescendants = true) {},
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+            ) {
+                Icon(
+                    imageVector = if (waiting) Icons.Default.LocationSearching else Icons.Default.LocationOn,
+                    contentDescription = null
                 )
-                Text(
-                    text = location?.let(::formatReportCoordinates) ?: "Esperando ubicación GPS…",
-                    style = MaterialTheme.typography.bodySmall
+                Column {
+                    Text(
+                        text = "Ubicación del reporte",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    Text(
+                        text = location?.let(::formatReportCoordinates)
+                            ?: "Selecciona el lugar en el mapa o usa tu GPS.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
+            ) {
+                AgroTextButton(
+                    text = "Elegir en mapa",
+                    onClick = onChooseLocation,
+                    enabled = enabled,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("choose-report-location")
+                )
+                AgroTextButton(
+                    text = "Usar mi GPS",
+                    onClick = onUseCurrentLocation,
+                    enabled = enabled && currentLocation != null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("use-current-report-location")
                 )
             }
         }

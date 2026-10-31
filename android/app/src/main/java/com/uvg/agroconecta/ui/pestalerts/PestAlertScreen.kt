@@ -63,6 +63,7 @@ import com.uvg.agroconecta.ui.components.SkeletonList
 import com.uvg.agroconecta.ui.components.StatusTag
 import com.uvg.agroconecta.ui.components.TagTone
 import com.uvg.agroconecta.ui.components.rememberAgroHaptics
+import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import com.uvg.agroconecta.ui.theme.AgroSizes
 import com.uvg.agroconecta.ui.theme.AgroSpacing
 import com.uvg.agroconecta.ui.theme.agroColors
@@ -78,13 +79,24 @@ fun PestAlertScreen(
     onRetry: () -> Unit,
     onAlertClick: (PestAlert) -> Unit,
     onReportPest: () -> Unit,
+    onRetryAlerts: () -> Unit = onRetry,
     onDismissAlertDetail: () -> Unit = {},
     onRetryAlertDetail: () -> Unit = {},
     onViewModeChanged: (PestAlertViewMode) -> Unit = {},
+    onMapCameraChanged: (Double, Double) -> Unit = { _, _ -> },
+    onMapTrackingModeChanged: (PestMapTrackingMode) -> Unit = {},
+    onCenterMapOnUser: () -> Unit = {},
+    onMapAlertSelected: (Int?) -> Unit = {},
+    onSearchVisibleArea: () -> Unit = {},
+    onSearchRadiusSelected: (Double) -> Unit = {},
     onDismissReportForm: () -> Unit = {},
     onReportPestTypeSelected: (PestType) -> Unit = {},
     onReportCropSelected: (String) -> Unit = {},
     onReportDescriptionChanged: (String) -> Unit = {},
+    onChooseReportLocation: () -> Unit = {},
+    onConfirmReportLocation: () -> Unit = {},
+    onCancelReportLocation: () -> Unit = {},
+    onUseCurrentLocationForReport: () -> Unit = {},
     onSubmitReport: () -> Unit = {},
     onDismissReportSuccess: () -> Unit = {},
     showFavoriteAction: Boolean = false,
@@ -97,6 +109,7 @@ fun PestAlertScreen(
 ) {
     val isLoadingLocationOrAlerts = uiState.isLocating || uiState.isLoadingAlerts
     val primaryErrorMessage = uiState.locationErrorMessage ?: uiState.alertsErrorMessage
+    val primaryErrorRetry = if (uiState.locationErrorMessage != null) onRetry else onRetryAlerts
     val snackbarHostState = remember { SnackbarHostState() }
 
     val haptics = rememberAgroHaptics()
@@ -136,14 +149,23 @@ fun PestAlertScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onReportPest,
-                modifier = Modifier.testTag("report-pest"),
-                icon = { Icon(imageVector = Icons.Default.BugReport, contentDescription = null) },
-                text = { Text("Reportar plaga", style = MaterialTheme.typography.labelLarge) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+            if (!uiState.isSelectingReportLocation) {
+                ExtendedFloatingActionButton(
+                    onClick = onReportPest,
+                    modifier = Modifier.testTag("report-pest"),
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.BugReport,
+                            contentDescription = null
+                        )
+                    },
+                    text = {
+                        Text("Reportar plaga", style = MaterialTheme.typography.labelLarge)
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            }
         }
     ) { contentPadding ->
         Column(
@@ -151,7 +173,10 @@ fun PestAlertScreen(
                 .fillMaxSize()
                 .padding(contentPadding)
         ) {
-            if (isLoadingLocationOrAlerts && uiState.alerts.isNotEmpty()) {
+            if (
+                isLoadingLocationOrAlerts &&
+                (uiState.alerts.isNotEmpty() || uiState.viewMode == PestAlertViewMode.MAP)
+            ) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
 
@@ -159,22 +184,55 @@ fun PestAlertScreen(
                 ReportSuccessBanner(message = message, onDismiss = onDismissReportSuccess)
             }
 
-            PestAlertViewSelector(
-                selectedMode = uiState.viewMode,
-                onModeSelected = onViewModeChanged
-            )
+            if (!uiState.isSelectingReportLocation) {
+                PestAlertViewSelector(
+                    selectedMode = uiState.viewMode,
+                    onModeSelected = onViewModeChanged
+                )
+            }
 
             // En el mapa el gesto se apaga: arrastrar hacia abajo debe mover el
             // mapa, no recargar.
             AgroPullToRefreshBox(
                 isRefreshing = isLoadingLocationOrAlerts,
                 onRefresh = onRetry,
-                enabled = uiState.viewMode != PestAlertViewMode.MAP,
+                enabled = uiState.viewMode != PestAlertViewMode.MAP &&
+                    !uiState.isSelectingReportLocation,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
             ) {
                 when {
+                    uiState.viewMode == PestAlertViewMode.MAP -> {
+                        PestAlertsMap(
+                            currentLocation = uiState.userLocation,
+                            alerts = uiState.alerts,
+                            searchArea = uiState.lastSearchArea,
+                            errorMessage = primaryErrorMessage,
+                            onRetry = primaryErrorRetry,
+                            onAlertClick = onAlertClick,
+                            selectedAlertId = uiState.selectedAlertId,
+                            onSelectedAlertIdChanged = onMapAlertSelected,
+                            showSearchAreaAction = uiState.shouldShowVisibleAreaSearch,
+                            showEmptySearchResult = uiState.lastSearchArea != null &&
+                                uiState.alerts.isEmpty() &&
+                                !uiState.isLoadingAlerts,
+                            isSearchingArea = uiState.isLoadingAlerts,
+                            onCameraChanged = onMapCameraChanged,
+                            trackingMode = uiState.trackingMode,
+                            onTrackingModeChanged = onMapTrackingModeChanged,
+                            onCenterOnUser = onCenterMapOnUser,
+                            onSearchVisibleArea = onSearchVisibleArea,
+                            selectedRadiusKm = uiState.activeSearchRadiusKm,
+                            onSearchRadiusSelected = onSearchRadiusSelected,
+                            isSelectingReportLocation = uiState.isSelectingReportLocation,
+                            reportLocationDraft = uiState.reportLocationDraft,
+                            onConfirmReportLocation = onConfirmReportLocation,
+                            onCancelReportLocation = onCancelReportLocation,
+                            onUseCurrentLocationForReport = onUseCurrentLocationForReport
+                        )
+                    }
+
                     isLoadingLocationOrAlerts && uiState.alerts.isEmpty() -> {
                         SkeletonList(
                             count = 3,
@@ -188,7 +246,7 @@ fun PestAlertScreen(
                             ErrorState(
                                 title = "No pudimos ver las alertas",
                                 message = primaryErrorMessage,
-                                onRetry = onRetry
+                                onRetry = primaryErrorRetry
                             )
                         }
                     }
@@ -203,21 +261,11 @@ fun PestAlertScreen(
                         }
                     }
 
-                    uiState.viewMode == PestAlertViewMode.MAP -> {
-                        PestAlertsMap(
-                            alerts = uiState.alerts,
-                            currentLocation = uiState.location,
-                            errorMessage = primaryErrorMessage,
-                            onRetry = onRetry,
-                            onAlertClick = onAlertClick
-                        )
-                    }
-
                     else -> {
                         AlertsList(
                             alerts = uiState.alerts,
                             errorMessage = primaryErrorMessage,
-                            onRetry = onRetry,
+                            onRetry = primaryErrorRetry,
                             onAlertClick = onAlertClick
                         )
                     }
@@ -226,21 +274,25 @@ fun PestAlertScreen(
         }
     }
 
-    if (uiState.isReportFormVisible) {
+    if (uiState.isReportFormVisible && !uiState.isSelectingReportLocation) {
         PestAlertReportDialog(
             formState = uiState.reportForm,
-            location = uiState.location,
+            location = uiState.reportLocation,
+            currentLocation = uiState.userLocation,
             isSubmitting = uiState.isSubmittingReport,
-            errorMessage = uiState.reportErrorMessage ?: uiState.locationErrorMessage,
+            errorMessage = uiState.reportErrorMessage
+                ?: uiState.locationErrorMessage.takeIf { uiState.reportLocation == null },
             onDismiss = onDismissReportForm,
             onPestTypeSelected = onReportPestTypeSelected,
             onCropSelected = onReportCropSelected,
             onDescriptionChanged = onReportDescriptionChanged,
+            onChooseLocation = onChooseReportLocation,
+            onUseCurrentLocation = onUseCurrentLocationForReport,
             onSubmit = onSubmitReport
         )
     }
 
-    uiState.selectedAlert?.let { alert ->
+    uiState.selectedAlertDetails?.let { alert ->
         PestAlertDetailSheet(
             alert = alert,
             products = uiState.suggestedProducts,

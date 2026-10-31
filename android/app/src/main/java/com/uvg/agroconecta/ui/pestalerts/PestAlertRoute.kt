@@ -17,6 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
+import com.uvg.agroconecta.data.location.GeoCoordinates
 import kotlinx.coroutines.launch
 
 private val locationPermissions = arrayOf(
@@ -97,17 +99,35 @@ fun PestAlertRoute(
         }
     }
 
+    LifecycleStartEffect(isLocationPermissionResolved) {
+        if (isLocationPermissionResolved && context.hasLocationPermission()) {
+            viewModel.startLocationTracking()
+        }
+        onStopOrDispose {
+            viewModel.stopLocationTracking()
+        }
+    }
+
     PestAlertScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
         onRetry = requestOrRefreshLocation,
-        onAlertClick = viewModel::selectAlert,
+        onRetryAlerts = viewModel::retryNearbyAlerts,
+        onAlertClick = { alert -> viewModel.openAlertDetails(alert.id) },
         onDismissAlertDetail = viewModel::dismissAlertDetail,
         onRetryAlertDetail = viewModel::retrySuggestedProducts,
         onViewModeChanged = viewModel::setViewMode,
+        onMapCameraChanged = { latitude, longitude ->
+            viewModel.onMapMoved(GeoCoordinates(latitude, longitude))
+        },
+        onMapTrackingModeChanged = viewModel::setTrackingMode,
+        onCenterMapOnUser = viewModel::centerOnUser,
+        onMapAlertSelected = viewModel::selectAlert,
+        onSearchVisibleArea = viewModel::searchVisibleArea,
+        onSearchRadiusSelected = viewModel::changeSearchRadius,
         onReportPest = {
             viewModel.openReportForm()
-            if (uiState.location == null && !uiState.isLocating) {
+            if (uiState.userLocation == null && !uiState.isLocating) {
                 requestOrRefreshLocation()
             }
         },
@@ -115,6 +135,10 @@ fun PestAlertRoute(
         onReportPestTypeSelected = viewModel::selectReportPestType,
         onReportCropSelected = viewModel::selectReportCrop,
         onReportDescriptionChanged = viewModel::updateReportDescription,
+        onChooseReportLocation = viewModel::openReportLocationPicker,
+        onConfirmReportLocation = viewModel::confirmReportLocation,
+        onCancelReportLocation = viewModel::cancelReportLocationPicker,
+        onUseCurrentLocationForReport = viewModel::useCurrentLocationForReport,
         onSubmitReport = viewModel::submitPestReport,
         onDismissReportSuccess = viewModel::clearReportSuccess,
         showFavoriteAction = showFavoriteAction,
