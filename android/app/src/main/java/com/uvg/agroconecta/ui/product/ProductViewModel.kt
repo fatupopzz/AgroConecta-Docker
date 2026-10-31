@@ -221,7 +221,9 @@ class ProductViewModel @Inject constructor(
         }
     }
 
-    fun addToCart(idAgricultor: Int) {
+    // La cantidad llega desde el selector del detalle; por defecto 1 para no
+    // romper a quien llame sin elegirla.
+    fun addToCart(idAgricultor: Int, cantidad: Int = 1) {
         if (_isAddingToCart.value == true) return
         val offer = _selectedOffer.value
         if (offer == null || offer.idInventario <= 0 || offer.stock < 1 || idAgricultor <= 0) {
@@ -237,7 +239,7 @@ class ProductViewModel @Inject constructor(
                     idAgricultor = idAgricultor,
                     request = AddItemRequest(
                         idInventario = offer.idInventario,
-                        cantidad = 1
+                        cantidad = cantidad.coerceIn(1, offer.stock)
                     )
                 )
                 if (response.isSuccessful) {

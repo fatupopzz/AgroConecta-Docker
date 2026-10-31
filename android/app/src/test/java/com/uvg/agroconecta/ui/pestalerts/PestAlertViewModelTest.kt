@@ -3,10 +3,13 @@ package com.uvg.agroconecta.ui.pestalerts
 import com.uvg.agroconecta.MainDispatcherRule
 import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.location.GeoCoordinates
+import com.uvg.agroconecta.data.models.FarmLocation
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
 import com.uvg.agroconecta.data.models.PestType
+import com.uvg.agroconecta.data.repository.FarmLocationSource
+import com.uvg.agroconecta.data.repository.NoFarmLocation
 import com.uvg.agroconecta.data.repository.PestAlertRepository
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import kotlinx.coroutines.CancellationException
@@ -15,6 +18,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -622,10 +626,31 @@ class PestAlertViewModelTest {
         reportedAt = "2026-09-21T15:30:00Z"
     )
 
+    @Test
+    fun `con la finca marcada busca alertas alrededor de ella sin usar el GPS`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val repository = FakePestAlertRepository(alerts = listOf(alert()))
+            val gps = FakeCurrentLocationProvider(coordinates = GeoCoordinates(1.0, 1.0))
+            val farm = object : FarmLocationSource {
+                override suspend fun savedLocation() =
+                    FarmLocation("Chimaltenango", "Tecpán Guatemala", null, 14.76, -91.0)
+            }
+            val viewModel = createViewModel(repository, gps, farm)
+
+            assertTrue(viewModel.useSavedFarmLocation())
+
+            assertEquals(0, gps.requests)
+            assertEquals(14.76, viewModel.uiState.value.farmLocation?.latitude ?: 0.0, 0.0)
+            assertNull(viewModel.uiState.value.userLocation)
+            assertEquals(listOf(14.76 to -91.0), repository.nearbyRequests.map { it.latitude to it.longitude })
+            assertEquals(listOf(14.76 to -91.0), repository.pushRegistrations)
+        }
+
     private fun createViewModel(
         repository: PestAlertRepository,
-        locationProvider: CurrentLocationProvider = FakeCurrentLocationProvider()
-    ) = PestAlertViewModel(repository, locationProvider)
+        locationProvider: CurrentLocationProvider = FakeCurrentLocationProvider(),
+        farmLocations: FarmLocationSource = NoFarmLocation
+    ) = PestAlertViewModel(repository, locationProvider, farmLocations)
 }
 
 private class FakeCurrentLocationProvider(

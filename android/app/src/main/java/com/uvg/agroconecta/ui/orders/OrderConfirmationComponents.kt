@@ -1,58 +1,61 @@
 package com.uvg.agroconecta.ui.orders
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Store
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.ui.cart.CartItemUI
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroTextField
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.components.ProductImage
+import com.uvg.agroconecta.ui.components.RadioOption
+import com.uvg.agroconecta.ui.components.SkeletonBox
+import com.uvg.agroconecta.ui.components.StatusTag
+import com.uvg.agroconecta.ui.components.formatQuetzales
 import com.uvg.agroconecta.ui.orders.checkout.CheckoutValidation
+import com.uvg.agroconecta.ui.theme.AgroSizes
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.tabularNumbers
 
-internal val CheckoutGreenPrimary = Color(0xFF2E7D32)
-internal val CheckoutGreenSurface = Color(0xFFF1F8E9)
-internal val CheckoutGrayMid = Color(0xFF78909C)
-internal val CheckoutGrayLight = Color(0xFFECEFF1)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun OrderConfirmationTopBar(onBack: () -> Unit, enabled: Boolean = true) {
-    TopAppBar(
-        title = {
-            Text(
-                "Confirmar pedido",
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium
-            )
-        },
-        navigationIcon = {
-            IconButton(onClick = onBack, enabled = enabled) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Volver",
-                    tint = Color.White
-                )
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = CheckoutGreenPrimary
-        )
-    )
+    AgroTopAppBar(title = "Confirmar pedido", onBack = onBack, backEnabled = enabled)
 }
 
+/**
+ * Total y botón de confirmar. El error se queda visible hasta que la persona
+ * actúe (no es un snackbar que desaparece) porque perder un pedido sin saber
+ * por qué es lo peor que puede pasar en esta pantalla.
+ */
 @Composable
 internal fun OrderConfirmationBottomBar(
     total: Double,
@@ -63,72 +66,50 @@ internal fun OrderConfirmationBottomBar(
     canRetry: Boolean,
     onRetryOrder: () -> Unit
 ) {
-    Surface(shadowElevation = 8.dp) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shadowElevation = 8.dp
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .navigationBarsPadding()
+                .padding(horizontal = AgroSpacing.screenHorizontal, vertical = AgroSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
             if (errorMessage != null) {
-                Text(
-                    text = errorMessage,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                InlineError(
+                    message = errorMessage,
+                    onRetry = if (canRetry && !isCreatingOrder) onRetryOrder else null
                 )
-                if (canRetry) {
-                    OutlinedButton(
-                        onClick = onRetryOrder,
-                        enabled = !isCreatingOrder,
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Reintentar") }
-                }
-                Spacer(Modifier.height(8.dp))
             }
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics(mergeDescendants = true) {},
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Total a pagar",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = CheckoutGrayMid
+                    text = "Total a pagar",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
                 )
                 Text(
-                    "Q${"%.2f".format(total)}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = CheckoutGreenPrimary
+                    text = formatQuetzales(total),
+                    style = MaterialTheme.typography.headlineMedium.tabularNumbers,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
-            Spacer(Modifier.height(10.dp))
-            Button(
+            AgroPrimaryButton(
+                text = "Confirmar pedido",
+                loadingText = "Enviando pedido…",
+                icon = Icons.Default.CheckCircle,
                 onClick = onConfirmOrder,
-                enabled = canConfirm && !isCreatingOrder,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CheckoutGreenPrimary
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                if (isCreatingOrder) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    if (isCreatingOrder) "Enviando pedido…" else "Confirmar pedido",
-                    style = MaterialTheme.typography.titleSmall
-                )
-            }
+                enabled = canConfirm,
+                loading = isCreatingOrder,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -139,61 +120,28 @@ internal fun DeliveryTypeCard(
     onDeliveryTypeChange: (String) -> Unit,
     enabled: Boolean = true
 ) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    CheckoutSection(title = "¿Cómo recibes tu pedido?") {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+            modifier = Modifier.selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
-            Text(
-                "Tipo de entrega",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(8.dp))
-            DeliveryTypeOption(
-                enabled = enabled,
+            RadioOption(
+                label = "Entrega en mi finca",
+                description = "El distribuidor lo lleva a tu dirección",
+                icon = Icons.Default.Home,
                 selected = deliveryType == "domicilio",
-                label = "Entrega a domicilio",
+                enabled = enabled,
                 onClick = { onDeliveryTypeChange("domicilio") }
             )
-            DeliveryTypeOption(
-                enabled = enabled,
+            RadioOption(
+                label = "Lo recojo yo",
+                description = "Pasas por la tienda del distribuidor",
+                icon = Icons.Default.Store,
                 selected = deliveryType == "recogida",
-                label = "Recoger en punto",
+                enabled = enabled,
                 onClick = { onDeliveryTypeChange("recogida") }
             )
         }
-    }
-}
-
-@Composable
-private fun DeliveryTypeOption(
-    selected: Boolean,
-    label: String,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(
-            selected = selected,
-            enabled = enabled,
-            onClick = onClick,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = CheckoutGreenPrimary
-            )
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium
-        )
     }
 }
 
@@ -203,58 +151,21 @@ internal fun DeliveryAddressCard(
     onDeliveryAddressChange: (String) -> Unit,
     enabled: Boolean = true
 ) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = CheckoutGreenPrimary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "Dirección de entrega",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = deliveryAddress,
-                enabled = enabled,
-                onValueChange = onDeliveryAddressChange,
-                placeholder = {
-                    Text(
-                        "Ej: Aldea El Tablón, Jalapa",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = CheckoutGrayMid
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                isError = CheckoutValidation.isDeliveryAddressTooShort(deliveryAddress),
-                supportingText = {
-                    if (CheckoutValidation.isDeliveryAddressTooShort(deliveryAddress)) {
-                        Text(
-                            "Ingresá una dirección más específica",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CheckoutGreenPrimary,
-                    unfocusedBorderColor = CheckoutGrayLight,
-                    cursorColor = CheckoutGreenPrimary
-                ),
-                maxLines = 3
-            )
-        }
+    CheckoutSection(title = "Dirección de entrega", icon = Icons.Default.LocationOn) {
+        AgroTextField(
+            value = deliveryAddress,
+            onValueChange = onDeliveryAddressChange,
+            label = "Aldea, caserío o referencia",
+            placeholder = "Ej: Aldea El Tablón, Jalapa",
+            errorMessage = if (CheckoutValidation.isDeliveryAddressTooShort(deliveryAddress)) {
+                "Agrega más detalles para que el distribuidor llegue"
+            } else {
+                null
+            },
+            enabled = enabled,
+            singleLine = false,
+            maxLines = 3
+        )
     }
 }
 
@@ -263,99 +174,55 @@ internal fun PickupAddressCard(
     pickupAddress: String?,
     isLoadingPickupAddress: Boolean
 ) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = CheckoutGreenSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Store,
-                    contentDescription = null,
-                    tint = CheckoutGreenPrimary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "Punto de recogida",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            when {
-                isLoadingPickupAddress -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = CheckoutGreenPrimary
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Cargando dirección...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = CheckoutGrayMid
-                        )
-                    }
-                }
+    CheckoutSection(title = "Dónde recogerlo", icon = Icons.Default.Store) {
+        when {
+            isLoadingPickupAddress -> SkeletonBox(
+                Modifier
+                    .fillMaxWidth()
+                    .height(24.dp)
+            )
 
-                pickupAddress.isNullOrBlank() -> {
-                    Text(
-                        "Dirección no disponible",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
+            pickupAddress.isNullOrBlank() -> InlineError(
+                message = "El distribuidor no tiene una dirección registrada. Elige entrega en tu finca."
+            )
 
-                else -> {
-                    Text(
-                        text = pickupAddress,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.DarkGray
-                    )
-                }
-            }
+            else -> Text(
+                text = pickupAddress,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
 
 @Composable
 internal fun PaymentMethodCard() {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = CheckoutGreenSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    AgroCard(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        border = null,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.padding(AgroSpacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.Default.Payments,
                 contentDescription = null,
-                tint = CheckoutGreenPrimary,
-                modifier = Modifier.size(20.dp)
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(AgroSizes.iconMedium)
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(AgroSpacing.sm))
             Column {
                 Text(
-                    "Método de pago",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = CheckoutGrayMid
+                    text = "Pagas al recibir",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
-                    "Pago contra entrega",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = CheckoutGreenPrimary
+                    text = "En efectivo, cuando te entreguen el pedido",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }
@@ -363,76 +230,99 @@ internal fun PaymentMethodCard() {
 }
 
 @Composable
-internal fun OrderSummaryHeader(itemCount: Int) {
-    Text(
-        "Resumen del pedido ($itemCount productos)",
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Bold,
-        color = Color(0xFF37474F)
-    )
+internal fun OrderSummaryHeader(itemCount: Int, distributorName: String? = null) {
+    Column(
+        modifier = Modifier
+            .padding(top = AgroSpacing.xs)
+            .semantics(mergeDescendants = true) { heading() }
+    ) {
+        Text(
+            text = if (itemCount == 1) "Tu pedido (1 producto)" else "Tu pedido ($itemCount productos)",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        distributorName?.let {
+            Text(
+                text = "Te lo vende $it",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Composable
 internal fun OrderSummaryItemCard(item: CartItemUI) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+    AgroCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(AgroSpacing.sm)
+                .semantics(mergeDescendants = true) {},
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = CheckoutGreenSurface,
-                modifier = Modifier.size(44.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.Eco,
-                        contentDescription = null,
-                        tint = CheckoutGreenPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-            Spacer(Modifier.width(12.dp))
+            ProductImage(
+                imagenUrl = item.imagenUrl,
+                contentDescription = null,
+                iconSize = AgroSizes.iconMedium,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+            )
+            Spacer(Modifier.width(AgroSpacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = item.nombre,
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = item.distribuidor,
                     style = MaterialTheme.typography.bodySmall,
-                    color = CheckoutGrayMid
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(4.dp))
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = CheckoutGrayLight
-                ) {
-                    Text(
-                        text = "Cantidad: ${item.cantidad}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF37474F),
-                        modifier = Modifier.padding(
-                            horizontal = 8.dp,
-                            vertical = 3.dp
-                        )
-                    )
-                }
+                Spacer(Modifier.height(AgroSpacing.xxs))
+                StatusTag(text = "Cantidad: ${item.cantidad}")
             }
             Text(
-                text = "Q${"%.2f".format(item.subtotal)}",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = CheckoutGreenPrimary
+                text = formatQuetzales(item.subtotal),
+                style = MaterialTheme.typography.titleSmall.tabularNumbers,
+                color = MaterialTheme.colorScheme.primary
             )
+        }
+    }
+}
+
+@Composable
+private fun CheckoutSection(
+    title: String,
+    icon: ImageVector? = null,
+    content: @Composable () -> Unit
+) {
+    AgroCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(AgroSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(AgroSizes.iconSmall)
+                    )
+                    Spacer(Modifier.width(AgroSpacing.xs))
+                }
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.semantics { heading() }
+                )
+            }
+            content()
         }
     }
 }

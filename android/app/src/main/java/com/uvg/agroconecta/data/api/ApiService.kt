@@ -324,10 +324,34 @@ interface ApiService {
         @Query("limit") limit: Int = 10
     ): Response<DistributorReviewsResponse>
 
+    // Reseña del distribuidor en su propia tabla. Antes se guardaba como
+    // reseña de su primer producto y movía las estrellas de otros
+    // distribuidores que venden ese mismo producto.
+    @POST("distribuidoresReview/{id}/reviews")
+    suspend fun createDistributorReview(
+        @Path("id") id: Int,
+        @Body body: CreateReviewRequest
+    ): Response<DistributorReviewCreatedResponse>
+
     @GET("distribuidores/{id}/stats")
     suspend fun getDistributorStats(
         @Path("id") id: Int
     ): Response<DistributorStatsResponse>
+
+    // Lo que el distribuidor tiene a la venta (activo y con existencias), con
+    // los mismos campos que el catálogo.
+    @GET("distribuidores/{id}/productos")
+    suspend fun getDistributorProducts(
+        @Path("id") id: Int
+    ): Response<List<Product>>
+
+    // Ubicación de la finca del agricultor que inició sesión. 404 = todavía no
+    // la guardó.
+    @GET("agricultores/me/ubicacion")
+    suspend fun getFarmLocation(): Response<FarmLocation>
+
+    @PUT("agricultores/me/ubicacion")
+    suspend fun saveFarmLocation(@Body body: SaveFarmLocationRequest): Response<FarmLocation>
 
     // ── Distributor by ID ─────────────────────────────────────────────────
     @GET("distribuidores/{id}")

@@ -12,12 +12,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import com.uvg.agroconecta.data.location.GeoCoordinates
+import kotlinx.coroutines.launch
 
 private val locationPermissions = arrayOf(
     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -55,12 +57,24 @@ fun PestAlertRoute(
         }
     }
 
-    val requestOrRefreshLocation = {
+    val requestGpsLocation = {
         if (context.hasLocationPermission()) {
             isLocationPermissionResolved = true
             viewModel.refreshLocation()
         } else {
             locationPermissionLauncher.launch(locationPermissions)
+        }
+    }
+
+    val scope = rememberCoroutineScope()
+    val requestOrRefreshLocation: () -> Unit = {
+        scope.launch {
+            // La finca guardada va primero: no hace falta pedir el GPS.
+            if (viewModel.useSavedFarmLocation()) {
+                isLocationPermissionResolved = true
+                return@launch
+            }
+            requestGpsLocation()
         }
     }
 

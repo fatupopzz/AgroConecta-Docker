@@ -1,44 +1,72 @@
 package com.uvg.agroconecta.ui.orders
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.uvg.agroconecta.data.models.OrderTrackingChange
 import com.uvg.agroconecta.data.models.OrderTrackingResponse
-import com.uvg.agroconecta.ui.theme.*
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.RefreshableFullScreen
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.components.ErrorState
+import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.components.SkeletonList
+import com.uvg.agroconecta.ui.components.StatusTag
+import com.uvg.agroconecta.ui.components.formatFriendlyDateTime
+import com.uvg.agroconecta.ui.theme.AgroSizes
+import com.uvg.agroconecta.ui.theme.AgroSpacing
 
-private data class TrackingStep(val estado: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+private data class TrackingStep(val estado: String, val icon: ImageVector)
 
 private val mainTrackingSteps = listOf(
-    TrackingStep("confirmado", "Confirmado", Icons.Default.CheckCircle),
-    TrackingStep("preparando", "Preparando", Icons.Default.Inventory),
-    TrackingStep("en_ruta", "En ruta", Icons.Default.LocalShipping),
-    TrackingStep("entregado", "Entregado", Icons.Default.Home)
+    TrackingStep("confirmado", Icons.Default.CheckCircle),
+    TrackingStep("preparando", Icons.Default.Inventory),
+    TrackingStep("en_ruta", Icons.Default.LocalShipping),
+    TrackingStep("entregado", Icons.Default.Home)
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderTrackingScreen(
     tracking: OrderTrackingResponse?,
@@ -48,106 +76,72 @@ fun OrderTrackingScreen(
     onRetry: () -> Unit,
     onOpenAdvice: (Int) -> Unit
 ) {
+    // El ViewModel limpia el seguimiento al recargar. Se sigue mostrando el
+    // anterior mientras llega el nuevo para que la pantalla no salte a siluetas
+    // cada vez que alguien desliza para ver si ya cambió el estado.
+    var lastTracking by remember { mutableStateOf<OrderTrackingResponse?>(null) }
+    LaunchedEffect(tracking) {
+        if (tracking != null) lastTracking = tracking
+    }
+    val shownTracking = tracking ?: lastTracking.takeIf { isLoading }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "Seguimiento del pedido",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = GreenPrimary)
-            )
-        },
-        containerColor = GrayLight
+        topBar = { AgroTopAppBar(title = "Seguimiento del pedido", onBack = onBack) },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Box(
+        AgroPullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = onRetry,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
             when {
-                isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = GreenPrimary
+                isLoading && shownTracking == null -> SkeletonList(
+                    count = 3,
+                    description = "Cargando seguimiento",
+                    modifier = Modifier.padding(AgroSpacing.screenHorizontal)
+                )
+
+                errorMessage != null -> RefreshableFullScreen {
+                    ErrorState(
+                        title = "No pudimos ver tu pedido",
+                        message = errorMessage,
+                        onRetry = onRetry
                     )
                 }
 
-                errorMessage != null -> {
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            Icons.Default.CloudOff,
-                            contentDescription = null,
-                            tint = GrayBorder,
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Text(
-                            text = errorMessage,
-                            color = GrayMid,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Button(
-                            onClick = onRetry,
-                            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-                        ) {
-                            Text("Reintentar")
-                        }
-                    }
-                }
-
-                tracking != null -> {
+                shownTracking != null -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
+                        verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
                     ) {
-                        item { TrackingHeader(tracking = tracking) }
-                        item { TrackingStepper(currentEstado = tracking.estadoActual) }
-                        if (tracking.cambios.isNotEmpty()) {
-                            item {
+                        item(key = "header") { TrackingHeader(tracking = shownTracking) }
+                        item(key = "stepper") { TrackingStepper(currentEstado = shownTracking.estadoActual) }
+                        if (shownTracking.cambios.isNotEmpty()) {
+                            item(key = "history-title") {
                                 Text(
                                     text = "Historial",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = GrayDark,
-                                    modifier = Modifier.padding(top = 4.dp)
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier
+                                        .padding(top = AgroSpacing.xs)
+                                        .semantics { heading() }
                                 )
                             }
-                            items(tracking.cambios) { change ->
+                            items(shownTracking.cambios) { change ->
                                 TimelineItem(change = change)
                             }
                         }
-                        item {
-                            Button(
-                                onClick = { onOpenAdvice(tracking.idPedido) },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Asesoría técnica")
-                            }
+                        item(key = "advice") {
+                            AgroSecondaryButton(
+                                text = "Pedir asesoría técnica",
+                                icon = Icons.AutoMirrored.Filled.Chat,
+                                onClick = { onOpenAdvice(shownTracking.idPedido) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
-                        item { Spacer(Modifier.height(8.dp)) }
                     }
                 }
             }
@@ -162,74 +156,62 @@ private fun TrackingHeader(tracking: OrderTrackingResponse) {
     val progress = (currentStepIndex + 1) / mainTrackingSteps.size.toFloat()
     val isCanceled = tracking.estadoActual == "cancelado"
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+    AgroCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(AgroSpacing.md)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.semantics(mergeDescendants = true) {}
+            ) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .background(GreenSurface, CircleShape),
+                        .size(AgroSizes.minTouchTarget)
+                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.LocalShipping,
                         contentDescription = null,
-                        tint = GreenPrimary,
-                        modifier = Modifier.size(26.dp)
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
-                Spacer(Modifier.width(14.dp))
-                Column {
+                Spacer(Modifier.width(AgroSpacing.sm))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Pedido #${tracking.idPedido}",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = GrayDark
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = tracking.estadoActual.toDisplayStatus(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isCanceled) MaterialTheme.colorScheme.error else GreenPrimary,
-                        fontWeight = FontWeight.SemiBold
+                    StatusTag(
+                        text = orderStatusLabel(tracking.estadoActual),
+                        tone = orderStatusTone(tracking.estadoActual)
                     )
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(AgroSpacing.md))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        "Entrega estimada",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = GrayMid
-                    )
-                    Text(
-                        tracking.tiempoEstimadoEntrega.toFriendlyDateTime(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = GrayDark
-                    )
-                }
+            Column(modifier = Modifier.semantics(mergeDescendants = true) {}) {
+                Text(
+                    text = "Entrega estimada",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = formatFriendlyDateTime(tracking.tiempoEstimadoEntrega) ?: "Por confirmar",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
 
             if (!isCanceled) {
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(AgroSpacing.sm))
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(6.dp),
-                    color = GreenPrimary,
-                    trackColor = GreenPale
+                        .height(8.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primaryContainer
                 )
             }
         }
@@ -241,53 +223,27 @@ private fun TrackingStepper(currentEstado: String) {
     val currentIndex = mainTrackingSteps.indexOfFirst { it.estado == currentEstado }
     val isCanceled = currentEstado == "cancelado"
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+    AgroCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(AgroSpacing.md)) {
             Text(
-                text = "Progreso",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = GrayDark
+                text = "Paso a paso",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(AgroSpacing.md))
 
             if (isCanceled) {
-                Surface(
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Cancel,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Pedido cancelado",
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
+                InlineError(message = "Este pedido se canceló.")
             } else {
                 mainTrackingSteps.forEachIndexed { index, step ->
                     val isDone = currentIndex >= index
                     val isCurrent = currentIndex == index
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics(mergeDescendants = true) {},
                         verticalAlignment = Alignment.Top
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -296,37 +252,42 @@ private fun TrackingStepper(currentEstado: String) {
                                 Box(
                                     modifier = Modifier
                                         .width(2.dp)
-                                        .height(36.dp)
+                                        .height(32.dp)
                                         .background(
-                                            if (currentIndex > index) GreenPrimary else GrayLight
+                                            if (currentIndex > index) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.outlineVariant
+                                            }
                                         )
                                 )
                             }
                         }
-                        Spacer(Modifier.width(14.dp))
-                        Column(modifier = Modifier.padding(top = 4.dp)) {
+                        Spacer(Modifier.width(AgroSpacing.sm))
+                        Column(modifier = Modifier.padding(top = AgroSpacing.xxs)) {
                             Text(
-                                text = step.label,
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = orderStatusLabel(step.estado),
+                                style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isDone) GrayDark else GrayMid
+                                color = if (isDone) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
                             )
                             Text(
                                 text = when {
-                                    isCurrent -> "Estado actual"
-                                    isDone -> "Completado"
-                                    else -> "Pendiente"
+                                    isCurrent -> "Aquí va tu pedido"
+                                    isDone -> "Listo"
+                                    else -> "Falta"
                                 },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = when {
-                                    isCurrent -> GreenPrimary
-                                    isDone -> GrayMid
-                                    else -> GrayBorder
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isCurrent) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
                                 }
                             )
-                            if (index < mainTrackingSteps.lastIndex) {
-                                Spacer(Modifier.height(8.dp))
-                            }
                         }
                     }
                 }
@@ -335,107 +296,85 @@ private fun TrackingStepper(currentEstado: String) {
     }
 }
 
+/**
+ * Punto del paso a paso. El paso actual se marca con un anillo en vez del
+ * pulso infinito de antes: se entiende igual y no obliga a redibujar la
+ * pantalla sin parar.
+ */
 @Composable
 private fun StepDot(
     isDone: Boolean,
     isCurrent: Boolean,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
+    icon: ImageVector
 ) {
-    val transition = rememberInfiniteTransition(label = "trackingPulse")
-    val scale by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 700, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "currentStateScale"
-    )
-
+    val ring = if (isCurrent) {
+        Modifier.border(3.dp, MaterialTheme.colorScheme.primaryContainer, CircleShape)
+    } else {
+        Modifier
+    }
     Box(
         modifier = Modifier
-            .size(32.dp)
-            .scale(if (isCurrent) scale else 1f)
+            .size(36.dp)
+            .then(ring)
+            .padding(if (isCurrent) 3.dp else 0.dp)
             .background(
-                color = when {
-                    isDone -> GreenPrimary
-                    else -> GrayLight
-                },
+                color = if (isDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
                 shape = CircleShape
             ),
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = if (isDone) Icons.Default.Check else icon,
+            imageVector = if (isDone && !isCurrent) Icons.Default.Check else icon,
             contentDescription = null,
-            tint = if (isDone) Color.White else GrayBorder,
-            modifier = Modifier.size(16.dp)
+            tint = if (isDone) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
         )
     }
 }
 
 @Composable
 private fun TimelineItem(change: OrderTrackingChange) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
+    AgroCard(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier
+                .padding(AgroSpacing.md)
+                .semantics(mergeDescendants = true) {},
             verticalAlignment = Alignment.Top
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .background(GreenSurface, CircleShape),
+                    .size(40.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.History,
                     contentDescription = null,
-                    tint = GreenPrimary,
-                    modifier = Modifier.size(18.dp)
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(AgroSizes.iconSmall)
                 )
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(AgroSpacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = change.estado.toDisplayStatus(),
+                    text = orderStatusLabel(change.estado),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = GrayDark
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = change.timestamp.toFriendlyDateTime(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = GrayMid
+                    text = formatFriendlyDateTime(change.timestamp) ?: "Sin fecha",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 change.notas?.takeIf { it.isNotBlank() }?.let { notes ->
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(AgroSpacing.xxs))
                     Text(
                         text = notes,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GrayDark
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
         }
     }
-}
-
-private fun String.toDisplayStatus(): String =
-    when (this) {
-        "confirmado" -> "Confirmado"
-        "preparando" -> "Preparando"
-        "en_ruta" -> "En ruta"
-        "entregado" -> "Entregado"
-        "cancelado" -> "Cancelado"
-        else -> replace("_", " ").replaceFirstChar { it.uppercase() }
-    }
-
-private fun String?.toFriendlyDateTime(): String {
-    if (isNullOrBlank()) return "Pendiente"
-    return take(16).replace("T", " ")
 }

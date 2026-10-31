@@ -25,8 +25,13 @@ class CartViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
+    // Sin esto la pantalla mostraba "Tu carrito está vacío" mientras cargaba.
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
     fun loadCart(idAgricultor: Int) {
         currentFarmerId = idAgricultor
+        _isLoading.value = true
 
         viewModelScope.launch {
             try {
@@ -55,6 +60,8 @@ class CartViewModel @Inject constructor(
                 }
             } catch (_: Exception) {
                 _errorMessage.value = "Error de conexión al cargar el carrito"
+            } finally {
+                _isLoading.value = false
             }
         }
     }

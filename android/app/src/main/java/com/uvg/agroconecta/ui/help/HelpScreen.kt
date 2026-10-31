@@ -4,23 +4,19 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AccountCircle
@@ -33,22 +29,13 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.ShoppingBag
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,26 +45,24 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.uvg.agroconecta.ui.theme.GrayLight
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPrimary
-import com.uvg.agroconecta.ui.theme.GreenPrimaryDark
-import com.uvg.agroconecta.ui.theme.GreenSurface
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroTextField
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.components.EmptyState
+import com.uvg.agroconecta.ui.theme.AgroConectaTheme
+import com.uvg.agroconecta.ui.theme.AgroSizes
+import com.uvg.agroconecta.ui.theme.AgroSpacing
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HelpScreen(
     onNavigateBack: () -> Unit,
@@ -85,30 +70,8 @@ fun HelpScreen(
     sections: List<FaqSection> = helpFaqSections
 ) {
     Scaffold(
-        containerColor = GrayLight,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Ayuda",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Regresar",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = GreenPrimary,
-                    titleContentColor = Color.White
-                )
-            )
-        }
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { AgroTopAppBar(title = "Ayuda", onBack = onNavigateBack) }
     ) { innerPadding ->
         var searchQuery by rememberSaveable { mutableStateOf("") }
         val filteredSections = remember(sections, searchQuery) {
@@ -129,19 +92,23 @@ fun HelpScreen(
                     // Los resultados siempre se muestran desde el inicio de la lista
                     coroutineScope.launch { listState.scrollToItem(0) }
                 },
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)
+                modifier = Modifier.padding(
+                    start = AgroSpacing.screenHorizontal,
+                    top = AgroSpacing.md,
+                    end = AgroSpacing.screenHorizontal
+                )
             )
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
                 contentPadding = PaddingValues(
-                    start = 16.dp,
-                    top = 12.dp,
-                    end = 16.dp,
-                    bottom = 32.dp
+                    start = AgroSpacing.screenHorizontal,
+                    top = AgroSpacing.xs,
+                    end = AgroSpacing.screenHorizontal,
+                    bottom = AgroSpacing.xl
                 ),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
                 if (searchQuery.isBlank()) {
                     item(key = "help-header") {
@@ -149,7 +116,11 @@ fun HelpScreen(
                     }
                 } else if (filteredSections.isEmpty()) {
                     item(key = "faq-empty-results") {
-                        FaqEmptyResults(query = searchQuery)
+                        EmptyState(
+                            icon = Icons.Default.SearchOff,
+                            title = "No encontramos resultados para \"${searchQuery.trim()}\"",
+                            message = "Prueba con otras palabras o escríbenos por WhatsApp."
+                        )
                     }
                 }
 
@@ -182,174 +153,108 @@ private fun FaqSearchField(
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    OutlinedTextField(
+    AgroTextField(
         value = query,
         onValueChange = onQueryChange,
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("faq-search-field"),
-        placeholder = { Text("Buscar en preguntas frecuentes") },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = null,
-                tint = GreenPrimary
-            )
-        },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
+        label = "Buscar en preguntas frecuentes",
+        leadingIcon = Icons.Default.Search,
+        trailingIcon = if (query.isNotEmpty()) {
+            {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(
-                        imageVector = Icons.Default.Clear,
-                        contentDescription = "Limpiar búsqueda",
-                        tint = GrayMid
-                    )
+                    Icon(imageVector = Icons.Default.Clear, contentDescription = "Limpiar búsqueda")
                 }
             }
+        } else {
+            null
         },
-        singleLine = true,
-        shape = RoundedCornerShape(16.dp),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
-            focusedBorderColor = GreenPrimary,
-            cursorColor = GreenPrimary
-        )
+        modifier = modifier.testTag("faq-search-field")
     )
 }
 
 @Composable
-private fun FaqEmptyResults(query: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 24.dp, horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(
-            imageVector = Icons.Default.SearchOff,
-            contentDescription = null,
-            tint = GrayMid,
-            modifier = Modifier.size(40.dp)
-        )
-        Text(
-            text = "No encontramos resultados para \"${query.trim()}\"",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = GreenPrimaryDark,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = "Prueba con otras palabras o contáctanos por WhatsApp.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = GrayMid,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
-@Composable
 private fun WhatsAppSupportCard(onClick: () -> Unit) {
-    Card(
+    AgroCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = GreenSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .padding(top = AgroSpacing.xs),
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        border = null
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(AgroSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Chat,
                     contentDescription = null,
-                    tint = GreenPrimary,
-                    modifier = Modifier.size(24.dp)
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
                     text = "¿Necesitas más ayuda?",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = GreenPrimaryDark
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.semantics { heading() }
                 )
             }
             Text(
                 text = "Escríbenos y el equipo de AgroConecta te ayudará.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = GrayMid
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Button(
+            AgroPrimaryButton(
+                text = "Escribir por WhatsApp",
+                icon = Icons.AutoMirrored.Filled.Chat,
                 onClick = onClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("whatsapp-support-button"),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Chat,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    text = "Contactar por WhatsApp",
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+                    .testTag("whatsapp-support-button")
+            )
         }
     }
 }
 
 @Composable
 private fun HelpHeader() {
-    Card(
+    AgroCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = GreenSurface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        border = null
     ) {
         Row(
-            modifier = Modifier.padding(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.padding(AgroSpacing.md),
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(AgroSizes.minTouchTarget),
                 shape = CircleShape,
-                color = GreenPrimary
+                color = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.HelpOutline,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(26.dp)
+                        contentDescription = null
                     )
                 }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)) {
                 Text(
                     text = "¿Cómo podemos ayudarte?",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = GreenPrimaryDark
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
-                    text = "Toca una pregunta para consultar la respuesta.",
+                    text = "Toca una pregunta para ver la respuesta.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GrayMid
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }
@@ -361,21 +266,20 @@ private fun CategoryHeader(category: HelpCategory) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, start = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(top = AgroSpacing.xs, start = AgroSpacing.xxs),
+        horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = category.icon(),
             contentDescription = null,
-            tint = GreenPrimary,
-            modifier = Modifier.size(22.dp)
+            tint = MaterialTheme.colorScheme.primary
         )
         Text(
             text = category.displayName,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = GreenPrimaryDark
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() }
         )
     }
 }
@@ -387,61 +291,44 @@ internal fun FaqAccordionItem(
 ) {
     var isExpanded by rememberSaveable(faq.id) { mutableStateOf(false) }
 
-    Card(
+    AgroCard(
         onClick = { isExpanded = !isExpanded },
         modifier = modifier
             .fillMaxWidth()
             .semantics {
-                stateDescription = if (isExpanded) "Expandida" else "Contraída"
-            },
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                stateDescription = if (isExpanded) "Respuesta abierta" else "Respuesta cerrada"
+            }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = AgroSpacing.md, vertical = AgroSpacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = faq.question,
                     modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Icon(
-                    imageVector = if (isExpanded) {
-                        Icons.Default.ExpandLess
-                    } else {
-                        Icons.Default.ExpandMore
-                    },
-                    contentDescription = if (isExpanded) {
-                        "Ocultar respuesta"
-                    } else {
-                        "Mostrar respuesta"
-                    },
-                    tint = GreenPrimary
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    // El estado ya lo anuncia la tarjeta; el ícono es solo visual.
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
 
             AnimatedVisibility(visible = isExpanded) {
                 Column {
-                    HorizontalDivider(color = GrayLight)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Text(
                         text = faq.answer,
-                        modifier = Modifier.padding(
-                            start = 16.dp,
-                            top = 14.dp,
-                            end = 16.dp,
-                            bottom = 16.dp
-                        ),
+                        modifier = Modifier.padding(AgroSpacing.md),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = GrayMid,
-                        lineHeight = 20.sp
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -460,7 +347,7 @@ private fun HelpCategory.icon(): ImageVector = when (this) {
 @Preview(showBackground = true)
 @Composable
 private fun HelpScreenPreview() {
-    MaterialTheme {
+    AgroConectaTheme(darkTheme = false) {
         HelpScreen(onNavigateBack = {})
     }
 }

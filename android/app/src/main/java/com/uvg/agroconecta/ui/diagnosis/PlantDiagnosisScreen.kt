@@ -1,48 +1,42 @@
 package com.uvg.agroconecta.ui.diagnosis
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.outlined.CenterFocusStrong
+import androidx.compose.material.icons.outlined.Eco
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -51,22 +45,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.uvg.agroconecta.data.models.Product
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.components.InlineError
 import com.uvg.agroconecta.ui.components.ProductImage
-import com.uvg.agroconecta.ui.theme.GrayLight
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPrimary
-import com.uvg.agroconecta.ui.theme.GreenSurface
-import com.uvg.agroconecta.ui.theme.OrangeAccent
-import com.uvg.agroconecta.ui.theme.OrangeLight
+import com.uvg.agroconecta.ui.components.StatusTag
+import com.uvg.agroconecta.ui.components.TagTone
+import com.uvg.agroconecta.ui.components.categoryBackground
+import com.uvg.agroconecta.ui.components.rememberAgroHaptics
+import com.uvg.agroconecta.ui.theme.AgroSizes
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.agroColors
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Diagnóstico de una hoja con el modelo del teléfono. El resultado va arriba
+ * y en grande: es lo que la persona vino a saber. Productos y aviso a vecinos
+ * quedan debajo, solo cuando la hoja tiene una enfermedad.
+ */
 @Composable
 fun PlantDiagnosisScreen(
     uiState: PlantDiagnosisUiState,
@@ -82,30 +88,24 @@ fun PlantDiagnosisScreen(
     onMessageShown: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val haptics = rememberAgroHaptics()
+
     LaunchedEffect(message) {
         message?.let {
             snackbarHostState.showSnackbar(it)
             onMessageShown()
         }
     }
+    // Analizar tarda unos segundos; la vibración avisa que ya hay resultado
+    // aunque la persona haya bajado el teléfono mientras esperaba.
+    LaunchedEffect(uiState is PlantDiagnosisUiState.Result) {
+        if (uiState is PlantDiagnosisUiState.Result) haptics.confirm()
+    }
 
     Scaffold(
-        containerColor = GrayLight,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Diagnosticar una hoja", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Regresar", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = GreenPrimary,
-                    titleContentColor = Color.White
-                )
-            )
-        }
+        topBar = { AgroTopAppBar(title = "Diagnosticar una hoja", onBack = onNavigateBack) }
     ) { padding ->
         Box(
             modifier = Modifier
@@ -132,35 +132,71 @@ fun PlantDiagnosisScreen(
 @Composable
 private fun CaptureContent(onTakePhoto: () -> Unit, onPickFromGallery: () -> Unit) {
     CenteredColumn {
-        Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = GreenPrimary, modifier = Modifier.size(56.dp))
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Toma una foto de una hoja afectada",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
+        StateIcon(
+            icon = Icons.Default.PhotoCamera,
+            container = MaterialTheme.colorScheme.primaryContainer,
+            tint = MaterialTheme.colorScheme.onPrimaryContainer
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(AgroSpacing.md))
         Text(
-            "Una sola hoja, de cerca y con buena luz. Funciona con maíz, tomate, papa y chile pimiento, aunque no tengas señal.",
-            color = GrayMid,
-            textAlign = TextAlign.Center
+            text = "Toma una foto de una hoja afectada",
+            style = MaterialTheme.typography.titleLarge,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { heading() }
         )
-        Spacer(Modifier.height(24.dp))
-        Button(
-            onClick = onTakePhoto,
+        Spacer(Modifier.height(AgroSpacing.md))
+        // Los tres consejos con ícono se entienden de un vistazo; en un párrafo
+        // se saltaban y llegaban fotos de toda la planta, que el modelo no lee bien.
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
-            Icon(Icons.Default.PhotoCamera, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Tomar foto")
+            PhotoTip(Icons.Outlined.Eco, "Una sola hoja", Modifier.weight(1f))
+            PhotoTip(Icons.Outlined.CenterFocusStrong, "De cerca", Modifier.weight(1f))
+            PhotoTip(Icons.Outlined.WbSunny, "Con buena luz", Modifier.weight(1f))
         }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onPickFromGallery, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = GreenPrimary)
-            Spacer(Modifier.width(8.dp))
-            Text("Elegir de la galería", color = GreenPrimary)
+        Spacer(Modifier.height(AgroSpacing.md))
+        Text(
+            text = "Funciona con maíz, tomate, papa y chile pimiento, aunque no tengas señal.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(AgroSpacing.lg))
+        AgroPrimaryButton(
+            text = "Tomar foto",
+            icon = Icons.Default.PhotoCamera,
+            onClick = onTakePhoto,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(AgroSpacing.xs))
+        AgroSecondaryButton(
+            text = "Elegir de la galería",
+            icon = Icons.Default.PhotoLibrary,
+            onClick = onPickFromGallery,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun PhotoTip(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = modifier.semantics(mergeDescendants = true) {}
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = AgroSpacing.sm, horizontal = AgroSpacing.xs),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
@@ -168,26 +204,45 @@ private fun CaptureContent(onTakePhoto: () -> Unit, onPickFromGallery: () -> Uni
 @Composable
 private fun AnalyzingContent() {
     CenteredColumn {
-        CircularProgressIndicator(color = GreenPrimary)
-        Spacer(Modifier.height(16.dp))
-        Text("Analizando la hoja…", color = GrayMid)
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(AgroSpacing.md))
+        Text(
+            text = "Analizando la hoja…",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+        )
     }
 }
 
 @Composable
 private fun UnclearPhotoContent(onTakeAnotherPhoto: () -> Unit) {
     CenteredColumn {
-        Icon(Icons.Default.WarningAmber, contentDescription = null, tint = OrangeAccent, modifier = Modifier.size(56.dp))
-        Spacer(Modifier.height(16.dp))
-        Text("Foto no clara", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        Text(UNCLEAR_PHOTO_MESSAGE, color = GrayMid, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(24.dp))
-        Button(
+        StateIcon(
+            icon = Icons.Default.WarningAmber,
+            container = MaterialTheme.agroColors.warningContainer,
+            tint = MaterialTheme.agroColors.onWarningContainer
+        )
+        Spacer(Modifier.height(AgroSpacing.md))
+        Text(
+            text = "Foto no clara",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.semantics { heading() }
+        )
+        Spacer(Modifier.height(AgroSpacing.xs))
+        Text(
+            text = UNCLEAR_PHOTO_MESSAGE,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(AgroSpacing.lg))
+        AgroPrimaryButton(
+            text = "Tomar otra foto",
+            icon = Icons.Default.PhotoCamera,
             onClick = onTakeAnotherPhoto,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
-        ) { Text("Tomar otra foto") }
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -204,8 +259,8 @@ private fun ResultContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(AgroSpacing.screenHorizontal),
+        verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
     ) {
         DiagnosisCard(state)
         UploadStatus(state.upload)
@@ -215,45 +270,64 @@ private fun ResultContent(
             AlertSection(state, onAlertNeighbors)
         }
 
-        OutlinedButton(onClick = onTakeAnotherPhoto, modifier = Modifier.fillMaxWidth()) {
-            Text("Diagnosticar otra hoja", color = GreenPrimary)
-        }
+        AgroSecondaryButton(
+            text = "Diagnosticar otra hoja",
+            icon = Icons.Default.PhotoCamera,
+            onClick = onTakeAnotherPhoto,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
 @Composable
 private fun DiagnosisCard(state: PlantDiagnosisUiState.Result) {
     val healthy = state.label.isHealthy
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = if (healthy) GreenSurface else Color.White)
+    val confidence = (state.confidence * 100).roundToInt()
+
+    AgroCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        containerColor = if (healthy) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.agroColors.warningContainer
+        }
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier.padding(AgroSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = if (healthy) Icons.Default.CheckCircle else Icons.Default.WarningAmber,
                     contentDescription = null,
-                    tint = if (healthy) GreenPrimary else OrangeAccent
+                    tint = if (healthy) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.agroColors.onWarningContainer
+                    }
                 )
-                Spacer(Modifier.width(8.dp))
-                Text(state.label.crop, color = GrayMid)
+                Spacer(Modifier.width(AgroSpacing.xs))
+                Text(
+                    text = state.label.crop,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                StatusTag(text = "Confianza: $confidence %", tone = TagTone.Neutral)
             }
-            Spacer(Modifier.height(4.dp))
             Text(
                 text = if (healthy) "¡Tu hoja está sana!" else state.label.disease,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.semantics { heading() }
             )
-            Spacer(Modifier.height(4.dp))
-            Text("Confianza: ${(state.confidence * 100).roundToInt()} %", color = GrayMid, fontSize = 13.sp)
-            Spacer(Modifier.height(8.dp))
             Text(
                 text = if (healthy) {
                     "No vemos señales de las enfermedades que conoce el modelo. Sigue revisando tu cultivo con regularidad."
                 } else {
                     "Es una orientación a partir de la foto. Confírmala con un técnico agrícola antes de aplicar un tratamiento."
                 },
-                fontSize = 13.sp
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }
@@ -279,19 +353,18 @@ private fun ProductsSection(
     onAddToCart: (Product) -> Unit,
     onProductClick: (Int) -> Unit
 ) {
-    Text("Productos recomendados", fontWeight = FontWeight.SemiBold)
+    Text(
+        text = "Productos recomendados",
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier
+            .padding(top = AgroSpacing.xs)
+            .semantics { heading() }
+    )
     when (val products = state.products) {
         ProductsState.NotApplicable -> Unit
         ProductsState.Loading -> InfoRow(null, "Buscando productos…", showProgress = true)
         ProductsState.WaitingForSignal -> InfoRow(Icons.Default.CloudOff, PRODUCTS_WAITING_MESSAGE)
-        is ProductsState.Error -> Column {
-            InfoRow(Icons.Default.WarningAmber, products.message)
-            TextButton(onClick = onRetryProducts) {
-                Icon(Icons.Default.Refresh, contentDescription = null, tint = GreenPrimary)
-                Spacer(Modifier.width(6.dp))
-                Text("Reintentar", color = GreenPrimary)
-            }
-        }
+        is ProductsState.Error -> InlineError(message = products.message, onRetry = onRetryProducts)
         is ProductsState.Loaded -> {
             products.products.forEach { product ->
                 ProductRow(
@@ -301,20 +374,24 @@ private fun ProductsSection(
                     onClick = { onProductClick(product.id) }
                 )
             }
-            products.recommendation?.let { Text(it, fontSize = 13.sp, color = GrayMid) }
+            products.recommendation?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun ProductRow(product: Product, isAdding: Boolean, onAddToCart: () -> Unit, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    AgroCard(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
+        Row(
+            modifier = Modifier.padding(AgroSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             ProductImage(
                 imagenUrl = product.imagenUrl,
                 imagenThumbUrl = product.imagenThumbUrl,
@@ -323,21 +400,38 @@ private fun ProductRow(product: Product, isAdding: Boolean, onAddToCart: () -> U
                 iconSize = 24.dp,
                 modifier = Modifier
                     .size(56.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(GreenSurface)
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(categoryBackground(product.categoria))
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(AgroSpacing.sm))
             Column(Modifier.weight(1f)) {
-                Text(product.nombre, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = product.nombre,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
                 listOfNotNull(product.marca, product.categoria).takeIf { it.isNotEmpty() }?.let {
-                    Text(it.joinToString(" · "), fontSize = 12.sp, color = GrayMid)
+                    Text(
+                        text = it.joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             IconButton(onClick = onAddToCart, enabled = !isAdding) {
                 if (isAdding) {
-                    CircularProgressIndicator(Modifier.size(20.dp), color = GreenPrimary, strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(AgroSizes.iconSmall),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp
+                    )
                 } else {
-                    Icon(Icons.Default.AddShoppingCart, contentDescription = "Agregar ${product.nombre} al carrito", tint = GreenPrimary)
+                    Icon(
+                        imageVector = Icons.Default.AddShoppingCart,
+                        contentDescription = "Agregar ${product.nombre} al carrito",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -348,56 +442,85 @@ private fun ProductRow(product: Product, isAdding: Boolean, onAddToCart: () -> U
 private fun AlertSection(state: PlantDiagnosisUiState.Result, onAlertNeighbors: () -> Unit) {
     val sent = state.upload is UploadState.Sent
     val enabled = sent && state.hasLocation && state.alert == AlertState.Idle
-    Button(
+    AgroPrimaryButton(
+        text = if (state.alert == AlertState.Sent) "Vecinos avisados" else "Avisar a mis vecinos",
+        loadingText = "Avisando…",
+        icon = if (state.alert == AlertState.Sent) Icons.Default.CheckCircle else Icons.Default.Campaign,
         onClick = onAlertNeighbors,
         enabled = enabled,
-        modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
-        contentPadding = PaddingValues(vertical = 12.dp)
-    ) {
-        if (state.alert == AlertState.Sending) {
-            CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
-        } else {
-            Icon(Icons.Default.Campaign, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(if (state.alert == AlertState.Sent) "Vecinos avisados" else "Avisar a mis vecinos")
-        }
-    }
+        loading = state.alert == AlertState.Sending,
+        modifier = Modifier.fillMaxWidth()
+    )
     val hint = when {
         state.alert == AlertState.Sent -> null
         state.upload is UploadState.Pending -> "Podrás avisar a tus vecinos cuando tengas señal."
         !state.hasLocation && sent -> "Activa la ubicación y diagnostica de nuevo para avisar a tus vecinos."
         else -> null
     }
-    hint?.let { Text(it, fontSize = 12.sp, color = GrayMid) }
-}
-
-@Composable
-private fun InfoRow(icon: ImageVector?, text: String, showProgress: Boolean = false) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(OrangeLight)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        when {
-            showProgress -> CircularProgressIndicator(Modifier.size(18.dp), color = GreenPrimary, strokeWidth = 2.dp)
-            icon != null -> Icon(icon, contentDescription = null, tint = OrangeAccent)
-        }
-        Spacer(Modifier.width(10.dp))
-        Text(text, fontSize = 13.sp)
+    hint?.let {
+        Text(
+            text = it,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
-private fun CenteredColumn(content: @Composable () -> Unit) {
-    Column(
+private fun InfoRow(icon: ImageVector?, text: String, showProgress: Boolean = false) {
+    Surface(
+        color = MaterialTheme.agroColors.warningContainer,
+        contentColor = MaterialTheme.agroColors.onWarningContainer,
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) { content() }
+            .fillMaxWidth()
+            .semantics { liveRegion = LiveRegionMode.Polite }
+    ) {
+        Row(
+            modifier = Modifier.padding(AgroSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+        ) {
+            when {
+                showProgress -> CircularProgressIndicator(
+                    modifier = Modifier.size(AgroSizes.iconSmall),
+                    color = MaterialTheme.agroColors.onWarningContainer,
+                    strokeWidth = 2.dp
+                )
+                icon != null -> Icon(icon, contentDescription = null)
+            }
+            Text(text = text, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun StateIcon(icon: ImageVector, container: Color, tint: Color) {
+    Surface(
+        shape = CircleShape,
+        color = container,
+        contentColor = tint,
+        modifier = Modifier.size(AgroSizes.illustration)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(AgroSizes.iconLarge))
+        }
+    }
+}
+
+// Centrado en la pantalla, pero desplazable: con la letra al 200 % los
+// botones quedarían fuera de alcance si la columna no pudiera moverse.
+@Composable
+private fun CenteredColumn(content: @Composable () -> Unit) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = maxHeight)
+                .verticalScroll(rememberScrollState())
+                .padding(AgroSpacing.lg),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) { content() }
+    }
 }

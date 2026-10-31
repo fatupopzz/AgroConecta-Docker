@@ -1,46 +1,24 @@
 package com.uvg.agroconecta.ui.orders
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,14 +27,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.ui.cart.CartItemUI
-import com.uvg.agroconecta.ui.theme.ErrorRed
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.OrangeAccent
-import com.uvg.agroconecta.ui.theme.OrangeLight
+import com.uvg.agroconecta.ui.components.AgroDropdownField
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroTextField
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
+import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.components.RadioOption
+import com.uvg.agroconecta.ui.components.StatusTag
+import com.uvg.agroconecta.ui.components.TagTone
+import com.uvg.agroconecta.ui.components.formatQuetzales
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.agroColors
+import com.uvg.agroconecta.ui.theme.tabularNumbers
 import java.text.Normalizer
 import java.util.Locale
 
@@ -103,7 +89,6 @@ private fun String.normalizedForSearch(): String = Normalizer
     .lowercase(Locale.ROOT)
     .trim()
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UrgentOrderScreen(
     cartItems: List<CartItemUI>,
@@ -116,14 +101,9 @@ fun UrgentOrderScreen(
 ) {
     var selectedPest by rememberSaveable { mutableStateOf("") }
     var selectedInventoryId by rememberSaveable { mutableStateOf<Int?>(null) }
-    var pestMenuExpanded by rememberSaveable { mutableStateOf(false) }
 
     BackHandler(enabled = isSubmitting) {
         // Evita abandonar la pantalla mientras el servidor procesa el pedido.
-    }
-
-    LaunchedEffect(isSubmitting) {
-        if (isSubmitting) pestMenuExpanded = false
     }
 
     val recommendedProduct = recommendUrgentProduct(cartItems, selectedPest)
@@ -142,61 +122,33 @@ fun UrgentOrderScreen(
 
     val canConfirm = selectedPest.isNotBlank() &&
         selectedProduct != null &&
-        deliveryAddress.trim().length >= 5 &&
-        !isSubmitting
+        deliveryAddress.trim().length >= 5
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Entrega urgente",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack,
-                        enabled = !isSubmitting
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = ErrorRed)
-            )
+            AgroTopAppBar(title = "Entrega urgente", onBack = onBack, backEnabled = !isSubmitting)
         },
         bottomBar = {
-            Surface(shadowElevation = 8.dp) {
-                Button(
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                shadowElevation = 8.dp
+            ) {
+                AgroPrimaryButton(
+                    text = "Pedir entrega urgente",
+                    loadingText = "Enviando pedido…",
+                    icon = Icons.Default.Warning,
                     onClick = {
                         selectedProduct?.let { product ->
                             onConfirmUrgentOrder(product, selectedPest)
                         }
                     },
                     enabled = canConfirm,
-                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                    loading = isSubmitting,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
-                        .height(52.dp)
-                ) {
-                    if (isSubmitting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(Icons.Default.Warning, contentDescription = null)
-                        Spacer(modifier = Modifier.size(8.dp))
-                        Text("Confirmar pedido urgente")
-                    }
-                }
+                        .navigationBarsPadding()
+                        .padding(horizontal = AgroSpacing.screenHorizontal, vertical = AgroSpacing.sm)
+                )
             }
         }
     ) { padding ->
@@ -204,205 +156,132 @@ fun UrgentOrderScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.md)
         ) {
-            item {
+            item(key = "notice") {
                 Surface(
-                    color = OrangeLight,
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, OrangeAccent)
+                    color = MaterialTheme.agroColors.warningContainer,
+                    contentColor = MaterialTheme.agroColors.onWarningContainer,
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(AgroSpacing.md),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.BugReport,
-                            contentDescription = null,
-                            tint = ErrorRed
-                        )
+                        Icon(imageVector = Icons.Default.BugReport, contentDescription = null)
                         Column {
                             Text(
                                 text = "Atención prioritaria",
-                                fontWeight = FontWeight.Bold,
-                                color = ErrorRed
+                                style = MaterialTheme.typography.titleSmall
                             )
                             Text(
-                                text = "El distribuidor recibirá este pedido marcado como urgente.",
-                                style = MaterialTheme.typography.bodySmall
+                                text = "El distribuidor verá este pedido primero, marcado como urgente.",
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         }
                     }
                 }
             }
 
-            item {
-                Text(
-                    text = "1. Tipo de plaga",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = { pestMenuExpanded = true },
-                        enabled = !isSubmitting,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = selectedPest.ifBlank { "Selecciona la plaga detectada" },
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(Icons.Default.ExpandMore, contentDescription = null)
-                    }
-                    DropdownMenu(
-                        expanded = pestMenuExpanded && !isSubmitting,
-                        onDismissRequest = { pestMenuExpanded = false },
-                        modifier = Modifier.fillMaxWidth(0.9f)
-                    ) {
-                        urgentPestTypes.forEach { pest ->
-                            DropdownMenuItem(
-                                text = { Text(pest) },
-                                enabled = !isSubmitting,
-                                onClick = {
-                                    selectedPest = pest
-                                    pestMenuExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Text(
-                    text = "2. Producto recomendado",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Elige el insumo del carrito que deseas recibir primero.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = GrayMid
-                )
-                if (selectedPest.isNotBlank() && recommendedProduct == null) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "No encontramos una coincidencia automática. Selecciona manualmente el producto adecuado.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = OrangeAccent,
-                        fontWeight = FontWeight.SemiBold
+            item(key = "pest") {
+                Column(verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)) {
+                    StepTitle("1. ¿Qué plaga encontraste?")
+                    AgroDropdownField(
+                        label = "Plaga",
+                        options = urgentPestTypes,
+                        selected = selectedPest.ifBlank { null },
+                        onSelectedChange = { selectedPest = it },
+                        optionLabel = { it },
+                        enabled = !isSubmitting
                     )
+                }
+            }
+
+            item(key = "product-title") {
+                Column(verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)) {
+                    StepTitle("2. ¿Qué producto necesitas primero?")
+                    Text(
+                        text = "Elige del carrito el que debe llegar antes.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (selectedPest.isNotBlank() && recommendedProduct == null) {
+                        Text(
+                            text = "No encontramos uno que encaje solo. Elige el que te sirva.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.agroColors.warning
+                        )
+                    }
                 }
             }
 
             if (cartItems.isEmpty()) {
-                item {
-                    Text(
-                        text = "Agrega un producto al carrito antes de solicitar la entrega urgente.",
-                        color = ErrorRed,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                item(key = "empty-cart") {
+                    InlineError(message = "Agrega un producto al carrito antes de pedir entrega urgente.")
                 }
             } else {
-                items(cartItems, key = { it.idInventario }) { product ->
-                    val isSelected = product.idInventario == selectedInventoryId
-                    val isRecommended = selectedPest.isNotBlank() &&
-                        product.idInventario == recommendedProduct?.idInventario
-
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !isSubmitting) {
-                                selectedInventoryId = product.idInventario
-                            },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isSelected) OrangeLight else Color.White
-                        ),
-                        border = BorderStroke(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) OrangeAccent else Color(0xFFE0E0E0)
-                        )
+                item(key = "products") {
+                    Column(
+                        modifier = Modifier.selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = isSelected,
+                        cartItems.forEach { product ->
+                            val isRecommended = selectedPest.isNotBlank() &&
+                                product.idInventario == recommendedProduct?.idInventario
+                            RadioOption(
+                                label = product.nombre,
+                                description = "${product.distribuidor} · ${product.cantidad} en el carrito",
+                                selected = product.idInventario == selectedInventoryId,
                                 enabled = !isSubmitting,
-                                onClick = { selectedInventoryId = product.idInventario }
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(product.nombre, fontWeight = FontWeight.SemiBold)
-                                    if (isRecommended) {
-                                        Surface(
-                                            color = OrangeAccent,
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            Text(
-                                                text = "Recomendado",
-                                                color = Color.White,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                modifier = Modifier.padding(
-                                                    horizontal = 8.dp,
-                                                    vertical = 3.dp
-                                                )
-                                            )
+                                onClick = { selectedInventoryId = product.idInventario },
+                                trailing = {
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        if (isRecommended) {
+                                            StatusTag(text = "Recomendado", tone = TagTone.Success)
                                         }
+                                        Text(
+                                            text = formatQuetzales(product.precio * product.cantidad),
+                                            style = MaterialTheme.typography.titleSmall.tabularNumbers,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
                                     }
                                 }
-                                Text(
-                                    text = "${product.distribuidor} · Cantidad ${product.cantidad}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = GrayMid
-                                )
-                                Text(
-                                    text = "Q${"%.2f".format(product.precio * product.cantidad)}",
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                            )
                         }
                     }
                 }
             }
 
-            item {
-                Text(
-                    text = "3. Dirección de entrega",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = deliveryAddress,
-                    onValueChange = onDeliveryAddressChange,
-                    label = { Text("Dirección de la finca") },
-                    supportingText = {
-                        Text("Verifica la dirección para evitar demoras.")
-                    },
-                    singleLine = false,
-                    minLines = 2,
-                    enabled = !isSubmitting,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            errorMessage?.let { message ->
-                item {
-                    Text(
-                        text = message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
+            item(key = "address") {
+                Column(verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)) {
+                    StepTitle("3. ¿A dónde lo llevamos?")
+                    AgroTextField(
+                        value = deliveryAddress,
+                        onValueChange = onDeliveryAddressChange,
+                        label = "Dirección de la finca",
+                        supportingText = "Revísala para que no haya demoras.",
+                        singleLine = false,
+                        minLines = 2,
+                        enabled = !isSubmitting
                     )
                 }
             }
+
+            errorMessage?.let { message ->
+                item(key = "error") { InlineError(message = message) }
+            }
         }
     }
+}
+
+@Composable
+private fun StepTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.semantics { heading() }
+    )
 }

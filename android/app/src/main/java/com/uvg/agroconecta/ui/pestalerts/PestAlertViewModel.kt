@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.location.GeoCoordinates
+import com.uvg.agroconecta.data.repository.FarmLocationSource
+import com.uvg.agroconecta.data.repository.NoFarmLocation
 import com.uvg.agroconecta.data.models.PestAlert
 import com.uvg.agroconecta.data.models.PestAlertReportRequest
 import com.uvg.agroconecta.data.models.PestSuggestedProduct
@@ -43,6 +45,7 @@ data class PestMapSearchArea(
 data class PestAlertUiState(
     val alerts: List<PestAlert> = emptyList(),
     val userLocation: PestAlertLocation? = null,
+    val farmLocation: PestAlertLocation? = null,
     val searchArea: PestMapSearchArea? = null,
     val cameraCenter: PestMapSearchArea? = null,
     val lastSearchArea: PestMapSearchArea? = null,
@@ -95,7 +98,10 @@ val pestMapSearchRadiusOptionsKm = listOf(5.0, 10.0, 25.0, 50.0)
 @HiltViewModel
 class PestAlertViewModel @Inject constructor(
     private val repository: PestAlertRepository,
-    private val locationProvider: CurrentLocationProvider
+    private val locationProvider: CurrentLocationProvider,
+    // Con valor por defecto para que las pruebas que no usan la finca no
+    // tengan que pasarlo; Hilt siempre inyecta el repositorio real.
+    private val farmLocations: FarmLocationSource = NoFarmLocation
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PestAlertUiState())
@@ -107,6 +113,60 @@ class PestAlertViewModel @Inject constructor(
     private var locationJob: Job? = null
     private var locationTrackingJob: Job? = null
     private var radiusSearchJob: Job? = null
+
+    /**
+     * Busca alertas alrededor de la finca guardada. Devuelve false si no hay
+     * una con coordenadas; entonces la pantalla pide el GPS como antes. Las
+     * alertas importan donde está el cultivo, no donde esté parado el
+     * agricultor al abrir la pantalla.
+     */
+    suspend fun useSavedFarmLocation(): Boolean {
+        val coordinates = farmLocations.savedLocation()?.coordinates ?: return false
+        locationJob?.cancel()
+        applyLocation(coordinates, isUserLocation = false)
+        return true
+    }
+
+    private fun applyLocation(
+        coordinates: GeoCoordinates,
+        isUserLocation: Boolean
+    ) {
+        val location = PestAlertLocation(
+            latitude = coordinates.latitude,
+            longitude = coordinates.longitude
+        )
+        _uiState.update { current ->
+            current.copy(
+                userLocation = if (isUserLocation) location else current.userLocation,
+                farmLocation = if (isUserLocation) current.farmLocation else location,
+                reportLocation = if (
+                    current.isReportFormVisible && current.reportLocation == null
+                ) {
+                    location
+                } else {
+                    current.reportLocation
+                },
+                reportLocationDraft = if (
+                    current.isReportFormVisible && current.reportLocationDraft == null
+                ) {
+                    location
+                } else {
+                    current.reportLocationDraft
+                },
+                isLocating = false,
+                locationErrorMessage = null,
+                reportErrorMessage = null
+            )
+        }
+        synchronizePushRegistration(
+            latitude = coordinates.latitude,
+            longitude = coordinates.longitude
+        )
+        loadNearbyAlerts(
+            latitude = coordinates.latitude,
+            longitude = coordinates.longitude
+        )
+    }
 
     fun refreshLocation() {
         locationJob?.cancel()
@@ -128,40 +188,7 @@ class PestAlertViewModel @Inject constructor(
                         )
                     }
                 } else {
-                    _uiState.update {
-                        val location = PestAlertLocation(
-                            latitude = coordinates.latitude,
-                            longitude = coordinates.longitude
-                        )
-                        it.copy(
-                            userLocation = location,
-                            reportLocation = if (
-                                it.isReportFormVisible && it.reportLocation == null
-                            ) {
-                                location
-                            } else {
-                                it.reportLocation
-                            },
-                            reportLocationDraft = if (
-                                it.isReportFormVisible && it.reportLocationDraft == null
-                            ) {
-                                location
-                            } else {
-                                it.reportLocationDraft
-                            },
-                            isLocating = false,
-                            locationErrorMessage = null,
-                            reportErrorMessage = null
-                        )
-                    }
-                    synchronizePushRegistration(
-                        latitude = coordinates.latitude,
-                        longitude = coordinates.longitude
-                    )
-                    loadNearbyAlerts(
-                        latitude = coordinates.latitude,
-                        longitude = coordinates.longitude
-                    )
+                    applyLocation(coordinates, isUserLocation = true)
                 }
             }.onFailure { error ->
                 if (error is CancellationException) throw error
@@ -516,8 +543,8 @@ class PestAlertViewModel @Inject constructor(
             it.copy(
                 isReportFormVisible = true,
                 isSelectingReportLocation = false,
-                reportLocation = it.userLocation,
-                reportLocationDraft = it.userLocation,
+                reportLocation = it.userLocation ?: it.farmLocation,
+                reportLocationDraft = it.userLocation ?: it.farmLocation,
                 reportForm = PestReportFormState(),
                 reportErrorMessage = null,
                 reportSuccessMessage = null

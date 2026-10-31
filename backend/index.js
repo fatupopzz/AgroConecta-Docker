@@ -1,9 +1,8 @@
 require("dotenv").config();
 
-const fs = require("node:fs/promises");
-const path = require("node:path");
 const app = require("./app");
 const { shutdownPool, pool } = require("./src/config/db");
+const { runMigrations, UnversionedDatabaseError } = require("./src/db/migrator");
 const { connectRedis, shutdownRedis } = require("./src/config/redis");
 const {
   startRecurringOrderScheduler,
@@ -16,168 +15,20 @@ const {
 
 const PORT = process.env.PORT || 8080;
 
+// El esquema se versiona con backend/sql/NNN_*.sql y la tabla schema_migrations.
+// Al arrancar se aplican solo las migraciones pendientes, así ninguna se queda
+// olvidada al desplegar. Si la base es anterior al versionado se avisa y se
+// sigue: el backend no debe caerse por eso, pero hay que correr --baseline.
 const runStartupMigrations = async () => {
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS resena_distribuidor (
-       id_resena SERIAL PRIMARY KEY,
-       id_agricultor INTEGER NOT NULL REFERENCES agricultor(id_agricultor),
-       id_distribuidor INTEGER NOT NULL REFERENCES distribuidor(id_distribuidor),
-       calificacion INTEGER NOT NULL CHECK (calificacion BETWEEN 1 AND 5),
-       comentario TEXT,
-       fecha_resena TIMESTAMP DEFAULT NOW(),
-       UNIQUE (id_agricultor, id_distribuidor)
-     )`,
-    `ALTER TABLE reporte_calidad
-     ADD COLUMN IF NOT EXISTS fecha_resolucion TIMESTAMP`,
-    `ALTER TABLE distribuidor
-     ADD COLUMN IF NOT EXISTS direccion TEXT`,
-    `ALTER TABLE pago
-     ADD COLUMN IF NOT EXISTS estado_pago VARCHAR(20) DEFAULT 'pendiente'
-       CHECK (estado_pago IN ('pendiente', 'processing', 'completado', 'failed'))`,
-    `ALTER TABLE pago
-     ADD COLUMN IF NOT EXISTS fecha_pago TIMESTAMP`,
-    `ALTER TABLE pago
-     ADD COLUMN IF NOT EXISTS referencia_transaccion VARCHAR(100)`,
-    `ALTER TABLE pago
-     ADD COLUMN IF NOT EXISTS proveedor VARCHAR(30)`,
-    `ALTER TABLE pago
-     ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`,
-    `ALTER TABLE pago
-     ADD COLUMN IF NOT EXISTS fecha_confirmacion TIMESTAMP`,
-    `ALTER TABLE pedido
-     DROP CONSTRAINT IF EXISTS pedido_estado_check`,
-    `ALTER TABLE pedido
-     ALTER COLUMN estado SET DEFAULT 'confirmado'`,
-    `ALTER TABLE pedido
-     ADD COLUMN IF NOT EXISTS es_urgente BOOLEAN NOT NULL DEFAULT FALSE`,
-    `ALTER TABLE pedido
-     ADD COLUMN IF NOT EXISTS tipo_plaga VARCHAR(100)`,
-    `UPDATE pedido
-     SET estado = 'confirmado'
-     WHERE estado = 'pendiente'`,
-    `UPDATE pedido
-     SET estado = 'en_ruta'
-     WHERE estado = 'en_camino'`,
-    `ALTER TABLE pedido
-     ADD CONSTRAINT pedido_estado_check
-     CHECK (estado IN ('confirmado', 'preparando', 'en_ruta', 'entregado', 'cancelado'))`,
-    `CREATE TABLE IF NOT EXISTS pedido_tracking (
-       id_tracking SERIAL PRIMARY KEY,
-       id_pedido INT NOT NULL REFERENCES pedido(id_pedido) ON DELETE CASCADE,
-       estado VARCHAR(30) NOT NULL,
-       "timestamp" TIMESTAMP DEFAULT NOW(),
-       notas TEXT
-     )`,
-    `ALTER TABLE pedido_tracking
-     DROP CONSTRAINT IF EXISTS pedido_tracking_estado_check`,
-    `UPDATE pedido_tracking
-     SET estado = 'confirmado'
-     WHERE estado = 'pendiente'`,
-    `UPDATE pedido_tracking
-     SET estado = 'en_ruta'
-     WHERE estado = 'en_camino'`,
-    `ALTER TABLE pedido_tracking
-     ADD CONSTRAINT pedido_tracking_estado_check
-     CHECK (estado IN ('confirmado', 'preparando', 'en_ruta', 'entregado', 'cancelado'))`,
-    `CREATE INDEX IF NOT EXISTS idx_pedido_tracking_id_pedido_timestamp
-     ON pedido_tracking (id_pedido, "timestamp")`,
-    `INSERT INTO pedido_tracking (id_pedido, estado, "timestamp", notas)
-     SELECT p.id_pedido, p.estado, COALESCE(p.fecha_pedido, NOW()), 'Estado inicial del pedido'
-     FROM pedido p
-     WHERE NOT EXISTS (
-       SELECT 1
-       FROM pedido_tracking pt
-       WHERE pt.id_pedido = p.id_pedido
-     )`,
-    `CREATE TABLE IF NOT EXISTS producto_seguido (
-       id SERIAL PRIMARY KEY,
-       id_agricultor INT NOT NULL REFERENCES agricultor(id_agricultor) ON DELETE CASCADE,
-       id_producto INT NOT NULL REFERENCES producto(id_producto) ON DELETE CASCADE,
-       precio_al_seguir DECIMAL(10,2) NOT NULL,
-       fecha TIMESTAMP DEFAULT NOW(),
-       UNIQUE (id_agricultor, id_producto)
-     )`,
-    `CREATE INDEX IF NOT EXISTS idx_producto_seguido_agricultor_producto
-     ON producto_seguido (id_agricultor, id_producto)`,
-    `CREATE INDEX IF NOT EXISTS idx_producto_seguido_producto
-     ON producto_seguido (id_producto)`,
-    `CREATE TABLE IF NOT EXISTS notificacion (
-       id_notificacion SERIAL PRIMARY KEY,
-       id_agricultor INT REFERENCES agricultor(id_agricultor) ON DELETE CASCADE,
-       tipo VARCHAR(40),
-       contenido JSONB DEFAULT '{}'::jsonb,
-       leida BOOLEAN DEFAULT FALSE,
-       fecha TIMESTAMP DEFAULT NOW()
-     )`,
-    `ALTER TABLE notificacion
-     ADD COLUMN IF NOT EXISTS id_distribuidor INT
-       REFERENCES distribuidor(id_distribuidor) ON DELETE CASCADE`,
-    `ALTER TABLE notificacion
-     ADD COLUMN IF NOT EXISTS id_pedido INT
-       REFERENCES pedido(id_pedido) ON DELETE CASCADE`,
-    `CREATE INDEX IF NOT EXISTS idx_notificacion_agricultor_fecha
-     ON notificacion (id_agricultor, fecha DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_notificacion_tipo
-     ON notificacion (tipo)`,
-    // Migracion de mensaje_asesoria
-    `CREATE TABLE IF NOT EXISTS mensaje_asesoria (
-       id_mensaje SERIAL PRIMARY KEY,
-       id_pedido INT NOT NULL REFERENCES pedido(id_pedido) ON DELETE CASCADE,
-       id_usuario_remitente INT NOT NULL
-         REFERENCES usuario(id_usuario) ON DELETE CASCADE,
-       mensaje TEXT NOT NULL
-         CHECK (char_length(trim(mensaje)) BETWEEN 1 AND 1000),
-       fecha_envio TIMESTAMP NOT NULL DEFAULT NOW()
-     )`,
-    `CREATE INDEX IF NOT EXISTS idx_mensaje_asesoria_pedido_fecha
-     ON mensaje_asesoria (id_pedido, fecha_envio, id_mensaje)`,
-  ];
-
-  for (const statement of statements) {
-    await pool.query(statement);
+  const client = await pool.connect();
+  try {
+    await runMigrations({ client });
+  } catch (error) {
+    if (!(error instanceof UnversionedDatabaseError)) throw error;
+    console.warn(`Migraciones omitidas: ${error.message}`);
+  } finally {
+    client.release();
   }
-
-  const cropCycleMigration = await fs.readFile(
-    path.join(__dirname, "sql", "hu026_crop_cycles_migration.sql"),
-    "utf8",
-  );
-  await pool.query(cropCycleMigration);
-
-  const pestAlertsMigration = await fs.readFile(
-    path.join(__dirname, "sql", "hu029_pest_alerts_migration.sql"),
-    "utf8",
-  );
-  await pool.query(pestAlertsMigration);
-
-  const diagnosisMigration = await fs.readFile(
-    path.join(__dirname, "sql", "diagnostico_migration.sql"),
-    "utf8",
-  );
-  await pool.query(diagnosisMigration);
-
-  const favoritesMigration = await fs.readFile(
-    path.join(__dirname, "sql", "favorites_migration.sql"),
-    "utf8",
-  );
-  await pool.query(favoritesMigration);
-
-  const recurringOrdersMigration = await fs.readFile(
-    path.join(__dirname, "sql", "hu014_recurring_orders_migration.sql"),
-    "utf8",
-  );
-  await pool.query(recurringOrdersMigration);
-
-  const distributorCoordinatesMigration = await fs.readFile(
-    path.join(__dirname, "sql", "kan103_distributor_coordinates_migration.sql"),
-    "utf8",
-  );
-  await pool.query(distributorCoordinatesMigration);
-
-  const productImagesMigration = await fs.readFile(
-    path.join(__dirname, "sql", "product_images_migration.sql"),
-    "utf8",
-  );
-  await pool.query(productImagesMigration);
 };
 
 const startServer = async () => {

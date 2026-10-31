@@ -38,7 +38,7 @@ class ProductImageSourceTest {
     @Test
     fun `sin miniatura ni foto propia usa la foto de su categoria`() {
         assertEquals(
-            "file:///android_asset/categorias/semillas.jpg",
+            "file:///android_asset/categorias/semillas.webp",
             ProductImageSource.pick(null, null, "Semillas", baseUrl)
         )
     }

@@ -71,6 +71,11 @@ CREATE TABLE IF NOT EXISTS direccion_entrega (
     es_predeterminada BOOLEAN DEFAULT FALSE
 );
 
+-- Una sola dirección predeterminada (la ubicación de la finca) por agricultor.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_direccion_entrega_predeterminada
+    ON direccion_entrega (id_agricultor)
+    WHERE es_predeterminada;
+
 CREATE TABLE IF NOT EXISTS pedido (
     id_pedido           SERIAL PRIMARY KEY,
     id_agricultor       INT NOT NULL REFERENCES agricultor(id_agricultor),
@@ -423,3 +428,15 @@ CREATE INDEX IF NOT EXISTS idx_kan107_notificacion_distribuidor_fecha ON notific
 
 -- KAN-102, producto popular: permite unir por hash los pedidos entregados de la ventana temporal sin miles de accesos al heap.
 CREATE INDEX IF NOT EXISTS idx_kan107_pedido_entregado_fecha ON pedido(fecha_pedido, id_pedido) INCLUDE(id_agricultor) WHERE estado = 'entregado';
+
+-- ── Control de migraciones ──────────────────────────────────────────────────
+-- Este archivo es el esquema completo al día. Postgres lo corre solo cuando
+-- Docker crea la base por primera vez; se registra aquí mismo para que el
+-- migrador sepa que ya está aplicado y continúe desde 002.
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    nombre      TEXT PRIMARY KEY,
+    aplicada_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO schema_migrations (nombre) VALUES ('001_init.sql')
+ON CONFLICT (nombre) DO NOTHING;

@@ -50,8 +50,6 @@ import com.uvg.agroconecta.ui.pestalerts.map.PestMapLoadState
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapSearchRadius
 import com.uvg.agroconecta.ui.pestalerts.map.PestMapTrackingMode
 import com.uvg.agroconecta.ui.pestalerts.map.toPestMapMarker
-import com.uvg.agroconecta.ui.theme.ErrorRed
-import com.uvg.agroconecta.ui.theme.GrayMid
 
 @Composable
 fun PestAlertsMap(
@@ -93,7 +91,7 @@ fun PestAlertsMap(
             Text(
                 text = "Desplázate y acerca el mapa para explorar otras zonas.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = GrayMid
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         errorMessage?.let { message ->
@@ -137,7 +135,7 @@ fun PestAlertsMap(
         Text(
             text = "Usa gestos de zoom y desplazamiento para explorar el mapa.",
             style = MaterialTheme.typography.bodySmall,
-            color = GrayMid
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -433,7 +431,7 @@ private fun ReportLocationPickerOverlay(
         Icon(
             imageVector = Icons.Default.LocationOn,
             contentDescription = "Ubicación seleccionada",
-            tint = ErrorRed,
+            tint = MaterialTheme.colorScheme.error,
             modifier = Modifier
                 .align(Alignment.Center)
                 .size(52.dp)
@@ -458,7 +456,7 @@ private fun ReportLocationPickerOverlay(
                     text = location?.let(::formatReportCoordinates)
                         ?: "Esperando la posición del mapa…",
                     style = MaterialTheme.typography.bodySmall,
-                    color = GrayMid
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -543,7 +541,7 @@ private fun PestMarkerSummary(
                 Icon(
                     imageVector = Icons.Default.BugReport,
                     contentDescription = null,
-                    tint = ErrorRed,
+                    tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(28.dp)
                 )
                 Text(
@@ -569,23 +567,23 @@ private fun PestMarkerSummary(
                 Text(
                     text = "Cultivo: ${alert.cultivo}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = GrayMid
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "Distancia: ${formatDistance(alert.distanceKm)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = GrayMid
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "Fecha: ${formatAlertDate(alert.reportedAt)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = GrayMid
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Text(
                 text = summarizeAlertDescription(alert.descripcion),
                 style = MaterialTheme.typography.bodySmall,
-                color = GrayMid,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp, end = 8.dp)

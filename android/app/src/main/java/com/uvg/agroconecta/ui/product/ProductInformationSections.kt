@@ -6,53 +6,48 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.DistributorOffer
 import com.uvg.agroconecta.data.models.ProductDetail
+import com.uvg.agroconecta.ui.components.AgroCard
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroSecondaryButton
+import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.ProductImage
+import com.uvg.agroconecta.ui.components.QuantityStepper
+import com.uvg.agroconecta.ui.components.StatusTag
+import com.uvg.agroconecta.ui.components.TagTone
+import com.uvg.agroconecta.ui.components.categoryBackground
+import com.uvg.agroconecta.ui.components.formatQuantityWithUnit
+import com.uvg.agroconecta.ui.components.formatQuetzales
 import com.uvg.agroconecta.ui.favorites.FavoriteButton
-import com.uvg.agroconecta.ui.theme.GrayDark
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPale
-import com.uvg.agroconecta.ui.theme.GreenPrimary
-import com.uvg.agroconecta.ui.theme.GreenPrimaryDark
-import com.uvg.agroconecta.ui.theme.GreenSurface
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.agroColors
+import com.uvg.agroconecta.ui.theme.tabularNumbers
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ProductDetailTopBar(
     title: String,
@@ -65,23 +60,9 @@ internal fun ProductDetailTopBar(
     isUpdatingFavorite: Boolean = false,
     onFavoriteClick: () -> Unit = {}
 ) {
-    TopAppBar(
-        title = {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White
-            )
-        },
-        navigationIcon = {
-            IconButton(onClick = onNavigateBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Volver",
-                    tint = Color.White
-                )
-            }
-        },
+    AgroTopAppBar(
+        title = title,
+        onBack = onNavigateBack,
         actions = {
             if (showFavoriteAction) {
                 FavoriteButton(
@@ -90,65 +71,69 @@ internal fun ProductDetailTopBar(
                     isPending = isUpdatingFavorite,
                     onClick = onFavoriteClick,
                     containerColor = Color.Transparent,
-                    inactiveTint = Color.White
+                    inactiveTint = MaterialTheme.agroColors.onTopBar
                 )
             }
             IconButton(onClick = onShare) {
-                Icon(
-                    imageVector = Icons.Default.Share,
-                    contentDescription = "Recomendar",
-                    tint = Color.White
-                )
+                Icon(imageVector = Icons.Default.Share, contentDescription = "Recomendar a alguien")
             }
             IconButton(onClick = onNavigateToCart) {
-                Icon(
-                    imageVector = Icons.Default.ShoppingCart,
-                    contentDescription = "Carrito",
-                    tint = Color.White
-                )
+                Icon(imageVector = Icons.Default.ShoppingCart, contentDescription = "Ver carrito")
             }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = GreenPrimary)
+        }
     )
 }
 
+/**
+ * Barra fija con la cantidad y el botón de compra, al alcance del pulgar. El
+ * botón muestra el total ya multiplicado para que no haya que hacer cuentas.
+ * La cantidad no puede pasar de lo que el distribuidor tiene disponible.
+ */
 @Composable
 internal fun AddToCartBar(
     selectedOffer: DistributorOffer?,
+    quantity: Int,
+    onQuantityChange: (Int) -> Unit,
     isAddingToCart: Boolean,
     onAddToCart: () -> Unit
 ) {
-    Surface(shadowElevation = 8.dp) {
-        Button(
-            onClick = onAddToCart,
-            enabled = !isAddingToCart && selectedOffer != null,
+    val stock = selectedOffer?.stock ?: 0
+    val hasStock = stock > 0
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shadowElevation = 8.dp
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-            shape = RoundedCornerShape(12.dp)
+                .navigationBarsPadding()
+                .padding(horizontal = AgroSpacing.screenHorizontal, vertical = AgroSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
         ) {
-            if (isAddingToCart) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.AddShoppingCart,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = selectedOffer?.let {
-                        "Agregar al carrito — Q${"%.2f".format(it.precio)}"
-                    } ?: "Seleccioná un distribuidor",
-                    style = MaterialTheme.typography.titleSmall
+            if (selectedOffer != null && hasStock) {
+                QuantityStepper(
+                    quantity = quantity,
+                    onDecrease = { onQuantityChange((quantity - 1).coerceAtLeast(1)) },
+                    onIncrease = { onQuantityChange((quantity + 1).coerceAtMost(stock)) },
+                    maxQuantity = stock,
+                    enabled = !isAddingToCart
                 )
             }
+            AgroPrimaryButton(
+                text = when {
+                    selectedOffer == null -> "Elige un distribuidor"
+                    !hasStock -> "Sin existencias"
+                    else -> "Agregar · ${formatQuetzales(selectedOffer.precio * quantity)}"
+                },
+                loadingText = "Agregando…",
+                icon = Icons.Default.AddShoppingCart,
+                onClick = onAddToCart,
+                enabled = selectedOffer != null && hasStock,
+                loading = isAddingToCart,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -162,109 +147,105 @@ internal fun ProductOverviewSection(
     isUpdatingFollow: Boolean,
     onToggleFollow: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(GreenSurface)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         ProductImageGallery(product)
-        Spacer(Modifier.height(12.dp))
-        product.categoria?.let { category ->
-            Surface(color = GreenPale, shape = RoundedCornerShape(20.dp)) {
+        Column(
+            modifier = Modifier.padding(
+                horizontal = AgroSpacing.screenHorizontal,
+                vertical = AgroSpacing.md
+            ),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)
+        ) {
+            product.categoria?.let { category -> StatusTag(text = category) }
+            Text(
+                text = product.nombre,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() }
+            )
+            product.marca?.let { brand ->
                 Text(
-                    text = category,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = GreenPrimaryDark,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    text = brand,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Spacer(Modifier.height(8.dp))
-        }
-        Text(
-            text = product.nombre,
-            style = MaterialTheme.typography.headlineSmall,
-            color = GrayDark,
-            textAlign = TextAlign.Center
-        )
-        product.marca?.let { brand ->
-            Spacer(Modifier.height(4.dp))
-            Text(text = brand, style = MaterialTheme.typography.bodyMedium, color = GrayMid)
-        }
-        selectedOffer?.let { offer ->
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = "Q${"%.2f".format(offer.precio)}",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = GreenPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = "/ ${offer.unidadMedida ?: "unidad"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = GrayMid,
-                    modifier = Modifier.padding(bottom = 3.dp)
-                )
-            }
-        }
-        if (isFarmer) {
-            Spacer(Modifier.height(16.dp))
-            OutlinedButton(
-                onClick = onToggleFollow,
-                enabled = !isUpdatingFollow,
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = if (isFollowingPrice) GreenPrimaryDark else GreenPrimary
-                ),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                if (isUpdatingFollow) {
-                    CircularProgressIndicator(
-                        color = GreenPrimary,
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp
+            val offer = selectedOffer
+            if (offer != null) {
+                Spacer(Modifier.height(AgroSpacing.xs))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = formatQuetzales(offer.precio),
+                        style = MaterialTheme.typography.displaySmall.tabularNumbers,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                } else {
-                    Icon(
-                        imageVector = if (isFollowingPrice) {
-                            Icons.Default.NotificationsActive
-                        } else {
-                            Icons.Default.NotificationsNone
-                        },
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                    Spacer(Modifier.width(AgroSpacing.xs))
+                    Text(
+                        text = "por ${offer.unidadMedida ?: "unidad"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = AgroSpacing.xxs)
                     )
                 }
-                Spacer(Modifier.width(8.dp))
+                AvailabilityTag(offer)
                 Text(
-                    text = if (isFollowingPrice) "Dejar de seguir precio" else "Seguir precio",
-                    style = MaterialTheme.typography.labelLarge
+                    text = "Vende: ${offer.distribuidor}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else if (product.ofertas.isEmpty()) {
+                Spacer(Modifier.height(AgroSpacing.xs))
+                StatusTag(text = "Agotado por ahora", tone = TagTone.Danger)
+            }
+            if (isFarmer) {
+                Spacer(Modifier.height(AgroSpacing.xs))
+                AgroSecondaryButton(
+                    text = if (isFollowingPrice) "Dejar de avisarme del precio" else "Avisarme si baja el precio",
+                    icon = if (isFollowingPrice) Icons.Default.NotificationsActive else Icons.Default.NotificationsNone,
+                    onClick = onToggleFollow,
+                    loading = isUpdatingFollow,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
     }
 }
 
+/**
+ * Disponibilidad en palabras y con tono: "Quedan pocos" avisa antes de que
+ * la persona arme un pedido grande que el distribuidor no puede cubrir.
+ */
+@Composable
+private fun AvailabilityTag(offer: DistributorOffer) {
+    val amount = formatQuantityWithUnit(offer.stock, offer.unidadMedida)
+    val (text, tone) = when {
+        offer.stock <= 0 -> "Sin existencias" to TagTone.Danger
+        offer.stock <= LOW_STOCK_THRESHOLD -> "Quedan pocos: $amount" to TagTone.Warning
+        else -> "Disponible: $amount" to TagTone.Success
+    }
+    StatusTag(text = text, tone = tone, modifier = Modifier.padding(vertical = AgroSpacing.xxs))
+}
+
+private const val LOW_STOCK_THRESHOLD = 5
+
+/** Foto a todo el ancho: en el detalle es lo que más ayuda a reconocer el producto. */
 @Composable
 internal fun ProductImageGallery(product: ProductDetail) {
     ProductImage(
         imagenUrl = product.imagenUrl,
         contentDescription = "Foto de ${product.nombre}",
         categoria = product.categoria,
-        iconSize = 56.dp,
+        iconSize = 64.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(GreenPale)
+            .aspectRatio(4f / 3f)
+            .background(categoryBackground(product.categoria))
     )
 }
 
 @Composable
 internal fun ProductTechnicalSheetSection(product: ProductDetail) {
-    ProductSectionCard(title = "Ficha técnica") {
+    ProductSectionCard(title = "Cómo usarlo") {
         val hasTechnicalSheet = !product.descripcion.isNullOrBlank() ||
             !product.composicion.isNullOrBlank() ||
             !product.dosis.isNullOrBlank() ||
@@ -272,9 +253,9 @@ internal fun ProductTechnicalSheetSection(product: ProductDetail) {
 
         if (!hasTechnicalSheet) {
             Text(
-                text = "Este producto aún no tiene ficha técnica completa.",
+                text = "El distribuidor todavía no agregó la información de uso.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = GrayMid
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
             product.descripcion?.let { TechnicalSheetRow("Descripción", it) }
@@ -291,24 +272,27 @@ internal fun ProductSectionCard(
     trailing: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Card(
+    AgroCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            .padding(horizontal = AgroSpacing.screenHorizontal, vertical = AgroSpacing.xs)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(AgroSpacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = title, style = MaterialTheme.typography.titleSmall, color = GrayDark)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { heading() }
+                )
                 trailing?.invoke()
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(AgroSpacing.sm))
             content()
         }
     }
@@ -316,10 +300,16 @@ internal fun ProductSectionCard(
 
 @Composable
 private fun TechnicalSheetRow(label: String, value: String) {
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = GrayMid)
-        Spacer(Modifier.height(2.dp))
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = GrayDark)
+    Column(modifier = Modifier.padding(bottom = AgroSpacing.sm)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
-    Spacer(Modifier.height(8.dp))
 }

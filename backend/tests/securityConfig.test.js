@@ -29,51 +29,42 @@ test("environment files are ignored while the example remains versionable", () =
   assert.doesNotMatch(example, /agroconecta_jwt_secret_dev_2026/);
 });
 
-test("backend startup applies the pest alerts migration", () => {
+test("startup applies pending migrations, including pest alerts", () => {
   const backendEntryPoint = fs.readFileSync(
     path.join(repositoryRoot, "backend", "index.js"),
     "utf8"
   );
   const migration = fs.readFileSync(
-    path.join(repositoryRoot, "backend", "sql", "hu029_pest_alerts_migration.sql"),
+    path.join(repositoryRoot, "backend", "sql", "009_hu029_pest_alerts.sql"),
     "utf8"
   );
 
-  assert.match(backendEntryPoint, /hu029_pest_alerts_migration\.sql/);
+  // El arranque ya no nombra cada archivo: aplica todas las pendientes.
+  assert.match(backendEntryPoint, /runMigrations\(/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS alerta_plaga/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS instalacion_alerta_plaga/);
   assert.match(migration, /fcm_registration_token\s+TEXT PRIMARY KEY/);
   assert.match(migration, /RENAME COLUMN firebase_installation_id TO fcm_registration_token/);
 });
 
-test("backend startup applies the distributor coordinates migration", () => {
-  const backendEntryPoint = fs.readFileSync(
-    path.join(repositoryRoot, "backend", "index.js"),
-    "utf8",
-  );
+test("distributor coordinates migration is versioned", () => {
   const migration = fs.readFileSync(
-    path.join(repositoryRoot, "backend", "sql", "kan103_distributor_coordinates_migration.sql"),
+    path.join(repositoryRoot, "backend", "sql", "012_kan103_distributor_coordinates.sql"),
     "utf8",
   );
 
-  assert.match(backendEntryPoint, /kan103_distributor_coordinates_migration\.sql/);
   assert.match(migration, /ADD COLUMN IF NOT EXISTS latitud DECIMAL\(10,7\)/);
   assert.match(migration, /CHECK \(latitud BETWEEN -90 AND 90\)/);
   assert.match(migration, /ADD COLUMN IF NOT EXISTS longitud DECIMAL\(10,7\)/);
   assert.match(migration, /CHECK \(longitud BETWEEN -180 AND 180\)/);
 });
 
-test("backend startup applies the product images migration", () => {
-  const backendEntryPoint = fs.readFileSync(
-    path.join(repositoryRoot, "backend", "index.js"),
-    "utf8",
-  );
+test("product images migration is versioned", () => {
   const migration = fs.readFileSync(
-    path.join(repositoryRoot, "backend", "sql", "product_images_migration.sql"),
+    path.join(repositoryRoot, "backend", "sql", "013_product_images.sql"),
     "utf8",
   );
 
-  assert.match(backendEntryPoint, /product_images_migration\.sql/);
   assert.match(migration, /ADD COLUMN IF NOT EXISTS imagen_url VARCHAR\(255\)/);
 });
 

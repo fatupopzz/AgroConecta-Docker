@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- En oscuro el arranque también debe ser oscuro; si no, la pantalla
+         destella en blanco antes de que Compose pinte el tema. -->
+    <color name="green_primary">#93D68B</color>
+    <color name="window_background">#121411</color>
+    <color name="status_bar">#1E211C</color>
+    <color name="navigation_bar">#1E211C</color>
+</resources>

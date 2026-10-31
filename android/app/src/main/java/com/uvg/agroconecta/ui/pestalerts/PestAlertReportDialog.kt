@@ -5,44 +5,34 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.LocationSearching
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
 import com.uvg.agroconecta.data.models.PestType
-import com.uvg.agroconecta.ui.theme.ErrorRed
-import com.uvg.agroconecta.ui.theme.GrayMid
-import com.uvg.agroconecta.ui.theme.GreenPrimary
-import com.uvg.agroconecta.ui.theme.GreenSurface
+import com.uvg.agroconecta.ui.components.AgroDropdownField
+import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.AgroTextButton
+import com.uvg.agroconecta.ui.components.AgroTextField
+import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.theme.AgroSpacing
+import com.uvg.agroconecta.ui.theme.agroColors
 import com.uvg.agroconecta.validation.PestAlertReportFormValidator
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+private const val MAX_DESCRIPTION_LENGTH = 500
+
 @Composable
 fun PestAlertReportDialog(
     formState: PestReportFormState,
@@ -58,9 +48,7 @@ fun PestAlertReportDialog(
     onUseCurrentLocation: () -> Unit,
     onSubmit: () -> Unit
 ) {
-    var pestMenuExpanded by remember { mutableStateOf(false) }
-    var cropMenuExpanded by remember { mutableStateOf(false) }
-    val canSubmit = !isSubmitting && PestAlertReportFormValidator.canSubmit(
+    val canSubmit = PestAlertReportFormValidator.canSubmit(
         hasPestType = formState.selectedPestType != null,
         crop = formState.selectedCrop,
         hasLocation = location != null
@@ -68,109 +56,49 @@ fun PestAlertReportDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isSubmitting) onDismiss() },
-        title = {
-            Text(
-                text = "Reportar una plaga",
-                fontWeight = FontWeight.Bold
-            )
-        },
+        title = { Text(text = "Reportar una plaga") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
                 Text(
-                    text = "Comparte el reporte para alertar a agricultores cercanos.",
+                    text = "Tu reporte avisa a los agricultores de tu zona.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GrayMid
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                ExposedDropdownMenuBox(
-                    expanded = pestMenuExpanded,
-                    onExpandedChange = {
-                        if (!isSubmitting) pestMenuExpanded = !pestMenuExpanded
-                    }
-                ) {
-                    OutlinedTextField(
-                        value = formState.selectedPestType?.displayName.orEmpty(),
-                        onValueChange = {},
-                        readOnly = true,
-                        enabled = !isSubmitting,
-                        label = { Text("Tipo de plaga") },
-                        placeholder = { Text("Selecciona una plaga") },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = pestMenuExpanded)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                            .testTag("report-pest-type")
-                    )
-                    ExposedDropdownMenu(
-                        expanded = pestMenuExpanded,
-                        onDismissRequest = { pestMenuExpanded = false }
-                    ) {
-                        PestType.entries.forEach { pestType ->
-                            DropdownMenuItem(
-                                text = { Text(pestType.displayName) },
-                                onClick = {
-                                    onPestTypeSelected(pestType)
-                                    pestMenuExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
+                AgroDropdownField(
+                    label = "Tipo de plaga",
+                    options = PestType.entries,
+                    selected = formState.selectedPestType,
+                    onSelectedChange = onPestTypeSelected,
+                    optionLabel = { it.displayName },
+                    enabled = !isSubmitting,
+                    modifier = Modifier.testTag("report-pest-type")
+                )
 
-                ExposedDropdownMenuBox(
-                    expanded = cropMenuExpanded,
-                    onExpandedChange = {
-                        if (!isSubmitting) cropMenuExpanded = !cropMenuExpanded
-                    }
-                ) {
-                    OutlinedTextField(
-                        value = formState.selectedCrop,
-                        onValueChange = {},
-                        readOnly = true,
-                        enabled = !isSubmitting,
-                        label = { Text("Cultivo afectado") },
-                        placeholder = { Text("Selecciona el cultivo") },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = cropMenuExpanded)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                            .testTag("report-crop")
-                    )
-                    ExposedDropdownMenu(
-                        expanded = cropMenuExpanded,
-                        onDismissRequest = { cropMenuExpanded = false }
-                    ) {
-                        pestAlertCrops.forEach { crop ->
-                            DropdownMenuItem(
-                                text = { Text(crop) },
-                                onClick = {
-                                    onCropSelected(crop)
-                                    cropMenuExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
+                AgroDropdownField(
+                    label = "Cultivo afectado",
+                    options = pestAlertCrops,
+                    selected = formState.selectedCrop.ifBlank { null },
+                    onSelectedChange = onCropSelected,
+                    optionLabel = { it },
+                    enabled = !isSubmitting,
+                    modifier = Modifier.testTag("report-crop")
+                )
 
-                OutlinedTextField(
+                AgroTextField(
                     value = formState.description,
                     onValueChange = onDescriptionChanged,
                     enabled = !isSubmitting,
-                    label = { Text("Descripción opcional") },
-                    placeholder = { Text("Ejemplo: hojas con manchas y presencia de insectos") },
-                    supportingText = { Text("${formState.description.length}/500") },
+                    label = "¿Qué viste? (opcional)",
+                    placeholder = "Ej: hojas con manchas e insectos pequeños",
+                    supportingText = "${formState.description.length}/$MAX_DESCRIPTION_LENGTH",
+                    singleLine = false,
                     minLines = 2,
                     maxLines = 4,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("report-description")
+                    modifier = Modifier.testTag("report-description")
                 )
 
                 LocationSummary(
@@ -181,44 +109,26 @@ fun PestAlertReportDialog(
                     onUseCurrentLocation = onUseCurrentLocation
                 )
 
-                errorMessage?.let { message ->
-                    Text(
-                        text = message,
-                        color = ErrorRed,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
+                errorMessage?.let { message -> InlineError(message = message) }
             }
         },
         confirmButton = {
-            Button(
+            AgroPrimaryButton(
+                text = "Enviar reporte",
+                loadingText = "Enviando…",
                 onClick = onSubmit,
                 enabled = canSubmit,
+                loading = isSubmitting,
                 modifier = Modifier.testTag("submit-pest-report")
-            ) {
-                if (isSubmitting) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(18.dp)
-                    )
-                }
-                Text(if (isSubmitting) "Enviando…" else "Enviar reporte")
-            }
+            )
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isSubmitting
-            ) {
-                Text("Cancelar")
-            }
+            AgroTextButton(text = "Cancelar", onClick = onDismiss, enabled = !isSubmitting)
         }
     )
 }
 
+/** Permite revisar la ubicación del reporte, elegirla en el mapa o usar el GPS. */
 @Composable
 private fun LocationSummary(
     location: PestAlertLocation?,
@@ -227,60 +137,62 @@ private fun LocationSummary(
     onChooseLocation: () -> Unit,
     onUseCurrentLocation: () -> Unit
 ) {
+    val waiting = location == null
     Surface(
-        color = if (location == null) Color(0xFFFFF4D6) else GreenSurface,
+        color = if (waiting) MaterialTheme.agroColors.warningContainer else MaterialTheme.colorScheme.primaryContainer,
+        contentColor = if (waiting) {
+            MaterialTheme.agroColors.onWarningContainer
+        } else {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        },
         shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(AgroSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
             Row(
+                modifier = Modifier.semantics(mergeDescendants = true) {},
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
                 Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = if (location == null) Color(0xFF8A6100) else GreenPrimary
+                    imageVector = if (waiting) Icons.Default.LocationSearching else Icons.Default.LocationOn,
+                    contentDescription = null
                 )
                 Column {
                     Text(
                         text = "Ubicación del reporte",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.labelLarge
                     )
                     Text(
                         text = location?.let(::formatReportCoordinates)
                             ?: "Selecciona el lugar en el mapa o usa tu GPS.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GrayMid
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
             ) {
-                TextButton(
+                AgroTextButton(
+                    text = "Elegir en mapa",
                     onClick = onChooseLocation,
                     enabled = enabled,
                     modifier = Modifier
                         .weight(1f)
                         .testTag("choose-report-location")
-                ) {
-                    Text("Elegir en mapa")
-                }
-                TextButton(
+                )
+                AgroTextButton(
+                    text = "Usar mi GPS",
                     onClick = onUseCurrentLocation,
                     enabled = enabled && currentLocation != null,
                     modifier = Modifier
                         .weight(1f)
                         .testTag("use-current-report-location")
-                ) {
-                    Text("Usar mi GPS")
-                }
+                )
             }
         }
     }

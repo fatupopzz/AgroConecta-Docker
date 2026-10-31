@@ -4,13 +4,13 @@ Autor: Juan Jose Rivas Alvarez, carnet 24856.
 
 ## Preparación de la base de datos
 
-Para una base existente, ejecutar en orden `sql/hu029_pest_alerts_migration.sql`
-y `sql/diagnostico_migration.sql`. Son idempotentes. Por ejemplo desde la raíz
+Para una base existente, ejecutar en orden `sql/009_hu029_pest_alerts.sql`
+y `sql/017_diagnostico.sql`. Son idempotentes. Por ejemplo desde la raíz
 del repositorio, en PowerShell:
 
 ```powershell
-Get-Content backend/sql/hu029_pest_alerts_migration.sql -Raw | docker compose exec -T db psql -v ON_ERROR_STOP=1 -U agroconecta_user -d agroconecta
-Get-Content backend/sql/diagnostico_migration.sql -Raw | docker compose exec -T db psql -v ON_ERROR_STOP=1 -U agroconecta_user -d agroconecta
+Get-Content backend/sql/009_hu029_pest_alerts.sql -Raw | docker compose exec -T db psql -v ON_ERROR_STOP=1 -U agroconecta_user -d agroconecta
+Get-Content backend/sql/017_diagnostico.sql -Raw | docker compose exec -T db psql -v ON_ERROR_STOP=1 -U agroconecta_user -d agroconecta
 ```
 
 El backend ejecuta ambas migraciones automáticamente al arrancar, tanto con
@@ -124,7 +124,7 @@ precisión con los pesos reales.
 Validación realizada el 21 de octubre de 2026:
 
 - 38 pruebas nuevas aprobadas en las dos suites de Vitest.
-- PostgreSQL 15 aislado: `init.sql`, HU-029, migración de diagnóstico ejecutada
+- PostgreSQL 15 aislado: `001_init.sql`, HU-029, migración de diagnóstico ejecutada
   dos veces y `tests/diagnoses.smoke.sql` finalizaron sin errores. La prueba SQL
   verifica coincidencia de ingredientes, exclusión de productos inactivos y
   subcadenas, vínculo a alerta y restricciones de confianza/GPS. El contenedor

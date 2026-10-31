@@ -1,6 +1,15 @@
 package com.uvg.agroconecta.ui.orders.checkout
 
+import com.uvg.agroconecta.ui.cart.CartItemUI
+
 object CheckoutValidation {
+    /**
+     * Cada pedido sale de un solo distribuidor. El carrito lo avisa antes de
+     * llegar a confirmar, para que el rechazo no llegue al final del proceso.
+     */
+    fun hasMultipleDistributors(items: List<CartItemUI>): Boolean =
+        items.map { it.idDistribuidor }.distinct().size > 1
+
     fun isDeliveryAddressTooShort(address: String): Boolean =
         address.isNotBlank() && address.length < 5
 
