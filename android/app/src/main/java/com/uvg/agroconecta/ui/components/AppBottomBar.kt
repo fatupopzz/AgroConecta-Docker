@@ -19,6 +19,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.uvg.agroconecta.data.models.UserRole
 
 enum class BottomNavTab { HOME, AGREGAR, PEDIDOS, PERFIL }
 
@@ -39,7 +40,21 @@ fun AppBottomBar(
     onPedidosClick: () -> Unit,
     onPerfilClick: () -> Unit
 ) {
-    val esDistribuidor = tipoUsuario == "distribuidor"
+    val role = UserRole.fromBackend(tipoUsuario)
+    val canUseAddAction = role == UserRole.FARMER || role == UserRole.DISTRIBUTOR
+    val addLabel = when (role) {
+        UserRole.FARMER -> "Calcular"
+        UserRole.DISTRIBUTOR -> "Publicar"
+        UserRole.ADMIN, null -> "Agregar"
+    }
+    val addSelectedIcon = when (role) {
+        UserRole.FARMER -> Icons.Filled.Calculate
+        UserRole.DISTRIBUTOR, UserRole.ADMIN, null -> Icons.Filled.AddCircle
+    }
+    val addIdleIcon = when (role) {
+        UserRole.FARMER -> Icons.Outlined.Calculate
+        UserRole.DISTRIBUTOR, UserRole.ADMIN, null -> Icons.Outlined.AddCircleOutline
+    }
 
     NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
         BottomBarItem(
@@ -51,9 +66,10 @@ fun AppBottomBar(
         )
         BottomBarItem(
             selected = selectedTab == BottomNavTab.AGREGAR,
-            label = if (esDistribuidor) "Publicar" else "Calcular",
-            selectedIcon = if (esDistribuidor) Icons.Filled.AddCircle else Icons.Filled.Calculate,
-            idleIcon = if (esDistribuidor) Icons.Outlined.AddCircleOutline else Icons.Outlined.Calculate,
+            label = addLabel,
+            selectedIcon = addSelectedIcon,
+            idleIcon = addIdleIcon,
+            enabled = canUseAddAction,
             onClick = onAgregarClick
         )
         BottomBarItem(
@@ -79,12 +95,14 @@ private fun RowScope.BottomBarItem(
     label: String,
     selectedIcon: ImageVector,
     idleIcon: ImageVector,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     NavigationBarItem(
         selected = selected,
+        enabled = enabled,
         // Tocar la pestaña en la que ya se está no debe recargar ni apilar nada.
-        onClick = { if (!selected) onClick() },
+        onClick = { if (enabled && !selected) onClick() },
         icon = {
             Icon(
                 imageVector = if (selected) selectedIcon else idleIcon,

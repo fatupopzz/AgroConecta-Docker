@@ -1,5 +1,6 @@
 package com.uvg.agroconecta.ui.navigation
 
+import com.uvg.agroconecta.data.models.UserRole
 import org.json.JSONObject
 import java.util.Base64
 
@@ -18,7 +19,7 @@ internal fun hasUsableSession(
     nowEpochSeconds: Long,
     marginSeconds: Long = SESSION_MARGIN_SECONDS
 ): Boolean {
-    if (token.isNullOrBlank() || tipoUsuario.isNullOrBlank()) return false
+    if (token.isNullOrBlank() || UserRole.fromBackend(tipoUsuario) == null) return false
     val expiresAt = jwtExpirationEpochSeconds(token) ?: return false
     return expiresAt - marginSeconds > nowEpochSeconds
 }
