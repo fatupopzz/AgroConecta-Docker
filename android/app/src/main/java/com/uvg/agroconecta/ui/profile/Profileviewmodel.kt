@@ -10,6 +10,7 @@ import com.uvg.agroconecta.data.location.BusinessLocationState
 import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.models.MeResponse
 import com.uvg.agroconecta.data.models.UpdateMyProfileRequest
+import com.uvg.agroconecta.data.models.UserRole
 import com.uvg.agroconecta.validation.ProfileFormValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -100,7 +101,12 @@ class ProfileViewModel @Inject constructor(
             try {
                 val response = api.getMe()
                 if (response.isSuccessful && response.body() != null) {
-                    _uiState.value = ProfileUiState.Success(response.body()!!.toProfileData())
+                    val profileData = response.body()!!.toProfileData()
+                    _uiState.value = if (profileData == null) {
+                        ProfileUiState.Error("Tipo de usuario no compatible.")
+                    } else {
+                        ProfileUiState.Success(profileData)
+                    }
                 } else {
                     _uiState.value = ProfileUiState.Error("Error al cargar perfil (${response.code()})")
                 }
@@ -137,8 +143,13 @@ class ProfileViewModel @Inject constructor(
                     )
                 )
                 if (response.isSuccessful && response.body() != null) {
-                    _uiState.value = ProfileUiState.Success(response.body()!!.toProfileData())
-                    onSaved()
+                    val profileData = response.body()!!.toProfileData()
+                    if (profileData == null) {
+                        _saveError.value = "Tipo de usuario no compatible."
+                    } else {
+                        _uiState.value = ProfileUiState.Success(profileData)
+                        onSaved()
+                    }
                 } else {
                     _saveError.value = when (response.code()) {
                         409 -> "El teléfono, correo o NIT ya está registrado."
@@ -198,10 +209,13 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    private fun MeResponse.toProfileData(): ProfileData {
+    private fun MeResponse.toProfileData(): ProfileData? {
+        val role = UserRole.fromBackend(user.tipoUsuario) ?: return null
+        if (role == UserRole.ADMIN) return null
+
         val profile = perfil ?: error("El usuario no tiene un perfil asociado")
-        return when (user.tipoUsuario) {
-            "agricultor" -> ProfileData.Farmer(
+        return when (role) {
+            UserRole.FARMER -> ProfileData.Farmer(
                 FarmerProfile(
                     idAgricultor = profile.idAgricultor ?: error("Perfil de agricultor inválido"),
                     nombre = user.nombre,
@@ -217,7 +231,7 @@ class ProfileViewModel @Inject constructor(
                     fechaRegistro = null
                 )
             )
-            "distribuidor" -> ProfileData.Distributor(
+            UserRole.DISTRIBUTOR -> ProfileData.Distributor(
                 DistributorProfile(
                     idDistribuidor = profile.idDistribuidor ?: error("Perfil de distribuidor inválido"),
                     nombreNegocio = profile.nombreNegocio ?: "Distribuidor",
@@ -234,7 +248,7 @@ class ProfileViewModel @Inject constructor(
                     longitude = profile.longitude
                 )
             )
-            else -> error("Tipo de usuario desconocido")
+            UserRole.ADMIN -> null
         }
     }
 }

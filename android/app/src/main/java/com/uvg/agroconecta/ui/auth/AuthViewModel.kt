@@ -10,8 +10,10 @@ import com.uvg.agroconecta.data.api.SessionManager
 import com.uvg.agroconecta.data.location.BusinessLocationState
 import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.models.LoginRequest
+import com.uvg.agroconecta.data.models.PerfilInfo
 import com.uvg.agroconecta.data.models.RegisterRequest
 import com.uvg.agroconecta.data.models.TipoCuenta
+import com.uvg.agroconecta.data.models.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -38,6 +40,27 @@ data class RegisterDraft(
     val latitude: Double? = null,
     val longitude: Double? = null
 )
+
+internal data class SessionRoleIds(
+    val farmerId: Int,
+    val profileId: Int
+)
+
+internal fun resolveSessionRoleIds(
+    roleText: String?,
+    profile: PerfilInfo? = null,
+    fallbackProfileId: Int? = null
+): SessionRoleIds = when (UserRole.fromBackend(roleText)) {
+    UserRole.FARMER -> {
+        val farmerId = profile?.idAgricultor ?: fallbackProfileId ?: -1
+        SessionRoleIds(farmerId = farmerId, profileId = farmerId)
+    }
+    UserRole.DISTRIBUTOR -> SessionRoleIds(
+        farmerId = -1,
+        profileId = profile?.idDistribuidor ?: fallbackProfileId ?: -1
+    )
+    UserRole.ADMIN, null -> SessionRoleIds(farmerId = -1, profileId = -1)
+}
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -113,6 +136,10 @@ class AuthViewModel @Inject constructor(
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
                     val nombre = body.nombre ?: email.substringBefore("@")
+                    val loginIds = resolveSessionRoleIds(
+                        roleText = body.tipoUsuario,
+                        fallbackProfileId = body.idPerfil
+                    )
 
                     // El interceptor saca el token de la sesion guardada, asi que
                     // hay que persistirlo antes de pedir /auth/me: si no, esa
@@ -123,9 +150,9 @@ class AuthViewModel @Inject constructor(
                         token       = body.token,
                         nombre      = nombre,
                         userId      = -1,
-                        farmerId    = if (body.tipoUsuario == "agricultor") body.idPerfil ?: -1 else -1,
+                        farmerId    = loginIds.farmerId,
                         tipoUsuario = body.tipoUsuario ?: "",
-                        perfilId    = body.idPerfil ?: -1
+                        perfilId    = loginIds.profileId
                     )
 
                     val meResponse = api.getMe()
@@ -137,18 +164,19 @@ class AuthViewModel @Inject constructor(
 
                     if (meResponse.isSuccessful && meResponse.body() != null) {
                         val me = meResponse.body()!!
-                        resolvedTipoUsuario = body.tipoUsuario ?: me.user.tipoUsuario ?: ""
-                        farmerId = me.perfil?.idAgricultor ?: -1
-                        perfilId = when (resolvedTipoUsuario) {
-                            "agricultor" -> me.perfil?.idAgricultor ?: -1
-                            "distribuidor" -> me.perfil?.idDistribuidor ?: -1
-                            else -> -1
+                        resolvedTipoUsuario = if (UserRole.fromBackend(body.tipoUsuario) != null) {
+                            body.tipoUsuario.orEmpty()
+                        } else {
+                            me.user.tipoUsuario ?: body.tipoUsuario.orEmpty()
                         }
+                        val resolvedIds = resolveSessionRoleIds(resolvedTipoUsuario, me.perfil)
+                        farmerId = resolvedIds.farmerId
+                        perfilId = resolvedIds.profileId
                         userId = me.user.idUsuario
                     } else {
                         resolvedTipoUsuario = body.tipoUsuario ?: ""
-                        farmerId = if (body.tipoUsuario == "agricultor") body.idPerfil ?: -1 else -1
-                        perfilId = body.idPerfil ?: -1
+                        farmerId = loginIds.farmerId
+                        perfilId = loginIds.profileId
                         userId = -1
                     }
 

@@ -8,6 +8,7 @@ import com.uvg.agroconecta.data.location.CurrentLocationProvider
 import com.uvg.agroconecta.data.location.GeoCoordinates
 import com.uvg.agroconecta.data.models.RegisterRequest
 import com.uvg.agroconecta.data.models.TipoCuenta
+import com.uvg.agroconecta.data.models.PerfilInfo
 import io.mockk.Called
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -155,6 +156,40 @@ class AuthViewModelTest {
         assertEquals(14.6349, request.captured.latitude!!, 0.0)
         assertEquals(-90.5069, request.captured.longitude!!, 0.0)
         assertEquals(AuthState.Success, viewModel.registerState.value)
+    }
+
+    @Test
+    fun `agricultor resuelve ambos ids desde su perfil`() {
+        val ids = resolveSessionRoleIds(
+            roleText = " AGRICULTOR ",
+            profile = PerfilInfo(idAgricultor = 14)
+        )
+
+        assertEquals(SessionRoleIds(farmerId = 14, profileId = 14), ids)
+        verify { api wasNot Called }
+    }
+
+    @Test
+    fun `distribuidor nunca recibe id de agricultor`() {
+        val ids = resolveSessionRoleIds(
+            roleText = "DISTRIBUIDOR",
+            profile = PerfilInfo(idDistribuidor = 22)
+        )
+
+        assertEquals(SessionRoleIds(farmerId = -1, profileId = 22), ids)
+        verify { api wasNot Called }
+    }
+
+    @Test
+    fun `rol desconocido no asigna ids de perfil`() {
+        val ids = resolveSessionRoleIds(
+            roleText = "cliente",
+            profile = PerfilInfo(idAgricultor = 99, idDistribuidor = 99),
+            fallbackProfileId = 99
+        )
+
+        assertEquals(SessionRoleIds(farmerId = -1, profileId = -1), ids)
+        verify { api wasNot Called }
     }
 }
 

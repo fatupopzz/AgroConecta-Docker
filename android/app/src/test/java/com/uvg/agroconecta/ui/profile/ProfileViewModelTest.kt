@@ -11,6 +11,7 @@ import com.uvg.agroconecta.data.models.UpdateMyProfileRequest
 import com.uvg.agroconecta.data.models.UserInfo
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.confirmVerified
 import io.mockk.mockk
 import io.mockk.slot
 import org.junit.Assert.assertEquals
@@ -69,6 +70,35 @@ class ProfileViewModelTest {
         assertEquals(14.6349, request.captured.latitude!!, 0.0)
         assertEquals(-90.5069, request.captured.longitude!!, 0.0)
         assertTrue(saved)
+        confirmVerified(api)
+    }
+
+    @Test
+    fun `cargar agricultor convierte el rol sin comparar textos`() {
+        coEvery { api.getMe() } returns Response.success(farmerResponse(" AGRICULTOR "))
+
+        viewModel.loadProfile()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is ProfileUiState.Success)
+        state as ProfileUiState.Success
+        assertTrue(state.data is ProfileData.Farmer)
+        coVerify(exactly = 1) { api.getMe() }
+        confirmVerified(api)
+    }
+
+    @Test
+    fun `rol desconocido muestra error controlado`() {
+        coEvery { api.getMe() } returns Response.success(farmerResponse("cliente"))
+
+        viewModel.loadProfile()
+
+        assertEquals(
+            ProfileUiState.Error("Tipo de usuario no compatible."),
+            viewModel.uiState.value
+        )
+        coVerify(exactly = 1) { api.getMe() }
+        confirmVerified(api)
     }
 
     private fun distributorResponse() = MeResponse(
@@ -85,6 +115,17 @@ class ProfileViewModelTest {
             latitude = 14.6349,
             longitude = -90.5069
         )
+    )
+
+    private fun farmerResponse(role: String) = MeResponse(
+        user = UserInfo(
+            idUsuario = 1,
+            nombre = "Ana",
+            email = "ana@test.com",
+            telefono = "55551234",
+            tipoUsuario = role
+        ),
+        perfil = PerfilInfo(idAgricultor = 3)
     )
 }
 
