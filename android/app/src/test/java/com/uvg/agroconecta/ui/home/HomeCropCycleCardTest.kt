@@ -26,8 +26,9 @@ class HomeCropCycleCardTest {
     fun `shows card only for farmer with an active phase`() {
         val cycle = cycleWithActivePhase()
 
-        assertTrue(shouldShowCropCycleCard("agricultor", cycle))
+        assertTrue(shouldShowCropCycleCard(" AGRICULTOR ", cycle))
         assertFalse(shouldShowCropCycleCard("distribuidor", cycle))
+        assertFalse(shouldShowCropCycleCard("cliente", cycle))
         assertFalse(shouldShowCropCycleCard("agricultor", cycle.copy(faseActual = null)))
         assertFalse(shouldShowCropCycleCard("agricultor", null))
     }
