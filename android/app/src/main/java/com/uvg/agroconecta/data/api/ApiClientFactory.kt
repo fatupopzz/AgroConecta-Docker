@@ -32,18 +32,20 @@ internal object ApiClientFactory {
     fun createGson(): Gson = GsonBuilder().setLenient().create()
 
     /**
-     * El orden de los interceptores importa: el de auth va primero porque los
-     * otros dos necesitan ver la cabecera ya puesta. Sin eso,
-     * [UnauthorizedInterceptor] nunca reconoceria un 401 como sesion vencida y
-     * el logging no tendria que redactar nada.
+     * Auth fija la cabecera una vez. Sesión y logging ven la respuesta HTTP final.
+     * Retry controla los intentos de transporte dentro de esa llamada lógica.
      */
     fun createOkHttpClient(
         authInterceptor: Interceptor? = null,
+        retryInterceptor: RetryInterceptor = RetryInterceptor(),
         onUnauthorized: () -> Unit = {}
     ): OkHttpClient = OkHttpClient.Builder()
+        .retryOnConnectionFailure(false)
         .apply { authInterceptor?.let(::addInterceptor) }
         .addInterceptor(UnauthorizedInterceptor(onUnauthorized))
         .addInterceptor(createLoggingInterceptor())
+        .addInterceptor(retryInterceptor)
+        .addNetworkInterceptor(HttpFollowUpGuard)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
