@@ -90,7 +90,6 @@ fun OrderHistoryScreen(
 ) {
     val userRole = UserRole.fromBackend(tipoUsuario)
     val isFarmer = userRole == UserRole.FARMER
-    val isDistributor = userRole == UserRole.DISTRIBUTOR
     var filter by rememberSaveable { mutableStateOf(OrderFilter.ALL) }
     val visibleOrders = remember(orders, filter) { orders.filter { filter.matches(it.estado) } }
 
@@ -209,7 +208,7 @@ fun OrderHistoryScreen(
                         items(visibleOrders, key = { it.id }) { order ->
                             OrderCard(
                                 order = order,
-                                isDistributor = isDistributor,
+                                userRole = userRole,
                                 onTrackOrder = { onTrackOrder(order.id) },
                                 onOpenAdvice = { onOpenAdvice(order.id) },
                                 onMakeRecurring = { onMakeRecurring(order.id) },
@@ -294,7 +293,7 @@ private fun FarmerOrderActions(
 @Composable
 private fun OrderCard(
     order: OrderSummary,
-    isDistributor: Boolean,
+    userRole: UserRole?,
     onTrackOrder: () -> Unit,
     onOpenAdvice: () -> Unit,
     onMakeRecurring: () -> Unit,
@@ -346,10 +345,14 @@ private fun OrderCard(
                 }
                 StatusTag(text = orderStatusLabel(order.estado), tone = orderStatusTone(order.estado))
             }
-            val counterparty = if (isDistributor) order.agricultorNombre else order.distribuidorNombre
+            val counterparty = when (userRole) {
+                UserRole.FARMER -> order.distribuidorNombre?.let { "Distribuidor: $it" }
+                UserRole.DISTRIBUTOR -> order.agricultorNombre?.let { "Agricultor: $it" }
+                UserRole.ADMIN, null -> null
+            }
             counterparty?.let {
                 Text(
-                    text = if (isDistributor) "Agricultor: $it" else "Distribuidor: $it",
+                    text = it,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -399,7 +402,7 @@ private fun OrderCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xxs, Alignment.End)
             ) {
-                if (!isDistributor && order.estado == "entregado") {
+                if (userRole == UserRole.FARMER && order.estado == "entregado") {
                     AgroTextButton(text = "Hacer recurrente", icon = Icons.Default.Repeat, onClick = onMakeRecurring)
                 }
                 AgroTextButton(text = "Asesoría", icon = Icons.AutoMirrored.Filled.Chat, onClick = onOpenAdvice)
