@@ -1,5 +1,9 @@
 package com.uvg.agroconecta.ui.calendar
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
@@ -85,7 +89,43 @@ fun CropCalendarScreen(viewModel: CropCalendarViewModel, onBack: () -> Unit, onC
         while (true) { viewModel.refreshToday(); delay(60_000) }
     }
     CropCalendarContent(state, onBack, viewModel::refresh, viewModel::selectCrop,
-        viewModel::changeDate, viewModel::register, viewModel::toggleTask, viewModel::openSuggestedProducts)
+        viewModel::changeDate, viewModel::register, viewModel::toggleTask, viewModel::openSuggestedProducts,
+        viewModel::openTaskForm, viewModel::requestDelete)
+    state.taskForm?.let { form ->
+        AlertDialog(
+            onDismissRequest = viewModel::closeTaskDialog,
+            title = { Text("Agregar tarea") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)) {
+                    AgroDropdownField(
+                        label = "Siembra", options = state.plantings,
+                        selected = state.plantings.find { it.id == form.plantingId },
+                        optionLabel = { "${it.name} · #${it.id} · ${it.date}" },
+                        onSelectedChange = { viewModel.editTaskForm(form.copy(plantingId = it.id)) },
+                        enabled = !state.taskMutationPending
+                    )
+                    OutlinedTextField(value = form.name, singleLine = true, label = { Text("Nombre") },
+                        onValueChange = { viewModel.editTaskForm(form.copy(name = it)) }, enabled = !state.taskMutationPending)
+                    PlantingDateField(form.date, { viewModel.editTaskForm(form.copy(date = it)) },
+                        null, !state.taskMutationPending, label = "Fecha de la tarea")
+                    OutlinedTextField(value = form.note, label = { Text("Nota (opcional)") },
+                        onValueChange = { viewModel.editTaskForm(form.copy(note = it)) }, enabled = !state.taskMutationPending)
+                    form.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = { AgroTextButton(text = "Guardar", onClick = viewModel::createTask, enabled = state.canChangeTasks) },
+            dismissButton = { AgroTextButton(text = "Cancelar", onClick = viewModel::closeTaskDialog, enabled = !state.taskMutationPending) }
+        )
+    }
+    state.deleteCandidate?.let { task ->
+        AlertDialog(
+            onDismissRequest = viewModel::closeTaskDialog,
+            title = { Text("¿Borrar esta tarea?") },
+            text = { Text(task.nombre) },
+            confirmButton = { AgroTextButton(text = "Borrar", onClick = viewModel::confirmDelete, enabled = state.canChangeTasks) },
+            dismissButton = { AgroTextButton(text = "Cancelar", onClick = viewModel::closeTaskDialog, enabled = !state.taskMutationPending) }
+        )
+    }
 }
 
 /**
@@ -109,16 +149,37 @@ internal fun CropCalendarContent(
     onDate: (String) -> Unit,
     onRegister: () -> Unit,
     onToggle: (Int) -> Unit,
-    onProducts: (Int) -> Unit
+    onProducts: (Int) -> Unit,
+    onAdd: () -> Unit,
+    onDelete: (Int) -> Unit
 ) {
     // El ViewModel ignora recargas mientras guarda o marca tareas; el botón lo
     // refleja para que no parezca que no responde.
-    val canRefresh = !state.loading && !state.saving && state.pendingTasks.isEmpty()
-    val canEditTasks = state.loaded && !state.offline && !state.loading && !state.saving
-
+    val canRefresh = !state.taskMutationPending && !state.loading && !state.saving && state.pendingTasks.isEmpty()
+    val canEditTasks = !state.taskMutationPending && state.loaded && !state.offline && !state.loading && !state.saving
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { AgroTopAppBar(title = "Calendario de cultivo", onBack = onBack) }
+        topBar = {
+            Column {
+                AgroTopAppBar(title = "Calendario de cultivo", onBack = onBack)
+                if (state.error != null || state.message != null) {
+                    Column(
+                        modifier = Modifier.padding(AgroSpacing.screenHorizontal),
+                        verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
+                    ) {
+                        state.error?.let { InlineError(message = it, onRetry = onRefresh.takeIf { canRefresh }) }
+                        state.message?.let {
+                            CalendarNotice(
+                                icon = Icons.Default.Info,
+                                text = it,
+                                container = MaterialTheme.colorScheme.primaryContainer,
+                                content = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+        }
     ) { padding ->
         AgroPullToRefreshBox(
             isRefreshing = state.loading,
@@ -148,19 +209,6 @@ internal fun CropCalendarContent(
                     contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
                     verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
                 ) {
-                    state.error?.let { error ->
-                        item(key = "error") { InlineError(message = error, onRetry = onRefresh.takeIf { canRefresh }) }
-                    }
-                    state.message?.let { message ->
-                        item(key = "message") {
-                            CalendarNotice(
-                                icon = Icons.Default.Info,
-                                text = message,
-                                container = MaterialTheme.colorScheme.primaryContainer,
-                                content = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
                     if (state.offline) {
                         item(key = "offline") {
                             CalendarNotice(
@@ -191,6 +239,10 @@ internal fun CropCalendarContent(
                             )
                         }
                     }
+                    item(key = "add-task") {
+                        AgroSecondaryButton(text = "Agregar tarea", onClick = onAdd,
+                            enabled = state.canChangeTasks && state.plantings.isNotEmpty(), modifier = Modifier.fillMaxWidth())
+                    }
                     if (state.loaded && state.plantings.isEmpty()) {
                         item(key = "no-plantings") {
                             CalendarHint("Aún no tienes siembras. Registra la primera para ver sus tareas.")
@@ -202,6 +254,8 @@ internal fun CropCalendarContent(
                     items(state.tasks, key = { it.task.id }) { row ->
                         TaskCard(
                             row = row,
+                            deleteEnabled = state.canChangeTasks,
+                            onDelete = { onDelete(row.task.id) },
                             enabled = canEditTasks && row.task.id !in state.pendingTasks,
                             onToggle = { onToggle(row.task.id) },
                             onProducts = { onProducts(row.task.id) },
@@ -262,7 +316,7 @@ private fun RegisterPlantingCard(
                 loadingText = "Guardando…",
                 loading = state.saving,
                 onClick = onRegister,
-                enabled = state.loaded && !state.loading && !state.offline && state.pendingTasks.isEmpty(),
+                enabled = !state.taskMutationPending && state.loaded && !state.loading && !state.offline && state.pendingTasks.isEmpty(),
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -280,14 +334,15 @@ private fun PlantingDateField(
     isoDate: String,
     onDate: (String) -> Unit,
     errorMessage: String?,
-    enabled: Boolean
+    enabled: Boolean,
+    label: String = "Fecha de siembra"
 ) {
     var choosing by rememberSaveable { mutableStateOf(false) }
     val selected = remember(isoDate) { runCatching { LocalDate.parse(isoDate) }.getOrNull() }
 
     Column(verticalArrangement = Arrangement.spacedBy(AgroSpacing.xxs)) {
         Text(
-            text = "Fecha de siembra",
+            text = label,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -299,8 +354,8 @@ private fun PlantingDateField(
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics {
-                    contentDescription = selected?.let { "Fecha de siembra: ${friendlyCalendarDate(it)}. Toca para cambiarla" }
-                        ?: "Elegir fecha de siembra"
+                    contentDescription = selected?.let { "$label: ${friendlyCalendarDate(it)}. Toca para cambiarla" }
+                        ?: "Elegir: $label"
                 }
         )
         errorMessage?.let {
@@ -314,7 +369,7 @@ private fun PlantingDateField(
     }
 
     if (choosing) {
-        val today = remember { LocalDate.now() }
+        val today = remember { LocalDate.now(java.time.ZoneId.of("America/Guatemala")) }
         val pickerState = rememberDatePickerState(
             initialSelectedDateMillis = (selected ?: today).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
             // El backend acepta hasta un año antes o después; así no se puede
@@ -355,6 +410,8 @@ internal fun friendlyCalendarDate(date: LocalDate): String = date.format(calenda
 @Composable
 private fun TaskCard(
     row: CalendarTask,
+    deleteEnabled: Boolean,
+    onDelete: () -> Unit,
     enabled: Boolean,
     onToggle: () -> Unit,
     onProducts: () -> Unit,
@@ -395,6 +452,11 @@ private fun TaskCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (row.task.custom) {
+                StatusTag(text = "Tarea propia", tone = TagTone.Info)
+                AgroTextButton(text = "Borrar tarea", onClick = onDelete, enabled = deleteEnabled)
+            }
+            row.task.nota?.takeIf { it.isNotBlank() }?.let { Text(it) }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier

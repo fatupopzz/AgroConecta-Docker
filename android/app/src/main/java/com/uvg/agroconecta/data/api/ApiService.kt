@@ -33,6 +33,12 @@ interface ApiService {
     @POST("plantings")
     suspend fun createPlanting(@Body request: CreatePlantingRequest): Response<Planting>
 
+    @POST("plantings/{id}/tasks")
+    suspend fun createPlantingTask(@Path("id") id: Int, @Body request: CreatePlantingTaskRequest): Response<PlantingTask>
+
+    @DELETE("plantings/tasks/{id}")
+    suspend fun deletePlantingTask(@Path("id") id: Int): Response<Unit>
+
     @PATCH("plantings/tasks/{id}")
     suspend fun updatePlantingTask(@Path("id") id: Int, @Body request: UpdatePlantingTaskRequest): Response<PlantingTaskStatus>
 

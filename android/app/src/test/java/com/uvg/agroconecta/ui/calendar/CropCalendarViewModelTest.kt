@@ -17,7 +17,11 @@ class CropCalendarViewModelTest {
     private val repository = mockk<PlantingCalendarRepository>()
     // UTC ya es 17; en Guatemala todavía es 16.
     private val clock = Clock.fixed(Instant.parse("2026-10-17T02:00:00Z"), ZoneId.of("America/Guatemala"))
-    private val vm = CropCalendarViewModel(repository, clock)
+    private val network = kotlinx.coroutines.flow.MutableStateFlow(true)
+    private val connectivity = mockk<com.uvg.agroconecta.data.connectivity.ConnectivityMonitor> {
+        every { status } returns network
+    }
+    private val vm = CropCalendarViewModel(repository, clock, connectivity)
     private val templates = listOf(PlantingTemplate(1, "maíz", "Maíz", "Descripción", 80))
     private val planting = Planting(1, "maíz", "Maíz", "2026-10-15", listOf(
         PlantingTask(3, "Cosechar", "cosechar", "2026-10-17", null, false),
@@ -33,6 +37,128 @@ class CropCalendarViewModelTest {
         coVerify(exactly = times) { repository.templates() }
         coVerify(exactly = times) { repository.loadPlantings(7) }
     }
+    private val request = CreatePlantingTaskRequest("Riego", "2026-10-16", "Norte")
+    private val customTask = PlantingTask(4, request.nombre, "otro", request.date, null, false, nota = request.nota, custom = true)
+    private val withTask = planting.copy(tasks = planting.tasks + customTask)
+
+    private fun fillTask() {
+        vm.openTaskForm()
+        vm.editTaskForm(TaskForm(planting.id, "  Riego  ", request.date, " Norte "))
+    }
+
+    @Test fun `abre cierra y valida el formulario sin llamar al repositorio`() {
+        start()
+        vm.openTaskForm()
+        assertEquals(TaskForm(planting.id), vm.state.value.taskForm)
+        val invalid = listOf(TaskForm(1, " ", request.date), TaskForm(1, "Riego", "2026-02-30"),
+            TaskForm(1, "Riego", "2026-1-01"), TaskForm(1, "Riego", "2028-01-01"),
+            TaskForm(1, "a".repeat(121), request.date), TaskForm(1, "Riego", request.date, "a".repeat(1001)))
+        for (form in invalid) {
+            vm.editTaskForm(form)
+            vm.createTask()
+            assertNotNull(vm.state.value.taskForm?.error)
+        }
+        vm.closeTaskDialog()
+        assertNull(vm.state.value.taskForm)
+        verifyLoad()
+        confirmVerified(repository)
+    }
+
+    @Test fun `dos pulsaciones crean una tarea y la insertan en el dia correcto`() = runTest {
+        start()
+        val gate = CompletableDeferred<PlantingSnapshot>()
+        coEvery { repository.createTask(7, 1, request) } coAnswers { gate.await() }
+        fillTask()
+        vm.createTask()
+        vm.createTask()
+        assertTrue(vm.state.value.taskMutationPending)
+        assertFalse(vm.state.value.canChangeTasks)
+        gate.complete(PlantingSnapshot(listOf(withTask)))
+        assertEquals(listOf(1, 2, 4, 3), vm.state.value.tasks.map { it.task.id })
+        assertEquals(TaskPeriod.TODAY, vm.state.value.tasks[2].period)
+        assertNull(vm.state.value.taskForm)
+        assertEquals("Tarea agregada.", vm.state.value.message)
+        verifyLoad()
+        coVerify(exactly = 1) { repository.createTask(7, 1, request) }
+        confirmVerified(repository)
+    }
+
+    @Test fun `error al crear conserva formulario y linea de tiempo`() {
+        start()
+        coEvery { repository.createTask(7, 1, request) } throws IOException()
+        fillTask()
+        vm.createTask()
+        assertNotNull(vm.state.value.taskForm?.error)
+        assertFalse(vm.state.value.taskMutationPending)
+        assertEquals(listOf(planting), vm.state.value.plantings)
+        verifyLoad()
+        coVerify(exactly = 1) { repository.createTask(7, 1, request) }
+        confirmVerified(repository)
+    }
+
+    @Test fun `solo solicita confirmacion para tareas propias y cancelar no borra`() {
+        start(listOf(withTask))
+        vm.requestDelete(1)
+        vm.confirmDelete()
+        assertNull(vm.state.value.deleteCandidate)
+        vm.requestDelete(4)
+        assertEquals(customTask, vm.state.value.deleteCandidate)
+        vm.closeTaskDialog()
+        vm.confirmDelete()
+        assertNull(vm.state.value.deleteCandidate)
+        assertEquals(listOf(withTask), vm.state.value.plantings)
+        verifyLoad()
+        confirmVerified(repository)
+    }
+
+    @Test fun `borrado espera al servidor y conserva la advertencia de cache`() = runTest {
+        start(listOf(withTask))
+        val gate = CompletableDeferred<PlantingSnapshot>()
+        coEvery { repository.deleteTask(7, 4) } coAnswers { gate.await() }
+        vm.requestDelete(4)
+        vm.confirmDelete()
+        vm.confirmDelete()
+        assertEquals(listOf(withTask), vm.state.value.plantings)
+        gate.complete(PlantingSnapshot(listOf(planting), cacheWarning = true))
+        assertEquals(listOf(1, 2, 3), vm.state.value.tasks.map { it.task.id })
+        assertTrue(vm.state.value.message.orEmpty().contains("copia local"))
+        assertNull(vm.state.value.deleteCandidate)
+        verifyLoad()
+        coVerify(exactly = 1) { repository.deleteTask(7, 4) }
+        confirmVerified(repository)
+    }
+
+    @Test fun `error al borrar conserva la tarea confirmada`() {
+        start(listOf(withTask))
+        coEvery { repository.deleteTask(7, 4) } throws IOException()
+        vm.requestDelete(4)
+        vm.confirmDelete()
+        assertEquals(listOf(withTask), vm.state.value.plantings)
+        assertNotNull(vm.state.value.error)
+        assertTrue(vm.state.value.canChangeTasks)
+        verifyLoad()
+        coVerify(exactly = 1) { repository.deleteTask(7, 4) }
+        confirmVerified(repository)
+    }
+
+    @Test fun `perder conexion con el dialogo abierto bloquea guardar y confirmar`() {
+        start(listOf(withTask))
+        fillTask()
+        network.value = false
+        vm.createTask()
+        vm.closeTaskDialog()
+        vm.openTaskForm()
+        assertNull(vm.state.value.taskForm)
+        network.value = true
+        vm.requestDelete(4)
+        network.value = false
+        vm.confirmDelete()
+        assertFalse(vm.state.value.canChangeTasks)
+        assertEquals(listOf(withTask), vm.state.value.plantings)
+        verifyLoad()
+        confirmVerified(repository)
+    }
+
     @Test fun `estado inicial no hace llamadas`() {
         assertEquals(CropCalendarState(), vm.state.value)
         confirmVerified(repository)
@@ -147,6 +273,10 @@ class CropCalendarViewModelTest {
     @Test fun `sin conexion no registra ni marca tareas`() {
         start(offline = true)
         vm.selectCrop("maíz"); vm.changeDate("2026-10-15"); vm.register(); vm.toggleTask(2)
+        vm.openTaskForm()
+        vm.requestDelete(2)
+        assertNull(vm.state.value.taskForm)
+        assertFalse(vm.state.value.canChangeTasks)
         assertTrue(vm.state.value.offline)
         verifyLoad(); confirmVerified(repository)
     }
@@ -156,6 +286,9 @@ class CropCalendarViewModelTest {
         vm.start(8, "agricultor")
         assertTrue(vm.state.value.plantings.isEmpty())
         vm.start(8, "distribuidor")
+        vm.openTaskForm()
+        assertNull(vm.state.value.taskForm)
+        assertFalse(vm.state.value.canChangeTasks)
         assertEquals(0, vm.state.value.ownerId)
         coVerify(exactly = 2) { repository.templates() }
         coVerify(exactly = 1) { repository.loadPlantings(7) }

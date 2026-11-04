@@ -86,6 +86,23 @@ class RemoteCropCycleRepository internal constructor(
         save(userId, previous.filterNot { it.id == created.id } + created)
     }
 
+    override suspend fun createTask(userId: Int, plantingId: Int, request: CreatePlantingTaskRequest): PlantingSnapshot = calendarMutex.withLock {
+        val previous = requireNotNull(cached(userId))
+        require(previous.any { it.id == plantingId })
+        val task = requireNotNull(service).createPlantingTask(plantingId, request).required()
+        save(userId, previous.map { planting ->
+            if (planting.id == plantingId) planting.copy(tasks = planting.tasks + task) else planting
+        })
+    }
+
+    override suspend fun deleteTask(userId: Int, taskId: Int): PlantingSnapshot = calendarMutex.withLock {
+        val previous = requireNotNull(cached(userId))
+        require(previous.any { planting -> planting.tasks.any { it.id == taskId && it.custom } })
+        val response = requireNotNull(service).deletePlantingTask(taskId)
+        if (!response.isSuccessful) throw HttpException(response)
+        save(userId, previous.map { planting -> planting.copy(tasks = planting.tasks.filterNot { it.id == taskId }) })
+    }
+
     override suspend fun completeTask(userId: Int, taskId: Int, completed: Boolean): PlantingSnapshot = calendarMutex.withLock {
         require(userId > 0)
         val previous = requireNotNull(cached(userId))

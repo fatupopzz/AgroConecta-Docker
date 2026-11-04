@@ -4,6 +4,8 @@ const {
   createPlanting,
   getMyPlantings,
   updateTaskStatus,
+  createTask,
+  deleteTask,
 } = require("../controllers/plantingController");
 const asyncHandler = require("../middleware/asyncHandler");
 
@@ -20,5 +22,8 @@ router.post("/", asyncHandler(createPlanting));
 
 // PATCH /api/plantings/tasks/:id - Marcar o desmarcar una tarea como hecha
 router.patch("/tasks/:id", asyncHandler(updateTaskStatus));
+
+router.post("/:id/tasks", asyncHandler(createTask));
+router.delete("/tasks/:id", asyncHandler(deleteTask));
 
 module.exports = router;
