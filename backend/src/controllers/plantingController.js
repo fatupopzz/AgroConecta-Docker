@@ -4,9 +4,10 @@ const {
   guatemalaToday,
   buildPlantingTasks,
   validatePlantingInput,
+  validateCalendarDate,
 } = require("../services/plantingCalendar");
 
-const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
+const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value)) && Number(value) <= 2147483647;
 
 const requireFarmerId = (req) => {
   if (req.user?.tipo !== "agricultor") {
@@ -101,7 +102,7 @@ const createPlantingController = ({
            AS t (nombre, tipo, fecha_programada, id_categoria_sugerida)
          RETURNING id_tarea, nombre, tipo,
                    to_char(fecha_programada, 'YYYY-MM-DD') AS fecha_programada,
-                   id_categoria_sugerida, hecha, fecha_hecha`,
+                   id_categoria_sugerida, hecha, fecha_hecha, nota, es_personalizada`,
         [
           planting.id_siembra,
           tasks.map((task) => task.nombre),
@@ -136,6 +137,8 @@ const createPlantingController = ({
             task.id_categoria_sugerida,
             categoryNames.get(task.id_categoria_sugerida),
           ),
+          nota: task.nota,
+          es_personalizada: task.es_personalizada,
           hecha: task.hecha,
           fecha_hecha: task.fecha_hecha,
         }))
@@ -159,6 +162,8 @@ const createPlantingController = ({
                   'tipo', t.tipo,
                   'fecha_programada', to_char(t.fecha_programada, 'YYYY-MM-DD'),
                   'categoria_sugerida', ${CATEGORY_JSON("c")},
+                  'nota', t.nota,
+                  'es_personalizada', t.es_personalizada,
                   'hecha', t.hecha,
                   -- Mismo formato ISO en UTC que las fechas que pg convierte a
                   -- Date (fecha_creacion, PATCH): la app parsea uno solo.
@@ -187,6 +192,58 @@ const createPlantingController = ({
       fecha_creacion: row.fecha_creacion,
       tareas: row.tareas,
     })));
+  };
+
+  const createTask = async (req, res) => {
+    const userId = requireFarmerId(req);
+    if (!isPositiveInteger(req.params.id)) throw new AppError(400, "id de siembra inválido");
+    const { nombre, fecha_programada: date, nota } = req.body || {};
+    const name = typeof nombre === "string" && nombre.trim();
+    if (!name || name.includes("\0") || [...name].length > 120) {
+      throw new AppError(400, "El nombre es obligatorio y admite hasta 120 caracteres");
+    }
+    validateCalendarDate(date, today(), "fecha_programada");
+    if (nota != null && (typeof nota !== "string" || nota.includes("\0") || [...nota.trim()].length > 1000)) {
+      throw new AppError(400, "La nota debe ser texto de hasta 1000 caracteres");
+    }
+    const id = Number(req.params.id);
+    const result = await database.query(
+      `INSERT INTO tarea_siembra (id_siembra, nombre, tipo, fecha_programada, nota, es_personalizada)
+       SELECT s.id_siembra, $3, 'otro', $4::date, $5, TRUE
+       FROM siembra s WHERE s.id_siembra = $1 AND s.id_usuario = $2 FOR SHARE
+       RETURNING id_tarea, id_siembra, nombre, tipo,
+                 to_char(fecha_programada, 'YYYY-MM-DD') AS fecha_programada,
+                 nota, hecha, fecha_hecha, es_personalizada, notificada, NULL AS categoria_sugerida`,
+      [id, userId, name, date, nota?.trim() || null],
+    );
+    if (result.rows.length) return res.status(201).json(result.rows[0]);
+    const exists = await database.query("SELECT 1 FROM siembra WHERE id_siembra = $1", [id]);
+    if (!exists.rows.length) throw new AppError(404, "Siembra no encontrada");
+    throw new AppError(403, "No puedes agregar tareas a una siembra que no es tuya");
+  };
+
+  const deleteTask = async (req, res) => {
+    const userId = requireFarmerId(req);
+    if (!isPositiveInteger(req.params.id)) throw new AppError(400, "id de tarea inválido");
+    const id = Number(req.params.id);
+    // Los permisos y el origen forman parte del DELETE. La consulta posterior
+    // solo distingue los motivos de rechazo y nunca autoriza una escritura.
+    const deleted = await database.query(
+      `DELETE FROM tarea_siembra t USING siembra s
+       WHERE t.id_tarea = $1 AND t.es_personalizada
+         AND s.id_siembra = t.id_siembra AND s.id_usuario = $2
+       RETURNING t.id_tarea`, [id, userId],
+    );
+    if (deleted.rows.length) return res.status(204).end();
+    const result = await database.query(
+      `SELECT s.id_usuario FROM tarea_siembra t JOIN siembra s USING (id_siembra)
+       WHERE t.id_tarea = $1`, [id],
+    );
+    if (!result.rows.length) throw new AppError(404, "Tarea no encontrada");
+    if (Number(result.rows[0].id_usuario) !== userId) {
+      throw new AppError(403, "No puedes borrar tareas de una siembra que no es tuya");
+    }
+    throw new AppError(409, "No puedes borrar una tarea de plantilla");
   };
 
   const updateTaskStatus = async (req, res) => {
@@ -222,7 +279,7 @@ const createPlantingController = ({
        WHERE t.id_tarea = $1
          AND s.id_siembra = t.id_siembra
          AND s.id_usuario = $3
-       RETURNING t.id_tarea, t.id_siembra, t.hecha, t.fecha_hecha`,
+       RETURNING t.id_tarea, t.id_siembra, t.hecha, t.fecha_hecha, t.nota, t.es_personalizada`,
       [Number(req.params.id), hecha, userId],
     );
     if (result.rows.length === 0) {
@@ -233,12 +290,14 @@ const createPlantingController = ({
     return res.json({
       id_tarea: Number(task.id_tarea),
       id_siembra: Number(task.id_siembra),
+      nota: task.nota,
+      es_personalizada: task.es_personalizada,
       hecha: task.hecha,
       fecha_hecha: task.fecha_hecha,
     });
   };
 
-  return { getTemplates, createPlanting, getMyPlantings, updateTaskStatus };
+  return { getTemplates, createPlanting, getMyPlantings, updateTaskStatus, createTask, deleteTask };
 };
 
 module.exports = {

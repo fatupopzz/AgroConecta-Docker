@@ -48,6 +48,27 @@ class PlantingCalendarRepositoryTest {
         coVerify(exactly = 1) { dao.put(updatedCache) }; coVerify(exactly = 1) { dao.put(stored) }
         confirmVerified(api, dao)
     }
+    @Test fun `snapshot anterior permite crear persistir y borrar una tarea propia`() = runTest {
+        val legacy = stored.copy(payload = stored.payload.replace(",\"es_personalizada\":false", ""))
+        assertFalse(legacy.payload.contains("es_personalizada"))
+        coEvery { dao.get(7) } returns legacy
+        val request = CreatePlantingTaskRequest("Riego", "2026-10-16", "Norte")
+        val task = PlantingTask(3, "Riego", "otro", request.date, null, false, nota = "Norte", custom = true)
+        val updated = listOf(planting.copy(tasks = planting.tasks + task))
+        val updatedCache = PlantingCacheEntity(7, Gson().toJson(updated))
+        coEvery { api.createPlantingTask(1, request) } returns Response.success(task)
+        coEvery { dao.put(updatedCache) } just Runs
+        assertEquals(updated, repository.createTask(7, 1, request).plantings)
+        coEvery { api.deletePlantingTask(3) } returns Response.success<Unit>(204, null as Unit?)
+        coEvery { dao.put(stored) } just Runs
+        assertEquals(listOf(planting), repository.deleteTask(7, 3).plantings)
+        coVerify(exactly = 1) { dao.get(7) }
+        coVerify(exactly = 1) { api.createPlantingTask(1, request) }
+        coVerify(exactly = 1) { dao.put(updatedCache) }
+        coVerify(exactly = 1) { api.deletePlantingTask(3) }
+        coVerify(exactly = 1) { dao.put(stored) }
+        confirmVerified(api, dao)
+    }
     @Test fun `401 no muestra cache como si sesion fuera valida`() = runTest {
         coEvery { api.getMyPlantings() } returns Response.error(401, "{}".toResponseBody())
         try { repository.loadPlantings(7); fail("Debe fallar") } catch (_: HttpException) { }

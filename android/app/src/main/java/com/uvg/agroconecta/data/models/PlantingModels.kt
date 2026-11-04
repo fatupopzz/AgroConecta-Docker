@@ -17,7 +17,9 @@ data class PlantingTask(
     @SerializedName("fecha_programada") val date: String,
     @SerializedName("categoria_sugerida") val category: PlantingCategory?,
     @SerializedName("hecha") val completed: Boolean,
-    @SerializedName("fecha_hecha") val completedAt: String? = null
+    @SerializedName("fecha_hecha") val completedAt: String? = null,
+    val nota: String? = null,
+    @SerializedName("es_personalizada") val custom: Boolean = false
 )
 data class Planting(
     @SerializedName("id_siembra") val id: Int,
@@ -27,6 +29,7 @@ data class Planting(
     @SerializedName("tareas") val tasks: List<PlantingTask>
 )
 data class CreatePlantingRequest(val cultivo: String, @SerializedName("fecha_siembra") val date: String)
+data class CreatePlantingTaskRequest(val nombre: String, @SerializedName("fecha_programada") val date: String, val nota: String?)
 data class UpdatePlantingTaskRequest(@SerializedName("hecha") val completed: Boolean)
 data class PlantingTaskStatus(
     @SerializedName("id_tarea") val id: Int,

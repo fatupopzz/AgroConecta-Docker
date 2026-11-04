@@ -7,5 +7,7 @@ interface PlantingCalendarRepository {
     suspend fun templates(): List<PlantingTemplate>
     suspend fun loadPlantings(userId: Int): PlantingSnapshot
     suspend fun registerPlanting(userId: Int, request: CreatePlantingRequest): PlantingSnapshot
+    suspend fun createTask(userId: Int, plantingId: Int, request: CreatePlantingTaskRequest): PlantingSnapshot
+    suspend fun deleteTask(userId: Int, taskId: Int): PlantingSnapshot
     suspend fun completeTask(userId: Int, taskId: Int, completed: Boolean): PlantingSnapshot
 }

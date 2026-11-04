@@ -31,6 +31,7 @@ const response = () => ({
     this.statusCode = code;
     return this;
   },
+  end() { return this; },
   json(body) {
     this.body = body;
     return this;
@@ -57,6 +58,8 @@ const plantingDatabase = ({ failTasksInsert = false } = {}) => {
             tipo: tipos[index],
             fecha_programada: fechas[index],
             id_categoria_sugerida: categorias[index],
+            nota: null,
+            es_personalizada: false,
             hecha: false,
             fecha_hecha: null,
           })),
@@ -178,6 +181,8 @@ describe("POST /api/plantings", () => {
       tipo: "fertilizar",
       fecha_programada: "2026-10-16",
       categoria_sugerida: { id_categoria: 1, nombre: "Fertilizantes" },
+      nota: null,
+      es_personalizada: false,
       hecha: false,
       fecha_hecha: null,
     });
@@ -248,7 +253,7 @@ describe("GET /api/plantings/mine", () => {
       nombre_cultivo: "Maíz (elote)",
       fecha_siembra: "2026-10-06",
       fecha_creacion: new Date("2026-10-06T15:00:00Z"),
-      tareas: [{ id_tarea: 1, fecha_programada: "2026-10-06" }],
+      tareas: [{ id_tarea: 1, fecha_programada: "2026-10-06", nota: "Sector norte", es_personalizada: true }],
     };
     const database = { query: vi.fn(async () => ({ rows: [row] })) };
     const controller = createPlantingController({ database });
@@ -257,6 +262,8 @@ describe("GET /api/plantings/mine", () => {
 
     expect(res.body).toEqual([{ ...row, id_siembra: 3, id_plantilla: 1 }]);
     expect(database.query.mock.calls[0][1]).toEqual([501]);
+    expect(database.query.mock.calls[0][0]).toContain("'nota', t.nota");
+    expect(database.query.mock.calls[0][0]).toContain("'es_personalizada', t.es_personalizada");
     expect(database.query.mock.calls[0][0]).toMatch(/ORDER BY t\.fecha_programada, t\.id_tarea/);
   });
 });
@@ -350,6 +357,68 @@ describe("PATCH /api/plantings/tasks/:id", () => {
   });
 });
 
+describe("tareas propias", () => {
+  const query = vi.fn();
+  const controller = createPlantingController({ database: { query }, today: () => TODAY });
+  const req = { user: farmer, params: { id: "3" }, body: {
+    nombre: "  Riego ", fecha_programada: TODAY, nota: " Norte  ", id_usuario: 999,
+    id_siembra: 99, es_personalizada: false, hecha: true, notificada: true,
+  } };
+  beforeEach(() => query.mockReset());
+
+  test("crea en la siembra de la URL con el dueño del JWT", async () => {
+    const task = { id_tarea: 42, id_siembra: 3, nombre: "Riego", tipo: "otro",
+      fecha_programada: TODAY, nota: "Norte", hecha: false, fecha_hecha: null,
+      es_personalizada: true, notificada: false, categoria_sugerida: null };
+    query.mockResolvedValueOnce({ rows: [task] });
+    const res = await run(controller.createTask, req);
+    expect(res.statusCode).toBe(201);
+    expect(res.body).toEqual(task);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("s.id_siembra = $1 AND s.id_usuario = $2"),
+      [3, farmer.id, "Riego", TODAY, "Norte"]);
+  });
+
+  test.each([
+    ["0", {}], ["-1", {}], ["2.5", {}], ["2147483648", {}],
+    ["1", { nombre: undefined }], ["1", { nombre: 5 }], ["1", { nombre: " " }],
+    ["1", { nombre: "a".repeat(121) }], ["1", { nota: [] }], ["1", { nota: "a".repeat(1001) }],
+    ["1", { fecha_programada: "2026-02-30" }], ["1", { fecha_programada: "2026-2-01" }],
+    ["1", { fecha_programada: "2027-10-17" }],
+  ])("rechaza id o campos inválidos antes de escribir", async (id, fields) => {
+    await expect(run(controller.createTask, { ...req, params: { id }, body: { ...req.body, ...fields } }))
+      .rejects.toMatchObject({ statusCode: 400 });
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  test.each(["createTask", "deleteTask"])("distribuidor no puede usar %s", async (action) => {
+    await expect(run(controller[action], { ...req, user: { ...farmer, tipo: "distribuidor" } }))
+      .rejects.toMatchObject({ statusCode: 403 });
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  test("el dueño borra su tarea personalizada", async () => {
+    query.mockResolvedValueOnce({ rows: [{ id_tarea: 3 }] });
+    expect((await run(controller.deleteTask, req)).statusCode).toBe(204);
+    const [sql, params] = query.mock.calls[0];
+    expect(params).toEqual([3, farmer.id]);
+    expect(sql).toContain("t.id_tarea = $1 AND t.es_personalizada");
+    expect(sql).toContain("s.id_siembra = t.id_siembra AND s.id_usuario = $2");
+  });
+
+  test.each([
+    ["createTask", [{ id_usuario: 999 }], 403],
+    ["createTask", [], 404],
+    ["deleteTask", [{ id_usuario: 999 }], 403],
+    ["deleteTask", [{ id_usuario: farmer.id }], 409],
+    ["deleteTask", [], 404],
+  ])("%s distingue propiedad, plantilla y recurso inexistente", async (action, rows, statusCode) => {
+    query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows });
+    await expect(run(controller[action], req)).rejects.toMatchObject({ statusCode });
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[1][0]).toMatch(/SELECT/);
+  });
+});
+
 describe("rutas /api/plantings", () => {
   const token = jwt.sign(farmer, process.env.JWT_SECRET);
 
@@ -362,6 +431,8 @@ describe("rutas /api/plantings", () => {
     ["get", "/api/plantings/mine"],
     ["post", "/api/plantings"],
     ["patch", "/api/plantings/tasks/1"],
+    ["delete", "/api/plantings/tasks/1"],
+    ["post", "/api/plantings/1/tasks"],
   ])("%s %s exige token", async (method, path) => {
     const res = await request(app)[method](path);
 

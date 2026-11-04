@@ -102,6 +102,19 @@ describe("scheduler de tareas de siembra", () => {
     });
   });
 
+  test("una tarea propia pendiente recibe un solo aviso del calendario", async () => {
+    const database = createDatabase({
+      tasks: [task(9, 501, { es_personalizada: true, tipo: "otro", nombre: "Riego" })],
+      tokens: [{ id_usuario: 501, fcm_registration_token: "test-device" }],
+    });
+    const sender = okSender();
+    await runScheduler(database, sender);
+    await runScheduler(database, sender);
+    expect(sender).toHaveBeenCalledTimes(1);
+    expect(sender.mock.calls[0][2].data).toMatchObject({ task_id: "9", task_type: "otro" });
+    expect(database.rows[0].notificada).toBe(true);
+  });
+
   test("hoy es la fecha de Guatemala aunque en UTC ya sea el día siguiente", async () => {
     const database = createDatabase({ tasks: [] });
 

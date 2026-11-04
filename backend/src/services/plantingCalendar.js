@@ -59,6 +59,16 @@ const addDays = (isoDate, days) =>
 const daysBetween = (fromIsoDate, toIsoDate) =>
   Math.round((parseIsoDate(toIsoDate) - parseIsoDate(fromIsoDate)) / DAY_MS);
 
+const validateCalendarDate = (date, today, field) => {
+  if (parseIsoDate(date) === null) {
+    throw new AppError(400, `${field} debe ser una fecha válida con formato YYYY-MM-DD`);
+  }
+
+  if (Math.abs(daysBetween(today, date)) > MAX_DAYS_FROM_TODAY) {
+    throw new AppError(400, `${field} debe estar dentro de un año antes o después de hoy`);
+  }
+};
+
 const validatePlantingInput = (body, today) => {
   const { cultivo, fecha_siembra: fechaSiembra } = body || {};
 
@@ -67,13 +77,7 @@ const validatePlantingInput = (body, today) => {
     throw new AppError(400, "Debes indicar un cultivo válido");
   }
 
-  if (parseIsoDate(fechaSiembra) === null) {
-    throw new AppError(400, "fecha_siembra debe ser una fecha válida con formato YYYY-MM-DD");
-  }
-
-  if (Math.abs(daysBetween(today, fechaSiembra)) > MAX_DAYS_FROM_TODAY) {
-    throw new AppError(400, "fecha_siembra debe estar dentro de un año antes o después de hoy");
-  }
+  validateCalendarDate(fechaSiembra, today, "fecha_siembra");
 
   return { crop, fechaSiembra };
 };
@@ -102,4 +106,5 @@ module.exports = {
   addDays,
   buildPlantingTasks,
   validatePlantingInput,
+  validateCalendarDate,
 };
