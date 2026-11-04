@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.OrderSummary
+import com.uvg.agroconecta.data.models.UserRole
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
@@ -87,13 +88,23 @@ fun OrderHistoryScreen(
     onMakeRecurring: (Int) -> Unit = {},
     onRetry: () -> Unit = {}
 ) {
-    val isDistributor = tipoUsuario == "distribuidor"
+    val userRole = UserRole.fromBackend(tipoUsuario)
+    val isFarmer = userRole == UserRole.FARMER
+    val isDistributor = userRole == UserRole.DISTRIBUTOR
     var filter by rememberSaveable { mutableStateOf(OrderFilter.ALL) }
     val visibleOrders = remember(orders, filter) { orders.filter { filter.matches(it.estado) } }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { AgroTopAppBar(title = if (isDistributor) "Pedidos recibidos" else "Mis pedidos") },
+        topBar = {
+            AgroTopAppBar(
+                title = when (userRole) {
+                    UserRole.FARMER -> "Mis pedidos"
+                    UserRole.DISTRIBUTOR -> "Pedidos recibidos"
+                    UserRole.ADMIN, null -> "Pedidos"
+                }
+            )
+        },
         bottomBar = {
             AppBottomBar(
                 selectedTab = BottomNavTab.PEDIDOS,
@@ -117,7 +128,7 @@ fun OrderHistoryScreen(
                 contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
                 verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
-                if (tipoUsuario == "agricultor") {
+                if (isFarmer) {
                     item(key = "farmer-actions") {
                         FarmerOrderActions(
                             exportState = exportState,
@@ -161,11 +172,15 @@ fun OrderHistoryScreen(
                     orders.isEmpty() -> item(key = "empty") {
                         EmptyState(
                             icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                            title = if (isDistributor) "Aún no recibes pedidos" else "Aún no tienes pedidos",
-                            message = if (isDistributor) {
-                                "Cuando un agricultor te compre, su pedido aparecerá aquí."
-                            } else {
-                                "Cuando hagas tu primera compra, aquí podrás seguir su entrega."
+                            title = when (userRole) {
+                                UserRole.FARMER -> "Aún no tienes pedidos"
+                                UserRole.DISTRIBUTOR -> "Aún no recibes pedidos"
+                                UserRole.ADMIN, null -> "No hay pedidos disponibles"
+                            },
+                            message = when (userRole) {
+                                UserRole.FARMER -> "Cuando hagas tu primera compra, aquí podrás seguir su entrega."
+                                UserRole.DISTRIBUTOR -> "Cuando un agricultor te compre, su pedido aparecerá aquí."
+                                UserRole.ADMIN, null -> "Inicia sesión con una cuenta compatible para consultar pedidos."
                             }
                         )
                     }

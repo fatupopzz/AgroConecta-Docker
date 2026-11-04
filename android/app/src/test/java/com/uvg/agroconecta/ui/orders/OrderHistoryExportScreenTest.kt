@@ -19,7 +19,7 @@ class OrderHistoryExportScreenTest {
     @get:Rule val compose = createComposeRule()
 
     @Test fun `botón aparece solo para agricultor y se deshabilita durante descarga`() {
-        val role = mutableStateOf("distribuidor")
+        val role = mutableStateOf("cliente")
         val state = mutableStateOf<OrderExportState>(OrderExportState.Idle)
         compose.setContent {
             MaterialTheme {

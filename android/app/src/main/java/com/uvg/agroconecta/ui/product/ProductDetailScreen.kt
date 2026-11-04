@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.api.SessionManager
+import com.uvg.agroconecta.data.models.UserRole
 import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.ErrorState
 import com.uvg.agroconecta.ui.components.ListItemSkeleton
@@ -96,7 +97,9 @@ fun ProductDetailScreen(
     val haptics = rememberAgroHaptics()
 
     LaunchedEffect(productId) {
-        isFarmer = SessionManager.getTipoUsuario(context).first() == "agricultor"
+        isFarmer = UserRole.fromBackend(
+            SessionManager.getTipoUsuario(context).first()
+        ) == UserRole.FARMER
         viewModel.loadProduct(productId, requireOfferSelection)
         viewModel.loadComparison(productId)
         if (isFarmer) {
