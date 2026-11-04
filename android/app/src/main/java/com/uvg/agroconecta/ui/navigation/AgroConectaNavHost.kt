@@ -104,7 +104,8 @@ fun AgroConectaNavHost(
         .collectAsState(initial = null)
     val userIdFlow by SessionManager.getUserId(context)
         .collectAsState(initial = null)
-    val tipoUsuario = tipoUsuarioFlow ?: "agricultor"
+    val tipoUsuario = tipoUsuarioFlow.orEmpty()
+    val roleAccess = RoleNavigationAccess.fromBackend(tipoUsuarioFlow)
 
     LaunchedEffect(Unit) {
         SessionManager.sessionExpired.collect {
@@ -118,7 +119,7 @@ fun AgroConectaNavHost(
     // ── Lambda compartida: onAgregarClick ──
     val onAgregarClick: () -> Unit = {
         navController.navigateToTab(
-            if (tipoUsuario == "distribuidor") Screen.PublishProduct.route else Screen.DoseCalculator.route
+            roleAccess.addTabRoute
         )
     }
     val onHomeTabClick: () -> Unit = { navController.navigateToTab(Screen.Home.route) }
@@ -129,7 +130,7 @@ fun AgroConectaNavHost(
         val route = currentBackStackEntry?.destination?.route
         if (route == Screen.Home.route) {
             val tipo = SessionManager.getTipoUsuario(context).first() ?: return@LaunchedEffect
-            if (tipo == "agricultor") {
+            if (RoleNavigationAccess.fromBackend(tipo).isFarmer) {
                 val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                 if (farmerId != -1) {
                     sharedCartViewModel.loadCart(idAgricultor = farmerId)
@@ -140,7 +141,7 @@ fun AgroConectaNavHost(
 
     LaunchedEffect(tipoUsuarioFlow, userIdFlow) {
         val favoriteUserId = userIdFlow?.takeIf {
-            tipoUsuarioFlow == "agricultor" && it > 0
+            roleAccess.isFarmer && it > 0
         }
         sharedFavoriteViewModel.onUserChanged(favoriteUserId)
         recurringViewModel.onSessionChanged(favoriteUserId)
@@ -302,7 +303,7 @@ fun AgroConectaNavHost(
                     }
 
                     LaunchedEffect(tipoUsuario) {
-                        if (tipoUsuario == "distribuidor") {
+                        if (roleAccess.isDistributor) {
                             notificationViewModel.loadUrgentNotification()
                         }
                     }
@@ -319,7 +320,7 @@ fun AgroConectaNavHost(
                         onDiagnoseClick = { navController.navigate(Screen.PlantDiagnosis.route) },
                         tipoUsuario = tipoUsuario,
                         cartItemCount = cartItems.size,
-                        priceNotifications = if (priceState.ownerId == userIdFlow && tipoUsuarioFlow == "agricultor") priceState else PriceNotificationState(),
+                        priceNotifications = if (priceState.ownerId == userIdFlow && roleAccess.isFarmer) priceState else PriceNotificationState(),
                         onPriceNotificationClick = { notification ->
                             priceNotificationProductId(notification)?.let { productId ->
                                 navController.navigate(Screen.ProductDetail.createRoute(productId))
@@ -410,7 +411,7 @@ fun AgroConectaNavHost(
                         onProductClick = { productId ->
                             navController.navigate(Screen.ProductDetail.createRoute(productId, chooseOffer = calendarContext))
                         },
-                        showFavoriteAction = tipoUsuario == "agricultor",
+                        showFavoriteAction = roleAccess.isFarmer,
                         favoriteIds = favoriteUiState.favoriteIds,
                         pendingFavoriteIds = favoriteUiState.pendingProductIds,
                         favoriteErrorMessage = favoriteUiState.errorMessage,
@@ -631,13 +632,15 @@ fun AgroConectaNavHost(
                     val orderScope = rememberCoroutineScope()
                     val loadOrders: () -> Unit = {
                         orderScope.launch {
-                            val role = SessionManager.getTipoUsuario(context).first() ?: "agricultor"
-                            if (role == "distribuidor") {
+                            val orderAccess = RoleNavigationAccess.fromBackend(
+                                SessionManager.getTipoUsuario(context).first()
+                            )
+                            if (orderAccess.isDistributor) {
                                 val distributorId = SessionManager.getPerfilId(context).first() ?: -1
                                 if (distributorId != -1) {
                                     orderViewModel.loadOrdersByDistributor(distributorId)
                                 }
-                            } else {
+                            } else if (orderAccess.isFarmer) {
                                 val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                                 if (farmerId != -1) {
                                     orderViewModel.loadOrdersByFarmer(farmerId)
@@ -679,10 +682,10 @@ fun AgroConectaNavHost(
                     val state by recurringViewModel.list.collectAsState()
                     LaunchedEffect(currentBackStackEntry?.destination?.route, userIdFlow, tipoUsuarioFlow) {
                         if (currentBackStackEntry?.destination?.route == Screen.RecurringOrders.route &&
-                            tipoUsuarioFlow == "agricultor" && (userIdFlow ?: -1) > 0
+                            roleAccess.isFarmer && (userIdFlow ?: -1) > 0
                         ) recurringViewModel.load(userIdFlow!!)
                     }
-                    if (tipoUsuarioFlow == "agricultor") {
+                    if (roleAccess.isFarmer) {
                         RecurringOrderScreen(
                             state = state,
                             onRetry = { userIdFlow?.let(recurringViewModel::load) },
@@ -707,7 +710,7 @@ fun AgroConectaNavHost(
                     val state by recurringViewModel.form.collectAsState()
                     val submitting by recurringViewModel.submitting.collectAsState()
                     LaunchedEffect(source, id, userIdFlow, tipoUsuarioFlow) {
-                        if (tipoUsuarioFlow == "agricultor" && (userIdFlow ?: -1) > 0) {
+                        if (roleAccess.isFarmer && (userIdFlow ?: -1) > 0) {
                             val farmerId = SessionManager.getFarmerId(context).first() ?: -1
                             recurringViewModel.prepare(source, id, userIdFlow!!, farmerId)
                         }
@@ -724,7 +727,7 @@ fun AgroConectaNavHost(
                             }
                         }
                     }
-                    if (tipoUsuarioFlow == "agricultor") {
+                    if (roleAccess.isFarmer) {
                         RecurringOrderFormScreen(
                             state = state,
                             submitting = submitting,
@@ -840,7 +843,7 @@ fun AgroConectaNavHost(
                         onProductoClick = { productoId ->
                             navController.navigate(Screen.ProductDetail.createRoute(productoId))
                         },
-                        showFavoriteAction = tipoUsuario == "agricultor",
+                        showFavoriteAction = roleAccess.isFarmer,
                         favoriteIds = favoriteUiState.favoriteIds,
                         pendingFavoriteIds = favoriteUiState.pendingProductIds,
                         favoriteErrorMessage = favoriteUiState.errorMessage,
@@ -872,7 +875,7 @@ fun AgroConectaNavHost(
                         onNavigateBack = { navController.popBackStack() },
                         initialAlertId = initialPestAlertId,
                         onInitialAlertHandled = onInitialPestAlertConsumed,
-                        showFavoriteAction = tipoUsuario == "agricultor",
+                        showFavoriteAction = roleAccess.isFarmer,
                         favoriteIds = favoriteUiState.favoriteIds,
                         pendingFavoriteIds = favoriteUiState.pendingProductIds,
                         favoriteErrorMessage = favoriteUiState.errorMessage,
@@ -880,7 +883,7 @@ fun AgroConectaNavHost(
                         onFavoriteErrorShown = sharedFavoriteViewModel::clearError,
                         // El diagnóstico termina en productos para el carrito, así
                         // que solo se ofrece a los agricultores.
-                        onDiagnoseLeafClick = if (tipoUsuario == "agricultor") {
+                        onDiagnoseLeafClick = if (roleAccess.isFarmer) {
                             { navController.navigate(Screen.PlantDiagnosis.route) }
                         } else {
                             null

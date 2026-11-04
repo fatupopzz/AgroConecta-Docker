@@ -11,6 +11,7 @@ import com.uvg.agroconecta.data.models.Category
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.Distributor
 import com.uvg.agroconecta.data.models.Product
+import com.uvg.agroconecta.data.models.UserRole
 import com.uvg.agroconecta.data.repository.CropCycleRepository
 import com.uvg.agroconecta.data.repository.ProductCacheState
 import com.uvg.agroconecta.data.repository.ProductCatalogRepository
@@ -88,7 +89,7 @@ class HomeViewModel @Inject constructor(
     fun init(tipoUsuario: String = "agricultor") {
         if (initialized) return
         initialized = true
-        val esAgricultor = tipoUsuario == "agricultor"
+        val esAgricultor = UserRole.fromBackend(tipoUsuario) == UserRole.FARMER
         if (esAgricultor) {
             loadRecommendedProducts()
         }

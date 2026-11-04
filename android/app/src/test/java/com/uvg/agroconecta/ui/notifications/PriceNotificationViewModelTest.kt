@@ -7,6 +7,7 @@ import com.uvg.agroconecta.data.models.AppNotification
 import com.uvg.agroconecta.data.models.NotificationContent
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.confirmVerified
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -35,11 +36,20 @@ class PriceNotificationViewModelTest {
 
     @Test fun onlyUnreadPriceAlertsAreVisibleForFarmer() = runTest {
         coEvery { api.getNotifications() } returns Response.success(listOf(alert, alert.copy(id = 9, leida = true), alert.copy(id = 10, tipo = "pedido_urgente")))
-        vm.load(1, "agricultor"); advanceUntilIdle()
+        vm.load(1, " AGRICULTOR "); advanceUntilIdle()
         assertEquals(listOf(alert), vm.state.value.notifications)
         vm.load(2, "distribuidor"); advanceUntilIdle()
         assertTrue(vm.state.value.notifications.isEmpty())
         coVerify(exactly = 1) { api.getNotifications() }
+    }
+
+    @Test fun unknownRoleDoesNotLoadFarmerNotifications() = runTest {
+        vm.load(1, "cliente"); advanceUntilIdle()
+
+        assertNull(vm.state.value.ownerId)
+        assertTrue(vm.state.value.notifications.isEmpty())
+        coVerify(exactly = 0) { api.getNotifications() }
+        confirmVerified(api)
     }
 
     @Test fun markReadRemovesAlertAndStaleResponseCannotRestoreIt() = runTest {

@@ -19,7 +19,7 @@ class OrderHistoryExportScreenTest {
     @get:Rule val compose = createComposeRule()
 
     @Test fun `botón aparece solo para agricultor y se deshabilita durante descarga`() {
-        val role = mutableStateOf("distribuidor")
+        val role = mutableStateOf("cliente")
         val state = mutableStateOf<OrderExportState>(OrderExportState.Idle)
         compose.setContent {
             MaterialTheme {
@@ -65,5 +65,26 @@ class OrderHistoryExportScreenTest {
             org.junit.Assert.assertTrue(openedList)
             org.junit.Assert.assertEquals(44, openedId)
         }
+    }
+
+    @Test fun `rol desconocido no recibe acciones exclusivas de agricultor`() {
+        compose.setContent {
+            MaterialTheme {
+                OrderHistoryScreen(
+                    orders = listOf(com.uvg.agroconecta.data.models.OrderSummary(
+                        id = 45, estado = "entregado", fechaPedido = "2026-09-28T12:00:00Z",
+                        totalPedido = 10.0, cantidadProductos = 1,
+                        distribuidorNombre = "Distribuidor de prueba"
+                    )),
+                    isLoading = false, errorMessage = null, tipoUsuario = "cliente",
+                    onTrackOrder = {}, onOpenAdvice = {}, onBack = {},
+                    onHomeClick = {}, onAgregarClick = {}, onPerfilClick = {}
+                )
+            }
+        }
+
+        compose.onNodeWithText("Exportar PDF").assertDoesNotExist()
+        compose.onNodeWithText("Hacer recurrente").assertDoesNotExist()
+        compose.onNodeWithText("Distribuidor: Distribuidor de prueba").assertDoesNotExist()
     }
 }

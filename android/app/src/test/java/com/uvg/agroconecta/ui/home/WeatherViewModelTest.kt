@@ -38,12 +38,13 @@ class WeatherViewModelTest {
     private fun verifyFarm(times: Int = 1) { coVerify(exactly = times) { repository.farmWeather() } }
     private fun load(data: WeatherReport = report) {
         coEvery { repository.farmWeather() } returns data
-        vm.start(7, "agricultor", coordinates)
+        vm.start(7, " AGRICULTOR ", coordinates)
     }
 
     @Test fun `estado inicial y otros roles no consultan clima`() {
         assertEquals(WeatherUiState(), vm.state.value)
         vm.start(7, "distribuidor", coordinates); vm.refresh(); vm.onForeground()
+        vm.start(7, "cliente", coordinates); vm.refresh(); vm.onForeground()
         vm.start(0, "agricultor"); vm.refresh()
         assertNull(vm.state.value.report)
     }

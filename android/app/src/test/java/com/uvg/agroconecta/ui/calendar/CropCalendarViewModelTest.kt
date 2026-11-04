@@ -280,11 +280,13 @@ class CropCalendarViewModelTest {
         assertTrue(vm.state.value.offline)
         verifyLoad(); confirmVerified(repository)
     }
-    @Test fun `cambio de usuario limpia calendario anterior y no permite distribuidores`() {
+    @Test fun `cambio de usuario limpia calendario anterior y rechaza roles no agricultores`() {
         start()
         coEvery { repository.loadPlantings(8) } returns PlantingSnapshot(emptyList())
-        vm.start(8, "agricultor")
+        vm.start(8, " AGRICULTOR ")
         assertTrue(vm.state.value.plantings.isEmpty())
+        vm.start(9, "cliente")
+        assertEquals(0, vm.state.value.ownerId)
         vm.start(8, "distribuidor")
         vm.openTaskForm()
         assertNull(vm.state.value.taskForm)

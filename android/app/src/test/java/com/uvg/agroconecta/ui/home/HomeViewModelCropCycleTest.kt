@@ -5,12 +5,16 @@ import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.models.CropCycleResponse
 import com.uvg.agroconecta.data.models.CropPhase
 import com.uvg.agroconecta.data.repository.CropCycleRepository
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.confirmVerified
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
+import retrofit2.Response
 
 class HomeViewModelCropCycleTest {
 
@@ -52,6 +56,51 @@ class HomeViewModelCropCycleTest {
         assertFalse(viewModel.uiState.value.isLoadingCiclo)
     }
 
+    @Test
+    fun `farmer role loads personalized sections`() {
+        val strictApi = mockk<ApiService>()
+        coEvery { strictApi.getRecommendedProducts() } returns Response.success(emptyList())
+        coEvery { strictApi.getCategories() } returns Response.success(emptyList())
+        coEvery { strictApi.getVerifiedDistributors(null, null) } returns Response.success(emptyList())
+        val cycles = FakeCropCycleRepository(result = cycle())
+        val viewModel = HomeViewModel(
+            strictApi,
+            cycles,
+            FakeHomeProductCatalogRepository(),
+            FakeHomeLocationProvider()
+        )
+
+        viewModel.init(" AGRICULTOR ")
+
+        assertEquals(1, cycles.requests)
+        coVerify(exactly = 1) { strictApi.getRecommendedProducts() }
+        coVerify(exactly = 1) { strictApi.getCategories() }
+        coVerify(exactly = 1) { strictApi.getVerifiedDistributors(null, null) }
+        confirmVerified(strictApi)
+    }
+
+    @Test
+    fun `unknown role skips farmer sections`() {
+        val strictApi = mockk<ApiService>()
+        coEvery { strictApi.getCategories() } returns Response.success(emptyList())
+        coEvery { strictApi.getVerifiedDistributors(null, null) } returns Response.success(emptyList())
+        val cycles = FakeCropCycleRepository(result = cycle())
+        val viewModel = HomeViewModel(
+            strictApi,
+            cycles,
+            FakeHomeProductCatalogRepository(),
+            FakeHomeLocationProvider()
+        )
+
+        viewModel.init("cliente")
+
+        assertEquals(0, cycles.requests)
+        coVerify(exactly = 0) { strictApi.getRecommendedProducts() }
+        coVerify(exactly = 1) { strictApi.getCategories() }
+        coVerify(exactly = 1) { strictApi.getVerifiedDistributors(null, null) }
+        confirmVerified(strictApi)
+    }
+
     private fun cycle() = CropCycleResponse(
         cultivo = "maíz",
         mesActual = 8,
@@ -71,7 +120,10 @@ class HomeViewModelCropCycleTest {
         private val result: CropCycleResponse? = null,
         private val error: Throwable? = null
     ) : CropCycleRepository {
+        var requests: Int = 0
+
         override suspend fun getRelevantCycle(): CropCycleResponse? {
+            requests += 1
             error?.let { throw it }
             return result
         }

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.location.GeoCoordinates
 import com.uvg.agroconecta.data.models.WeatherReport
+import com.uvg.agroconecta.data.models.UserRole
 import com.uvg.agroconecta.data.repository.WeatherRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
@@ -45,7 +46,9 @@ class WeatherViewModel @Inject constructor(
     private var generation = 0
 
     fun start(userId: Int, userType: String, coordinates: GeoCoordinates? = null) {
-        val owner = userId.takeIf { it > 0 && userType == "agricultor" } ?: 0
+        val owner = userId.takeIf {
+            it > 0 && UserRole.fromBackend(userType) == UserRole.FARMER
+        } ?: 0
         val validCoordinates = coordinates?.takeIf {
             it.latitude.isFinite() && it.latitude in -90.0..90.0 &&
                 it.longitude.isFinite() && it.longitude in -180.0..180.0

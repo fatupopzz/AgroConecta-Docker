@@ -37,6 +37,7 @@ class SessionStartTest {
     fun `missing data asks for login`() {
         assertFalse(hasUsableSession(null, "agricultor", now))
         assertFalse(hasUsableSession(token(exp = now + 3_600), null, now))
+        assertFalse(hasUsableSession(token(exp = now + 3_600), "cliente", now))
         assertFalse(hasUsableSession("no-es-un-jwt", "agricultor", now))
         assertNull(jwtExpirationEpochSeconds("a.b.c"))
     }

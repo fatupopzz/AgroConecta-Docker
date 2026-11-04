@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvg.agroconecta.data.api.ApiService
 import com.uvg.agroconecta.data.models.AppNotification
+import com.uvg.agroconecta.data.models.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -39,7 +40,9 @@ class PriceNotificationViewModel @Inject constructor(private val api: ApiService
     private val readIds = mutableSetOf<Int>()
 
     fun load(userId: Int?, role: String?) {
-        val owner = userId?.takeIf { it > 0 && role == "agricultor" }
+        val owner = userId?.takeIf {
+            it > 0 && UserRole.fromBackend(role) == UserRole.FARMER
+        }
         val version = ++generation
         loadJob?.cancel()
         if (_state.value.ownerId != owner) {

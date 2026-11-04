@@ -103,6 +103,7 @@ import com.uvg.agroconecta.ui.components.TagTone
 import com.uvg.agroconecta.ui.components.categoryBackground
 import com.uvg.agroconecta.ui.notifications.PriceNotificationState
 import com.uvg.agroconecta.ui.notifications.priceNotificationText
+import com.uvg.agroconecta.data.models.UserRole
 import com.uvg.agroconecta.ui.theme.AgroConectaTheme
 import com.uvg.agroconecta.ui.theme.AgroSizes
 import com.uvg.agroconecta.ui.theme.AgroSpacing
@@ -119,7 +120,7 @@ private val homeLocationPermissions = arrayOf(
 internal fun shouldShowCropCycleCard(
     userType: String,
     cycle: CropCycleResponse?
-): Boolean = userType == "agricultor" && cycle?.faseActual != null
+): Boolean = UserRole.fromBackend(userType) == UserRole.FARMER && cycle?.faseActual != null
 
 internal fun cropCycleTitle(crop: String): String =
     "Tu cultivo: ${crop.replaceFirstChar { character -> character.titlecase() }}"
@@ -173,6 +174,9 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val userRole = UserRole.fromBackend(tipoUsuario)
+    val esAgricultor = userRole == UserRole.FARMER
+    val esDistribuidor = userRole == UserRole.DISTRIBUTOR
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -186,7 +190,7 @@ fun HomeScreen(
     }
 
     LaunchedEffect(tipoUsuario) {
-        if (tipoUsuario == "agricultor") {
+        if (esAgricultor) {
             // La finca guardada va primero: no hace falta pedir el GPS.
             if (viewModel.useSavedFarmLocation()) return@LaunchedEffect
             if (context.hasHomeLocationPermission()) {
@@ -210,8 +214,6 @@ fun HomeScreen(
             onFavoriteErrorShown()
         }
     }
-
-    val esAgricultor = tipoUsuario == "agricultor"
 
     // Deslizar recarga cada sección con las cargas que ya tiene el ViewModel.
     // Los distribuidores usan la ubicación ya conocida para no volver a pedir
@@ -264,7 +266,7 @@ fun HomeScreen(
                 item(key = "header") {
                     HomeHeader(
                         nombre = uiState.nombreAgricultor,
-                        tipoUsuario = tipoUsuario,
+                        userRole = userRole,
                         cartItemCount = cartItemCount,
                         onSearch = onSearch,
                         onCarritoClick = onCarritoClick
@@ -326,7 +328,7 @@ fun HomeScreen(
                     }
                 }
 
-                if (tipoUsuario == "distribuidor") {
+                if (esDistribuidor) {
                     urgentNotification?.let { notification ->
                         item(key = "urgent-notification-${notification.id}") {
                             UrgentOrderNotificationAlert(
@@ -420,7 +422,7 @@ private fun Context.hasHomeLocationPermission(): Boolean =
 @Composable
 private fun HomeHeader(
     nombre: String,
-    tipoUsuario: String,
+    userRole: UserRole?,
     cartItemCount: Int,
     onSearch: (String) -> Unit,
     onCarritoClick: () -> Unit
@@ -462,7 +464,14 @@ private fun HomeHeader(
                     color = onHeader
                 )
                 Text(
-                    text = nombre.ifBlank { if (tipoUsuario == "distribuidor") "Distribuidor" else "Agricultor" },
+                    text = nombre.ifBlank {
+                        when (userRole) {
+                            UserRole.FARMER -> "Agricultor"
+                            UserRole.DISTRIBUTOR -> "Distribuidor"
+                            UserRole.ADMIN -> "Administrador"
+                            null -> "Usuario"
+                        }
+                    },
                     style = MaterialTheme.typography.headlineSmall,
                     color = onHeader,
                     maxLines = 1,
@@ -471,7 +480,7 @@ private fun HomeHeader(
             }
 
             // Solo los agricultores compran, así que solo ellos ven el carrito.
-            if (tipoUsuario != "distribuidor") {
+            if (userRole == UserRole.FARMER) {
                 IconButton(onClick = onCarritoClick) {
                     BadgedBox(
                         badge = {

@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.uvg.agroconecta.data.models.OrderSummary
+import com.uvg.agroconecta.data.models.UserRole
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroPullToRefreshBox
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
@@ -87,13 +88,22 @@ fun OrderHistoryScreen(
     onMakeRecurring: (Int) -> Unit = {},
     onRetry: () -> Unit = {}
 ) {
-    val isDistributor = tipoUsuario == "distribuidor"
+    val userRole = UserRole.fromBackend(tipoUsuario)
+    val isFarmer = userRole == UserRole.FARMER
     var filter by rememberSaveable { mutableStateOf(OrderFilter.ALL) }
     val visibleOrders = remember(orders, filter) { orders.filter { filter.matches(it.estado) } }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { AgroTopAppBar(title = if (isDistributor) "Pedidos recibidos" else "Mis pedidos") },
+        topBar = {
+            AgroTopAppBar(
+                title = when (userRole) {
+                    UserRole.FARMER -> "Mis pedidos"
+                    UserRole.DISTRIBUTOR -> "Pedidos recibidos"
+                    UserRole.ADMIN, null -> "Pedidos"
+                }
+            )
+        },
         bottomBar = {
             AppBottomBar(
                 selectedTab = BottomNavTab.PEDIDOS,
@@ -117,7 +127,7 @@ fun OrderHistoryScreen(
                 contentPadding = PaddingValues(AgroSpacing.screenHorizontal),
                 verticalArrangement = Arrangement.spacedBy(AgroSpacing.sm)
             ) {
-                if (tipoUsuario == "agricultor") {
+                if (isFarmer) {
                     item(key = "farmer-actions") {
                         FarmerOrderActions(
                             exportState = exportState,
@@ -161,11 +171,15 @@ fun OrderHistoryScreen(
                     orders.isEmpty() -> item(key = "empty") {
                         EmptyState(
                             icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                            title = if (isDistributor) "Aún no recibes pedidos" else "Aún no tienes pedidos",
-                            message = if (isDistributor) {
-                                "Cuando un agricultor te compre, su pedido aparecerá aquí."
-                            } else {
-                                "Cuando hagas tu primera compra, aquí podrás seguir su entrega."
+                            title = when (userRole) {
+                                UserRole.FARMER -> "Aún no tienes pedidos"
+                                UserRole.DISTRIBUTOR -> "Aún no recibes pedidos"
+                                UserRole.ADMIN, null -> "No hay pedidos disponibles"
+                            },
+                            message = when (userRole) {
+                                UserRole.FARMER -> "Cuando hagas tu primera compra, aquí podrás seguir su entrega."
+                                UserRole.DISTRIBUTOR -> "Cuando un agricultor te compre, su pedido aparecerá aquí."
+                                UserRole.ADMIN, null -> "Inicia sesión con una cuenta compatible para consultar pedidos."
                             }
                         )
                     }
@@ -194,7 +208,7 @@ fun OrderHistoryScreen(
                         items(visibleOrders, key = { it.id }) { order ->
                             OrderCard(
                                 order = order,
-                                isDistributor = isDistributor,
+                                userRole = userRole,
                                 onTrackOrder = { onTrackOrder(order.id) },
                                 onOpenAdvice = { onOpenAdvice(order.id) },
                                 onMakeRecurring = { onMakeRecurring(order.id) },
@@ -279,7 +293,7 @@ private fun FarmerOrderActions(
 @Composable
 private fun OrderCard(
     order: OrderSummary,
-    isDistributor: Boolean,
+    userRole: UserRole?,
     onTrackOrder: () -> Unit,
     onOpenAdvice: () -> Unit,
     onMakeRecurring: () -> Unit,
@@ -331,10 +345,14 @@ private fun OrderCard(
                 }
                 StatusTag(text = orderStatusLabel(order.estado), tone = orderStatusTone(order.estado))
             }
-            val counterparty = if (isDistributor) order.agricultorNombre else order.distribuidorNombre
+            val counterparty = when (userRole) {
+                UserRole.FARMER -> order.distribuidorNombre?.let { "Distribuidor: $it" }
+                UserRole.DISTRIBUTOR -> order.agricultorNombre?.let { "Agricultor: $it" }
+                UserRole.ADMIN, null -> null
+            }
             counterparty?.let {
                 Text(
-                    text = if (isDistributor) "Agricultor: $it" else "Distribuidor: $it",
+                    text = it,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -384,7 +402,7 @@ private fun OrderCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(AgroSpacing.xxs, Alignment.End)
             ) {
-                if (!isDistributor && order.estado == "entregado") {
+                if (userRole == UserRole.FARMER && order.estado == "entregado") {
                     AgroTextButton(text = "Hacer recurrente", icon = Icons.Default.Repeat, onClick = onMakeRecurring)
                 }
                 AgroTextButton(text = "Asesoría", icon = Icons.AutoMirrored.Filled.Chat, onClick = onOpenAdvice)

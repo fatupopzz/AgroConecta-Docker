@@ -58,7 +58,9 @@ class CropCalendarViewModel @Inject constructor(
     val state = _state.asStateFlow()
 
     fun start(userId: Int, userType: String) {
-        val owner = userId.takeIf { it > 0 && userType == "agricultor" } ?: 0
+        val owner = userId.takeIf {
+            it > 0 && UserRole.fromBackend(userType) == UserRole.FARMER
+        } ?: 0
         if (_state.value.ownerId == owner) return
         viewModelScope.coroutineContext.cancelChildren()
         _state.value = CropCalendarState(ownerId = owner)
