@@ -17,6 +17,8 @@ installCommonJsMock(require.resolve("../src/config/db"), { pool, shutdownPool: v
 installCommonJsMock(require.resolve("../src/services/cacheService"), cacheService);
 
 const sharp = require("sharp");
+// Evita que libvips retenga archivos temporales abiertos en Windows.
+sharp.cache(false);
 const { generateThumbnails } = require("../scripts/generate_thumbnails");
 
 const storedThumbs = () => (fs.existsSync(thumbsDir) ? fs.readdirSync(thumbsDir).sort() : []);

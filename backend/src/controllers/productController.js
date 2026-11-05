@@ -1,4 +1,5 @@
-const { pool } = require("../config/db");
+const ProductRepository = require("../repositories/ProductRepository");
+const productRepository = new ProductRepository();
 
 const isPositiveInteger = (value) => /^[1-9]\d*$/.test(String(value));
 
@@ -10,8 +11,6 @@ const normalizeOptionalText = (value) => {
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
 };
-
-const escapeLikePattern = (value) => value.replace(/[!%_]/g, "!$&");
 
 const parseRating = (value) => {
   if (value === undefined) return { valid: true, parsed: undefined };
@@ -26,20 +25,6 @@ const parseRating = (value) => {
   return { valid: true, parsed };
 };
 
-const RELEVANT_CROP_CATEGORIES = [
-  "Semillas",
-  "Fertilizantes",
-  "Pesticidas",
-  "Herbicidas",
-];
-
-const parseCropTerms = (crops) =>
-  String(crops || "")
-    .split(/[,;\n/]+/)
-    .map((crop) => crop.trim().toLowerCase())
-    .filter((crop) => crop.length >= 2)
-    .slice(0, 20);
-
 const getRecommendedProducts = async (req, res) => {
   if (req.user.tipo !== "agricultor") {
     return res.status(403).json({
@@ -47,82 +32,8 @@ const getRecommendedProducts = async (req, res) => {
     });
   }
 
-  const profileResult = await pool.query(
-    `SELECT departamento, cultivos_principales
-     FROM agricultor
-     WHERE id_usuario = $1`,
-    [req.user.id],
-  );
-
-  const profile = profileResult.rows[0];
-  const department = profile?.departamento?.trim() || null;
-  const cropTerms = parseCropTerms(profile?.cultivos_principales);
-  const hasCompleteProfile = Boolean(department && cropTerms.length > 0);
-
-  const params = hasCompleteProfile
-    ? [RELEVANT_CROP_CATEGORIES, cropTerms, department]
-    : [];
-
-  const personalizationFilter = hasCompleteProfile
-    ? "AND c.nombre = ANY($1::text[])"
-    : "";
-  const cropMatchExpression = hasCompleteProfile
-    ? `EXISTS (
-         SELECT 1
-         FROM unnest($2::text[]) AS crop(term)
-         WHERE LOWER(CONCAT_WS(' ', p.nombre, p.descripcion, p.composicion))
-               LIKE '%' || crop.term || '%'
-       )`
-    : "FALSE";
-  const localInventoryExpression = hasCompleteProfile
-    ? "COALESCE(inv.has_local_inventory, FALSE)"
-    : "FALSE";
-
-  const productsResult = await pool.query(
-    `WITH sales AS (
-       SELECT inventory.id_producto, COALESCE(SUM(detail.cantidad), 0) AS units_sold
-       FROM detalle_pedido detail
-       JOIN inventario_distribuidor inventory
-         ON inventory.id_inventario = detail.id_inventario
-       JOIN pedido orders ON orders.id_pedido = detail.id_pedido
-       WHERE orders.estado = 'entregado'
-       GROUP BY inventory.id_producto
-     ), inventory_summary AS (
-       SELECT inventory.id_producto,
-              MIN(inventory.precio) FILTER (WHERE inventory.stock_disponible > 0) AS precio_desde,
-              COUNT(DISTINCT inventory.id_distribuidor)
-                FILTER (WHERE inventory.stock_disponible > 0) AS num_distribuidores,
-              ${hasCompleteProfile
-                ? "BOOL_OR(inventory.stock_disponible > 0 AND LOWER(distributor.departamento) = LOWER($3))"
-                : "FALSE"} AS has_local_inventory
-       FROM inventario_distribuidor inventory
-       JOIN distribuidor distributor
-         ON distributor.id_distribuidor = inventory.id_distribuidor
-       GROUP BY inventory.id_producto
-     )
-     SELECT p.id_producto, p.nombre, p.marca, p.descripcion,
-            p.composicion, p.dosis_recomendada, p.instrucciones_uso,
-            p.calificacion_promedio, p.imagen_url, p.imagen_thumb_url,
-            c.nombre AS categoria,
-            inv.precio_desde,
-            COALESCE(inv.num_distribuidores, 0)::int AS num_distribuidores
-     FROM producto p
-     JOIN categoria c ON c.id_categoria = p.id_categoria
-     LEFT JOIN sales ON sales.id_producto = p.id_producto
-     LEFT JOIN inventory_summary inv ON inv.id_producto = p.id_producto
-     WHERE p.activo = TRUE
-       ${personalizationFilter}
-     ORDER BY
-       CASE WHEN ${cropMatchExpression} THEN 1 ELSE 0 END DESC,
-       CASE WHEN ${localInventoryExpression} THEN 1 ELSE 0 END DESC,
-       COALESCE(sales.units_sold, 0) DESC,
-       p.calificacion_promedio DESC,
-       p.id_producto ASC
-     LIMIT 10`,
-    params,
-  );
-
-  return res.json(productsResult.rows.slice(0, 10));
+  const products = await productRepository.findRecommended(req.user.id);
+  return res.json(products);
 };
 
 const getProducts = async (req, res) => {
@@ -147,59 +58,16 @@ const getProducts = async (req, res) => {
     return res.status(400).json({ error: "nombre debe ser texto" });
   }
 
-  const offset = (pageNumber - 1) * limitNumber;
-  const params = [];
-  let whereClause = " WHERE p.activo = true";
-  const normalizedName = nombre?.trim() || "";
-  const orderClause = normalizedName
-    ? "ORDER BY LOWER(p.nombre) ASC, p.id_producto ASC"
-    : "ORDER BY RANDOM()";
-
-  if (normalizedName) {
-    params.push(`%${escapeLikePattern(normalizedName)}%`);
-    whereClause += ` AND p.nombre ILIKE $${params.length} ESCAPE '!'`;
-  }
-
   if (id_categoria) {
     if (!isPositiveInteger(id_categoria)) {
       return res.status(400).json({ error: "id_categoria inválido" });
     }
-    params.push(Number(id_categoria));
-    whereClause += ` AND p.id_categoria = $${params.length}`;
   }
 
-  const countResult = await pool.query(
-    `SELECT COUNT(*) AS total
-     FROM producto p
-     JOIN categoria c ON p.id_categoria = c.id_categoria
-     ${whereClause}`,
-    params,
-  );
-
-  const queryParams = [...params, limitNumber, offset];
-  const result = await pool.query(
-    `SELECT p.id_producto, p.nombre, p.marca, p.descripcion,
-            p.calificacion_promedio, p.imagen_url, p.imagen_thumb_url,
-            c.nombre AS categoria,
-            MIN(i.precio) AS precio_desde,
-            COUNT(DISTINCT i.id_distribuidor) AS num_distribuidores
-     FROM producto p
-     JOIN categoria c ON p.id_categoria = c.id_categoria
-     LEFT JOIN inventario_distribuidor i ON p.id_producto = i.id_producto
-     ${whereClause}
-     GROUP BY p.id_producto, p.nombre, p.marca, p.descripcion,
-              p.calificacion_promedio, p.imagen_url, p.imagen_thumb_url, c.nombre
-      ${orderClause}
-     LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
-    queryParams,
-  );
-
-  res.json({
-    page: pageNumber,
-    limit: limitNumber,
-    total: Number(countResult.rows[0].total),
-    products: result.rows,
+  const result = await productRepository.findAll({
+    nombre, id_categoria, page: pageNumber, limit: limitNumber,
   });
+  res.json(result);
 };
 
 const getProductById = async (req, res) => {
@@ -209,35 +77,18 @@ const getProductById = async (req, res) => {
 
   const id = Number(req.params.id);
 
-  const producto = await pool.query(
-    `SELECT p.*, c.nombre AS categoria
-     FROM producto p
-     JOIN categoria c ON p.id_categoria = c.id_categoria
-     WHERE p.id_producto = $1 AND p.activo = true`,
-    [id],
-  );
+  const producto = await productRepository.findById(id);
 
-  if (producto.rows.length === 0) {
+  if (producto.length === 0) {
     return res.status(404).json({ error: "Producto no encontrado" });
   }
 
-  const ofertas = await pool.query(
-    `SELECT i.id_inventario, i.precio, i.stock_disponible, i.unidad_medida,
-            d.id_distribuidor, d.nombre_negocio AS distribuidor,
-            d.calificacion_promedio AS calificacion_distribuidor,
-            d.estado_verificacion
-     FROM inventario_distribuidor i
-     JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
-     WHERE i.id_producto = $1
-       AND i.stock_disponible > 0
-     ORDER BY i.precio ASC`,
-    [id],
-  );
+  const ofertas = await productRepository.findOffers(id);
 
   res.json({
-    ...producto.rows[0],
-    unidad_medida: ofertas.rows.length > 0 ? ofertas.rows[0].unidad_medida : null,
-    ofertas: ofertas.rows,
+    ...producto[0],
+    unidad_medida: ofertas.length > 0 ? ofertas[0].unidad_medida : null,
+    ofertas,
   });
 };
 
@@ -248,36 +99,13 @@ const getProductComparison = async (req, res) => {
 
   const id = Number(req.params.id);
 
-  const producto = await pool.query(
-    `SELECT p.id_producto, p.nombre, p.marca, p.descripcion,
-            p.calificacion_promedio, p.imagen_url, c.id_categoria, c.nombre AS categoria
-     FROM producto p
-     JOIN categoria c ON p.id_categoria = c.id_categoria
-     WHERE p.id_producto = $1 AND p.activo = true`,
-    [id],
-  );
+  const producto = await productRepository.findForComparison(id);
 
-  if (producto.rows.length === 0) {
+  if (producto.length === 0) {
     return res.status(404).json({ error: "Producto no encontrado" });
   }
 
-  const distribuidoresResult = await pool.query(
-    `SELECT d.id_distribuidor,
-            d.nombre_negocio AS nombre,
-            i.precio,
-            i.stock_disponible,
-            i.unidad_medida,
-            d.calificacion_promedio AS calificacion_distribuidor
-     FROM inventario_distribuidor i
-     JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
-     WHERE i.id_producto = $1
-       AND d.estado_verificacion = 'verificado'
-       AND i.stock_disponible > 0
-     ORDER BY i.precio ASC`,
-    [id],
-  );
-
-  const distribuidores = distribuidoresResult.rows;
+  const distribuidores = await productRepository.findVerifiedOffers(id);
   const precioMasBajo = distribuidores.length > 0 ? distribuidores[0].precio : null;
 
   const distribuidoresConBandera = distribuidores.map((distribuidor) => ({
@@ -287,12 +115,11 @@ const getProductComparison = async (req, res) => {
   }));
 
   return res.json({
-    ...producto.rows[0],
+    ...producto[0],
     precio_mas_bajo: precioMasBajo,
     distribuidores: distribuidoresConBandera,
   });
 };
-
 
 const createProduct = async (req, res) => {
   const {
@@ -328,48 +155,28 @@ const createProduct = async (req, res) => {
     });
   }
 
-  const categoriaExist = await pool.query(
-    "SELECT 1 FROM categoria WHERE id_categoria = $1",
-    [Number(id_categoria)],
-  );
+  const categoriaExist = await productRepository.categoryExists(Number(id_categoria));
 
-  if (categoriaExist.rows.length === 0) {
+  if (!categoriaExist) {
     return res.status(400).json({ error: "La categoría no existe" });
   }
 
-  const baseValues = [
-    Number(id_categoria),
-    nombre.trim(),
-    normalizeOptionalText(marca),
-    normalizeOptionalText(descripcion),
-    normalizeOptionalText(composicion),
-    normalizeOptionalText(dosis_recomendada),
-    normalizeOptionalText(instrucciones_uso),
-  ];
-
-  const newProduct =
-    ratingValidation.parsed === undefined
-      ? await pool.query(
-          `INSERT INTO producto
-           (id_categoria, nombre, marca, descripcion, composicion, dosis_recomendada, instrucciones_uso)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
-           RETURNING *`,
-          baseValues,
-        )
-      : await pool.query(
-          `INSERT INTO producto
-           (id_categoria, nombre, marca, descripcion, composicion, dosis_recomendada, instrucciones_uso, calificacion_promedio)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           RETURNING *`,
-          [...baseValues, ratingValidation.parsed],
-        );
+  const newProduct = await productRepository.create({
+    id_categoria: Number(id_categoria),
+    nombre: nombre.trim(),
+    marca: normalizeOptionalText(marca),
+    descripcion: normalizeOptionalText(descripcion),
+    composicion: normalizeOptionalText(composicion),
+    dosis_recomendada: normalizeOptionalText(dosis_recomendada),
+    instrucciones_uso: normalizeOptionalText(instrucciones_uso),
+    calificacion_promedio: ratingValidation.parsed,
+  });
 
   res.status(201).json({
     message: "Producto creado correctamente",
-    producto: newProduct.rows[0],
+    producto: newProduct,
   });
 };
-
 
 const updateProduct = async (req, res) => {
   const { id } = req.params;
@@ -389,25 +196,20 @@ const updateProduct = async (req, res) => {
     calificacion_promedio,
   } = req.body;
 
-  const fields = [];
-  const values = [];
+  const changes = {};
 
   if (id_categoria !== undefined) {
     if (!isPositiveInteger(id_categoria)) {
       return res.status(400).json({ error: "id_categoria inválido" });
     }
 
-    const categoriaExist = await pool.query(
-      "SELECT 1 FROM categoria WHERE id_categoria = $1",
-      [Number(id_categoria)],
-    );
+    const categoriaExist = await productRepository.categoryExists(Number(id_categoria));
 
-    if (categoriaExist.rows.length === 0) {
+    if (!categoriaExist) {
       return res.status(400).json({ error: "La categoría no existe" });
     }
 
-    values.push(Number(id_categoria));
-    fields.push(`id_categoria = $${values.length}`);
+    changes.id_categoria = Number(id_categoria);
   }
 
   if (nombre !== undefined) {
@@ -415,8 +217,7 @@ const updateProduct = async (req, res) => {
       return res.status(400).json({ error: "Nombre inválido" });
     }
 
-    values.push(nombre.trim());
-    fields.push(`nombre = $${values.length}`);
+    changes.nombre = nombre.trim();
   }
 
   const normalizedMarca = normalizeOptionalText(marca);
@@ -424,8 +225,7 @@ const updateProduct = async (req, res) => {
     return res.status(400).json({ error: "marca debe ser texto" });
   }
   if (marca !== undefined) {
-    values.push(normalizedMarca);
-    fields.push(`marca = $${values.length}`);
+    changes.marca = normalizedMarca;
   }
 
   const normalizedDescripcion = normalizeOptionalText(descripcion);
@@ -437,8 +237,7 @@ const updateProduct = async (req, res) => {
     return res.status(400).json({ error: "descripcion debe ser texto" });
   }
   if (descripcion !== undefined) {
-    values.push(normalizedDescripcion);
-    fields.push(`descripcion = $${values.length}`);
+    changes.descripcion = normalizedDescripcion;
   }
 
   const normalizedComposicion = normalizeOptionalText(composicion);
@@ -450,8 +249,7 @@ const updateProduct = async (req, res) => {
     return res.status(400).json({ error: "composicion debe ser texto" });
   }
   if (composicion !== undefined) {
-    values.push(normalizedComposicion);
-    fields.push(`composicion = $${values.length}`);
+    changes.composicion = normalizedComposicion;
   }
 
   const normalizedDosis = normalizeOptionalText(dosis_recomendada);
@@ -465,8 +263,7 @@ const updateProduct = async (req, res) => {
       .json({ error: "dosis_recomendada debe ser texto" });
   }
   if (dosis_recomendada !== undefined) {
-    values.push(normalizedDosis);
-    fields.push(`dosis_recomendada = $${values.length}`);
+    changes.dosis_recomendada = normalizedDosis;
   }
 
   const normalizedInstrucciones = normalizeOptionalText(instrucciones_uso);
@@ -480,8 +277,7 @@ const updateProduct = async (req, res) => {
       .json({ error: "instrucciones_uso debe ser texto" });
   }
   if (instrucciones_uso !== undefined) {
-    values.push(normalizedInstrucciones);
-    fields.push(`instrucciones_uso = $${values.length}`);
+    changes.instrucciones_uso = normalizedInstrucciones;
   }
 
   if (calificacion_promedio !== undefined) {
@@ -493,33 +289,24 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    values.push(ratingValidation.parsed);
-    fields.push(`calificacion_promedio = $${values.length}`);
+    changes.calificacion_promedio = ratingValidation.parsed;
   }
 
-  if (fields.length === 0) {
+  if (Object.keys(changes).length === 0) {
     return res.status(400).json({
       error: "No hay campos válidos para actualizar",
     });
   }
 
-  values.push(Number(id));
+  const updatedProduct = await productRepository.update(Number(id), changes);
 
-  const updatedProduct = await pool.query(
-    `UPDATE producto
-     SET ${fields.join(", ")}
-     WHERE id_producto = $${values.length} AND activo = true
-     RETURNING *`,
-    values,
-  );
-
-  if (updatedProduct.rowCount === 0) {
+  if (!updatedProduct) {
     return res.status(404).json({ error: "Producto no encontrado" });
   }
 
   res.json({
     message: "Producto actualizado correctamente",
-    producto: updatedProduct.rows[0],
+    producto: updatedProduct,
   });
 };
 
@@ -530,21 +317,15 @@ const deleteProduct = async (req, res) => {
     return res.status(400).json({ error: "ID de producto inválido" });
   }
 
-  const deletedProduct = await pool.query(
-    `UPDATE producto
-     SET activo = false
-     WHERE id_producto = $1 AND activo = true
-     RETURNING *`,
-    [Number(id)],
-  );
+  const deletedProduct = await productRepository.delete(Number(id));
 
-  if (deletedProduct.rowCount === 0) {
+  if (deletedProduct.length === 0) {
     return res.status(404).json({ error: "Producto no encontrado" });
   }
 
   res.status(200).json({
     message: "Producto eliminado correctamente",
-    producto: deletedProduct.rows[0],
+    producto: deletedProduct[0],
   });
 };
 
@@ -557,31 +338,16 @@ const comparePrices = async (req, res) => {
     });
   }
 
-  const result = await pool.query(
-    `SELECT 
-      d.id_distribuidor,
-      d.nombre_negocio,
-      i.precio,
-      i.stock_disponible,
-      d.calificacion_promedio,
-      i.tiempo_entrega_dias
-     FROM inventario_distribuidor i
-     JOIN distribuidor d ON i.id_distribuidor = d.id_distribuidor
-     WHERE i.id_producto = $1
-       AND i.stock_disponible > 0
-       AND d.estado_verificacion = 'verificado'
-     ORDER BY i.precio ASC`,
-    [product_id]
-  );
+  const result = await productRepository.comparePrices(product_id);
 
-  if (result.rows.length === 0) {
+  if (result.length === 0) {
     return res.json({
       message: "No hay distribuidores disponibles",
       data: [],
     });
   }
 
-  res.json(result.rows);
+  res.json(result);
 };
 
 
