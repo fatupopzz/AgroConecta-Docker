@@ -19,6 +19,8 @@ installCommonJsMock(require.resolve("jsonwebtoken"), jwt);
 
 const request = require("supertest");
 const sharp = require("sharp");
+// Evita que libvips retenga archivos temporales abiertos en Windows.
+sharp.cache(false);
 const app = require("../app");
 
 let PNG_BYTES;

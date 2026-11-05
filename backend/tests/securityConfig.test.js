@@ -73,7 +73,7 @@ test("docker compose persists uploads and keeps redis off the host", () => {
     path.join(repositoryRoot, "docker-compose.yml"),
     "utf8",
   );
-  const redisService = compose.match(/^  redis:\n([\s\S]*?)(?=^  \S)/m)?.[1] ?? "";
+  const redisService = compose.match(/^  redis:\r?\n([\s\S]*?)(?=^  \S)/m)?.[1] ?? "";
 
   assert.match(compose, /- uploads_data:\/app\/uploads/);
   assert.match(compose, /^  uploads_data:/m);
@@ -91,7 +91,7 @@ test("caddy only runs with the https profile and proxies to the backend", () => 
     path.join(repositoryRoot, "caddy", "Caddyfile"),
     "utf8",
   );
-  const caddyService = compose.match(/^  caddy:\n([\s\S]*?)(?=^  \S)/m)?.[1] ?? "";
+  const caddyService = compose.match(/^  caddy:\r?\n([\s\S]*?)(?=^  \S)/m)?.[1] ?? "";
 
   // Sin el perfil, cualquiera que levante el proyecto en local perdería los
   // puertos 80 y 443 por un proxy que no tiene dominio que certificar.
