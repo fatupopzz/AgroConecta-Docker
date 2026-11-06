@@ -74,6 +74,7 @@ import com.uvg.agroconecta.ui.components.EmptyState
 import com.uvg.agroconecta.ui.components.InlineError
 import com.uvg.agroconecta.ui.components.ProductCard
 import com.uvg.agroconecta.ui.components.ProductCardSkeleton
+import com.uvg.agroconecta.ui.components.friendlyErrorMessage
 import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchAvailability
 import com.uvg.agroconecta.ui.home.voice.AndroidVoiceSearchRecognizerSession
 import com.uvg.agroconecta.ui.home.voice.VOICE_NO_MATCH_MESSAGE
@@ -199,7 +200,7 @@ fun CatalogScreen(
 
     LaunchedEffect(favoriteErrorMessage) {
         favoriteErrorMessage?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(friendlyErrorMessage(it))
             onFavoriteErrorShown()
         }
     }

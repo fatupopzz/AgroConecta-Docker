@@ -47,6 +47,7 @@ import com.uvg.agroconecta.data.models.TipoCuenta
 import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroPasswordField
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.ResizeWindowForKeyboard
 import com.uvg.agroconecta.ui.components.AgroTextField
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.theme.AgroSpacing
@@ -70,6 +71,8 @@ fun RegisterStep1Screen(
     var confirmPassword by rememberSaveable { mutableStateOf("") }
     var errors by remember { mutableStateOf(RegisterStep1Errors()) }
     val haptics = rememberAgroHaptics()
+
+    ResizeWindowForKeyboard()
 
     Scaffold(
         topBar = { AgroTopAppBar(title = "Crear cuenta", onBack = onNavigateBack) }

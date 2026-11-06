@@ -45,6 +45,7 @@ import com.uvg.agroconecta.data.models.TipoCuenta
 import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroDropdownField
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
+import com.uvg.agroconecta.ui.components.ResizeWindowForKeyboard
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
 import com.uvg.agroconecta.ui.components.AgroTextField
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
@@ -142,6 +143,8 @@ fun RegisterStep2Screen(
             else -> Unit
         }
     }
+
+    ResizeWindowForKeyboard()
 
     Scaffold(
         topBar = {

@@ -21,6 +21,20 @@ class FriendlyErrorsTest {
     }
 
     @Test
+    fun `un corte a media respuesta no muestra la direccion del servidor`() {
+        assertEquals(
+            NO_SIGNAL_MESSAGE,
+            friendlyErrorMessage("unexpected end of stream on http://20.63.8.63:8080/...")
+        )
+    }
+
+    @Test
+    fun `una direccion del servidor nunca llega a la pantalla`() {
+        assertEquals(GENERIC_ERROR_MESSAGE, friendlyErrorMessage("Fallo en https://agroconecta.example/api"))
+        assertEquals(GENERIC_ERROR_MESSAGE, friendlyErrorMessage("No se pudo llegar a 20.63.8.63"))
+    }
+
+    @Test
     fun `tiempos de espera se explican como conexion lenta`() {
         assertEquals(SLOW_CONNECTION_MESSAGE, friendlyErrorMessage("timeout"))
         assertEquals(SLOW_CONNECTION_MESSAGE, friendlyErrorMessage("Read timed out"))

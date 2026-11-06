@@ -14,12 +14,19 @@ private val NO_SIGNAL_HINTS = listOf(
     "network is unreachable",
     "connection refused",
     "connection reset",
+    "connection closed",
+    "broken pipe",
+    // OkHttp lo da cuando el servidor corta la respuesta a medias.
+    "end of stream",
     "software caused connection abort"
 )
 
 private val SLOW_CONNECTION_HINTS = listOf("timeout", "timed out", "tiempo de espera")
 
-private val TECHNICAL_HINTS = listOf("exception", "http ", "java.", "kotlin.", "retrofit", "okhttp", "{")
+private val TECHNICAL_HINTS = listOf("exception", "http ", "://", "java.", "kotlin.", "retrofit", "okhttp", "{")
+
+// La dirección del servidor no le sirve a quien usa la app y no tiene por qué verla.
+private val IP_ADDRESS = Regex("""\b\d{1,3}(?:\.\d{1,3}){3}\b""")
 
 // "No se pudo cargar el carrito (500)": el número no le dice nada a quien
 // compra y lo hace parecer más grave de lo que es.
@@ -41,7 +48,7 @@ fun friendlyErrorMessage(raw: String?, fallback: String = GENERIC_ERROR_MESSAGE)
     return when {
         NO_SIGNAL_HINTS.any { it in lower } -> NO_SIGNAL_MESSAGE
         SLOW_CONNECTION_HINTS.any { it in lower } -> SLOW_CONNECTION_MESSAGE
-        TECHNICAL_HINTS.any { it in lower } -> fallback
+        TECHNICAL_HINTS.any { it in lower } || IP_ADDRESS.containsMatchIn(lower) -> fallback
         else -> message.replace(TRAILING_STATUS_CODE, "").ifBlank { fallback }
     }
 }

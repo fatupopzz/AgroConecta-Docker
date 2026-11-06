@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.data.models.DistributorReview
 import com.uvg.agroconecta.data.models.Product
+import com.uvg.agroconecta.ui.components.friendlyErrorMessage
 import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroCard
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
@@ -100,14 +101,14 @@ fun DistributorProfileScreen(
 
     LaunchedEffect(uiState.reviewSubmitError) {
         uiState.reviewSubmitError?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(friendlyErrorMessage(it))
             viewModel.clearReviewMessages()
         }
     }
 
     LaunchedEffect(favoriteErrorMessage) {
         favoriteErrorMessage?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(friendlyErrorMessage(it))
             onFavoriteErrorShown()
         }
     }
