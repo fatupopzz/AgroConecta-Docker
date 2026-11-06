@@ -52,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.uvg.agroconecta.data.images.SelectedProductImage
 import com.uvg.agroconecta.data.models.Category
+import com.uvg.agroconecta.ui.components.friendlyErrorMessage
 import com.uvg.agroconecta.ui.components.rememberAgroHaptics
 import com.uvg.agroconecta.ui.components.AgroDropdownField
 import com.uvg.agroconecta.ui.components.AgroPrimaryButton
@@ -115,7 +116,7 @@ fun PublishProductScreen(
             }
             is PublishState.Error -> {
                 haptics.reject()
-                snackbarHostState.showSnackbar(state.message)
+                snackbarHostState.showSnackbar(friendlyErrorMessage(state.message))
                 viewModel.resetState()
             }
             else -> Unit

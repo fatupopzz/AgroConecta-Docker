@@ -40,6 +40,7 @@ import com.uvg.agroconecta.ui.components.AgroSecondaryButton
 import com.uvg.agroconecta.ui.components.ListItemSkeleton
 import com.uvg.agroconecta.ui.components.StatusTag
 import com.uvg.agroconecta.ui.components.TagTone
+import com.uvg.agroconecta.ui.components.friendlyErrorMessage
 import com.uvg.agroconecta.ui.favorites.FavoriteButton
 import com.uvg.agroconecta.ui.theme.AgroSpacing
 
@@ -246,7 +247,7 @@ private fun ProductsErrorState(message: String, onRetry: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(AgroSpacing.xs)
         ) {
-            Text(text = message, style = MaterialTheme.typography.bodyMedium)
+            Text(text = friendlyErrorMessage(message), style = MaterialTheme.typography.bodyMedium)
             AgroSecondaryButton(
                 text = "Reintentar",
                 icon = Icons.Default.Refresh,

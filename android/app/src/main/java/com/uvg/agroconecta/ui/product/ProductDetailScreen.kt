@@ -147,7 +147,7 @@ fun ProductDetailScreen(
     }
     LaunchedEffect(favoriteErrorMessage) {
         favoriteErrorMessage?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(friendlyErrorMessage(it))
             onFavoriteErrorShown()
         }
     }
