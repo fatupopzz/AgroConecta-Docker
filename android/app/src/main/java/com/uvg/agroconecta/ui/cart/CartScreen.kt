@@ -57,9 +57,11 @@ import com.uvg.agroconecta.ui.components.AgroSecondaryButton
 import com.uvg.agroconecta.ui.components.AgroTextButton
 import com.uvg.agroconecta.ui.components.AgroTopAppBar
 import com.uvg.agroconecta.ui.components.EmptyState
+import com.uvg.agroconecta.ui.components.ErrorState
 import com.uvg.agroconecta.ui.components.InlineError
 import com.uvg.agroconecta.ui.components.ProductImage
 import com.uvg.agroconecta.ui.components.QuantityStepper
+import com.uvg.agroconecta.ui.components.RefreshableFullScreen
 import com.uvg.agroconecta.ui.components.SkeletonList
 import com.uvg.agroconecta.ui.components.formatQuetzales
 import com.uvg.agroconecta.ui.orders.checkout.CheckoutValidation
@@ -219,16 +221,17 @@ fun CartScreen(
                     modifier = Modifier.padding(AgroSpacing.screenHorizontal)
                 )
 
+                // Sin datos y con error no se sabe qué hay en el carrito: decir que
+                // está vacío haría creer que se perdieron los productos.
+                items.isEmpty() && errorMessage != null -> RefreshableFullScreen {
+                    ErrorState(
+                        title = "No pudimos cargar tu carrito",
+                        message = errorMessage,
+                        onRetry = onRefresh
+                    )
+                }
+
                 visibleItems.isEmpty() -> LazyColumn(Modifier.fillMaxSize()) {
-                    errorMessage?.let { message ->
-                        item(key = "error") {
-                            InlineError(
-                                message = message,
-                                onRetry = onRefresh,
-                                modifier = Modifier.padding(AgroSpacing.screenHorizontal)
-                            )
-                        }
-                    }
                     item(key = "empty") {
                         EmptyState(
                             icon = Icons.Outlined.ShoppingCart,

@@ -25,13 +25,17 @@ class CartScreenUndoTest {
 
     private val removed = mutableListOf<Int>()
 
-    private fun setCart(items: List<CartItemUI>, onCheckout: () -> Unit = {}) {
+    private fun setCart(
+        items: List<CartItemUI>,
+        onCheckout: () -> Unit = {},
+        errorMessage: String? = null
+    ) {
         compose.setContent {
             MaterialTheme {
                 CartScreen(
                     items = items,
                     total = items.sumOf { it.subtotal },
-                    errorMessage = null,
+                    errorMessage = errorMessage,
                     onIncreaseQuantity = {},
                     onDecreaseQuantity = {},
                     onRemoveItem = { removed += it },
@@ -42,6 +46,22 @@ class CartScreenUndoTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun `si falla la carga no dice que el carrito esta vacio`() {
+        setCart(emptyList(), errorMessage = "Error de conexión al cargar el carrito")
+
+        compose.onNodeWithText("No pudimos cargar tu carrito").assertExists()
+        compose.onNodeWithText("Reintentar").assertExists()
+        compose.onNodeWithText("Tu carrito está vacío").assertDoesNotExist()
+    }
+
+    @Test
+    fun `sin error el carrito sin productos se muestra vacio`() {
+        setCart(emptyList())
+
+        compose.onNodeWithText("Tu carrito está vacío").assertExists()
     }
 
     @Test
