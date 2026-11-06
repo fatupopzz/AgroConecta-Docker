@@ -1,3 +1,4 @@
+const { parsePositiveInteger, parsePositivePrice } = require("../utils/validation");
 const { NOTIFICATION_TYPES } = require("../constants/notificationTypes");
 const { NotificacionService } = require("./NotificacionService");
 const ProductoSeguidoRepository = require("../repositories/ProductoSeguidoRepository");
@@ -10,26 +11,6 @@ class PrecioNotificacionServiceError extends AppError {
     this.name = "PrecioNotificacionServiceError";
   }
 }
-
-const parsePositiveInteger = (value, fieldName) => {
-  const parsed = Number(value);
-
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new PrecioNotificacionServiceError(`${fieldName} inválido`, 400);
-  }
-
-  return parsed;
-};
-
-const parsePositivePrice = (value, fieldName) => {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new PrecioNotificacionServiceError(`${fieldName} debe ser un precio positivo`, 400);
-  }
-
-  return parsed;
-};
 
 const roundMoney = (value) => Number(Number(value).toFixed(2));
 
@@ -98,9 +79,9 @@ class PrecioNotificacionService {
   }
 
   async verificarYNotificarBajaDePrecio(idProducto, precioAnterior, precioNuevo) {
-    const productoId = parsePositiveInteger(idProducto, "id_producto");
+    const productoId = parsePositiveInteger(idProducto, "id_producto", PrecioNotificacionServiceError);
     const previousPrice = Number(precioAnterior);
-    const newPrice = parsePositivePrice(precioNuevo, "precio_nuevo");
+    const newPrice = parsePositivePrice(precioNuevo, "precio_nuevo", PrecioNotificacionServiceError);
 
     if (!Number.isFinite(previousPrice) || previousPrice <= 0 || newPrice >= previousPrice) {
       return {

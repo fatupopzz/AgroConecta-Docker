@@ -87,3 +87,40 @@ test("frequent lookup is parameterized and maps farmer IDs", async () => {
   } });
   assert.deepEqual(await repo.findByIdProducto(4), [{ idAgricultor: 7 }]);
 });
+
+
+test.each([[100.126, 75.124, 100.13, 75.12], [1.005, 0.004, 1, 0]])(
+  "notification preserves rounding of %s and %s", async (previous, next, roundedPrevious, roundedNext) => {
+    const row = { id_notificacion: 9 };
+    const query = vi.fn().mockResolvedValue({ rows: [row] });
+    const result = await new NotificacionService({ query }).crearNotificacionBajaPrecio(
+      "7", "4", previous, next, 24.999, { nombre: "Maíz" }
+    );
+    expect(result).toBe(row);
+    expect(query.mock.calls[0][1]).toEqual([7, "baja_precio", JSON.stringify({
+      id_producto: 4, producto: "Maíz", precio_anterior: roundedPrevious,
+      precio_nuevo: roundedNext, porcentaje_descuento: 25,
+    })]);
+  }
+);
+
+test("price comparison and discount use unrounded prices", async () => {
+  const fixture = setup([7], []);
+  const result = await fixture.service.verificarYNotificarBajaDePrecio("4", 1.004, "1.001");
+  expect(fixture.sent[0]).toEqual([7, 4, 1.004, 1.001, 0.3, { id_producto: 4, nombre: "Maíz" }]);
+  expect(result).toEqual({
+    hay_baja_precio: true, tipo_notificacion: "baja_precio", id_producto: 4,
+    precio_anterior: 1, precio_nuevo: 1, porcentaje_descuento: 0.3,
+    seguidores: [{ idAgricultor: 7 }], notificaciones_creadas: [{ id: 7 }], notificaciones_fallidas: [],
+  });
+});
+
+test("a sub-cent increase remains an increase before rounding", async () => {
+  const fixture = setup();
+  expect(await fixture.service.verificarYNotificarBajaDePrecio(4, 1.001, 1.004)).toEqual({
+    hay_baja_precio: false, tipo_notificacion: "baja_precio", id_producto: 4,
+    precio_anterior: 1, precio_nuevo: 1, porcentaje_descuento: 0,
+    seguidores: [], notificaciones_creadas: [],
+  });
+  expect(fixture.sent).toEqual([]);
+});

@@ -1,3 +1,4 @@
+const { parsePositiveInteger, parsePositivePrice } = require("../utils/validation");
 const { pool } = require("../config/db");
 const { NOTIFICATION_TYPES } = require("../constants/notificationTypes");
 const AppError = require("../errors/AppError");
@@ -8,26 +9,6 @@ class NotificacionServiceError extends AppError {
     this.name = "NotificacionServiceError";
   }
 }
-
-const parsePositiveInteger = (value, fieldName) => {
-  const parsed = Number(value);
-
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new NotificacionServiceError(`${fieldName} inválido`, 400);
-  }
-
-  return parsed;
-};
-
-const parsePositivePrice = (value, fieldName) => {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new NotificacionServiceError(`${fieldName} debe ser un precio positivo`, 400);
-  }
-
-  return Number(parsed.toFixed(2));
-};
 
 const parseDiscountPercentage = (value) => {
   const parsed = Number(value);
@@ -65,10 +46,10 @@ class NotificacionService {
     porcentajeDescuento,
     activeProduct = null
   ) {
-    const agricultorId = parsePositiveInteger(idAgricultor, "id_agricultor");
-    const productoId = parsePositiveInteger(idProducto, "id_producto");
-    const previousPrice = parsePositivePrice(precioAnterior, "precio_anterior");
-    const newPrice = parsePositivePrice(precioNuevo, "precio_nuevo");
+    const agricultorId = parsePositiveInteger(idAgricultor, "id_agricultor", NotificacionServiceError);
+    const productoId = parsePositiveInteger(idProducto, "id_producto", NotificacionServiceError);
+    const previousPrice = Number(parsePositivePrice(precioAnterior, "precio_anterior", NotificacionServiceError).toFixed(2));
+    const newPrice = Number(parsePositivePrice(precioNuevo, "precio_nuevo", NotificacionServiceError).toFixed(2));
     const discountPercentage = parseDiscountPercentage(porcentajeDescuento);
     const product = activeProduct || await this.getProduct(productoId);
 

@@ -1,3 +1,4 @@
+const { parsePositiveInteger } = require("../utils/validation");
 const { pool } = require("../config/db");
 const ProductoSeguido = require("../models/ProductoSeguido");
 const ProductoSeguidoResponse = require("../dto/ProductoSeguidoResponse");
@@ -11,16 +12,6 @@ class ProductoSeguidoServiceError extends AppError {
   }
 }
 
-const parsePositiveInteger = (value, fieldName) => {
-  const parsed = Number(value);
-
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new ProductoSeguidoServiceError(`${fieldName} inválido`, 400);
-  }
-
-  return parsed;
-};
-
 class ProductoSeguidoService {
   constructor(db = pool, repository = new ProductoSeguidoRepository(db)) {
     this.db = db;
@@ -28,8 +19,8 @@ class ProductoSeguidoService {
   }
 
   async seguirProducto(idAgricultor, idProducto) {
-    const agricultorId = parsePositiveInteger(idAgricultor, "id_agricultor");
-    const productoId = parsePositiveInteger(idProducto, "id_producto");
+    const agricultorId = parsePositiveInteger(idAgricultor, "id_agricultor", ProductoSeguidoServiceError);
+    const productoId = parsePositiveInteger(idProducto, "id_producto", ProductoSeguidoServiceError);
 
     await this.ensureAgricultorExists(agricultorId);
     const product = await this.getProductWithCurrentPrice(productoId);
@@ -59,8 +50,8 @@ class ProductoSeguidoService {
   }
 
   async dejarDeSeguir(idAgricultor, idProducto) {
-    const agricultorId = parsePositiveInteger(idAgricultor, "id_agricultor");
-    const productoId = parsePositiveInteger(idProducto, "id_producto");
+    const agricultorId = parsePositiveInteger(idAgricultor, "id_agricultor", ProductoSeguidoServiceError);
+    const productoId = parsePositiveInteger(idProducto, "id_producto", ProductoSeguidoServiceError);
 
     await this.ensureAgricultorExists(agricultorId);
     await this.ensureProductExists(productoId);
@@ -81,8 +72,8 @@ class ProductoSeguidoService {
   }
 
   async estaSiguiendo(idAgricultor, idProducto) {
-    const agricultorId = parsePositiveInteger(idAgricultor, "id_agricultor");
-    const productoId = parsePositiveInteger(idProducto, "id_producto");
+    const agricultorId = parsePositiveInteger(idAgricultor, "id_agricultor", ProductoSeguidoServiceError);
+    const productoId = parsePositiveInteger(idProducto, "id_producto", ProductoSeguidoServiceError);
 
     await this.ensureAgricultorExists(agricultorId);
     await this.ensureProductExists(productoId);
