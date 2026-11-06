@@ -3,6 +3,7 @@ package com.uvg.agroconecta.ui.auth
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,6 +42,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.uvg.agroconecta.ui.components.rememberAgroHaptics
@@ -50,6 +52,7 @@ import com.uvg.agroconecta.ui.components.AgroPrimaryButton
 import com.uvg.agroconecta.ui.components.AgroSecondaryButton
 import com.uvg.agroconecta.ui.components.AgroTextField
 import com.uvg.agroconecta.ui.components.InlineError
+import com.uvg.agroconecta.ui.components.ResizeWindowForKeyboard
 import com.uvg.agroconecta.ui.theme.AgroSpacing
 import com.uvg.agroconecta.ui.theme.agroColors
 import com.uvg.agroconecta.validation.LoginFieldErrors
@@ -105,12 +108,15 @@ fun LoginScreen(
         }
     }
 
-    Box(
+    ResizeWindowForKeyboard()
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        BrandHeader()
+        val compact = isCompactLoginLayout(maxHeight)
+        if (!compact) BrandHeader()
 
         Column(
             modifier = Modifier
@@ -120,14 +126,16 @@ fun LoginScreen(
                 .padding(horizontal = AgroSpacing.screenHorizontal),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            BrandTitle(modifier = Modifier.padding(top = AgroSpacing.xxl))
+            // Con el teclado abierto la marca cede su espacio para que los dos
+            // campos y el botón de entrar se vean a la vez.
+            if (!compact) BrandTitle(modifier = Modifier.padding(top = AgroSpacing.xxl))
 
             // La tarjeta se monta sobre la franja verde: el formulario queda a la
             // vista sin desplazarse y la marca no ocupa media pantalla.
             AgroCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = AgroSpacing.lg)
+                    .padding(top = if (compact) AgroSpacing.sm else AgroSpacing.lg)
             ) {
                 Column(
                     modifier = Modifier.padding(AgroSpacing.lg),
@@ -225,6 +233,12 @@ fun LoginScreen(
         }
     }
 }
+
+/** Por debajo de esta altura la marca y el formulario ya no caben juntos. */
+private val COMPACT_LOGIN_MAX_HEIGHT = 600.dp
+
+internal fun isCompactLoginLayout(availableHeight: Dp): Boolean =
+    availableHeight < COMPACT_LOGIN_MAX_HEIGHT
 
 /** Franja de color detrás del título; la tarjeta del formulario la monta a la mitad. */
 @Composable
